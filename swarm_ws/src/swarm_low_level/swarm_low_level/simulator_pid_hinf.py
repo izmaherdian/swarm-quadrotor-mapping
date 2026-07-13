@@ -109,10 +109,29 @@ def simulate():
     pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], dt, -limits['angle_max'], limits['angle_max'])
     pid_y_in  = PID(gains['y_inner']['Kp'], gains['y_inner']['Ki'], gains['y_inner']['Kd'], dt, -limits['tau_rp_max'], limits['tau_rp_max'])
     
-    pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], dt, limits['thrust_min'], limits['thrust_max'])
+    pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], dt, -limits['thrust_max'], limits['thrust_max'])
     pid_yaw = PID(gains['yaw']['Kp'], gains['yaw']['Ki'], gains['yaw']['Kd'], dt, -limits['tau_y_max'], limits['tau_y_max'])
     
-    g, m, Ix, Iy, Iz = solver.g, solver.m, solver.Ix, solver.Iy, solver.Iz
+    g, m = params['g'], params['mass']
+    Ix, Iy, Iz = params['ix'], params['iy'], params['iz']
+    
+    act_phys = yaml_data['actuator_physics']
+    kf, km, tau_m = act_phys['kf'], act_phys['km'], act_phys['tau_m']
+    w_max, w_min = act_phys['omega_max'], act_phys['omega_min']
+    d = params['arm_length'] * 0.707106781  # sin(45 deg)
+    
+    # Inisialisasi State Kecepatan Baling-Baling pada kondisi Hover
+    w_hover = np.sqrt((m * g / 4.0) / kf)
+    w_actual = np.array([w_hover, w_hover, w_hover, w_hover])
+    
+    # Matriks Control Allocation (Mixer)
+    M = np.array([
+        [kf, kf, kf, kf],
+        [-kf*d, kf*d, kf*d, -kf*d],
+        [-kf*d, kf*d, -kf*d, kf*d],
+        [-km, -km, km, km]
+    ])
+    M_inv = np.linalg.inv(M)
     
     # 5. Looping Integrasi Numerik (Mesin Simulasi)
     for k in range(1, n_steps):
@@ -141,21 +160,42 @@ def simulate():
         err_x = filt_x[0] - x
         theta_ref = pid_x_out.compute(err_x)
         err_theta = theta_ref - theta
-        tau_y = pid_x_in.compute(err_theta)
+        uy_pid = pid_x_in.compute(err_theta)
         
         # Subsistem Lateral (Y -> Roll)
         err_y = filt_y[0] - y
         phi_ref = pid_y_out.compute(err_y)
         err_phi = phi_ref - phi
-        tau_x = pid_y_in.compute(err_phi)
+        ux_pid = pid_y_in.compute(err_phi)
         
         # Subsistem Altitude (Z -> Thrust)
         err_z = filt_z[0] - z
-        T_pert = pid_z.compute(err_z) 
+        uz_pid = pid_z.compute(err_z) 
         
         # Subsistem Yaw
         err_yaw = filt_yaw[0] - yaw
-        tau_z = pid_yaw.compute(err_yaw)
+        uyaw_pid = pid_yaw.compute(err_yaw)
+        
+        # === MIXER & DINAMIKA AKTUATOR ORDE 1 ===
+        # Target Gaya Fisik (U_cmd). Thrust PID adalah perturbasi, maka harus ditambah gaya berat (m*g)
+        U_cmd = np.array([uz_pid + (m * g), ux_pid, uy_pid, uyaw_pid])
+        
+        # Konversi ke Target Kecepatan Kuadrat (w_cmd^2)
+        w_sq_cmd = M_inv @ U_cmd
+        w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) # Hindari akar imajiner jika negatif
+        
+        # Saturasi RPM Maksimal/Minimal (Saturasi Fisik Nyata)
+        w_cmd = np.clip(w_cmd, w_min, w_max)
+        
+        # Dinamika Motor Orde 1 (Low-Pass Filter / Delay)
+        w_actual = w_actual + ((w_cmd - w_actual) / tau_m) * dt
+        
+        # Konversi kembali kecepatan baling-baling aktual ke Gaya dan Torsi Nyata
+        U_actual = M @ (w_actual**2)
+        T_pert = U_actual[0] - (m * g)  # Kembalikan ke format perturbasi untuk persamaan kinematika
+        tau_x = U_actual[1]
+        tau_y = U_actual[2]
+        tau_z = U_actual[3]
         
         # Simpan sinyal kontrol
         u_opt[:, k] = [T_pert, tau_x, tau_y, tau_z]

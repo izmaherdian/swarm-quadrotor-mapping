@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swarm_sim</name>
+  <version>0.0.0</version>
+  <description>Gazebo simulation package for swarm quadrotors</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <!-- Mendaftarkan path model agar Gazebo mengenali folder models kita -->
+    <gazebo_ros gazebo_model_path="${prefix}/models"/>
+  </export>
+</package>

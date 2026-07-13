@@ -92,18 +92,18 @@ class PIDHinfSolver:
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([1, 0.1])
-        R_x_out = 100
-        Kp, Ki, Kd = self.solve_pid_hinf(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out, gamma_out)
+        Q_x_out = np.diag([1, 5.0])    # UPDATE TUNER: Q = 5.0
+        R_x_out = 50.0                 # UPDATE TUNER: R = 50
+        Kp, Ki, Kd = self.solve_pid_hinf(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out, 50.0)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # Inner Loop: Theta -> tau_y
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([10, 1])
-        R_x_in = 0.01
-        Kp, Ki, Kd = self.solve_pid_hinf(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in, gamma_in)
+        Q_x_in = np.diag([1, 0.5])      # Relaxed from [10, 1]
+        R_x_in = 1.0                    # Relaxed from 0.01 to penalize torque
+        Kp, Ki, Kd = self.solve_pid_hinf(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in, 50.0)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -113,18 +113,18 @@ class PIDHinfSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([1, 0.1])
-        R_y_out = 100
-        Kp, Ki, Kd = self.solve_pid_hinf(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out, gamma_out)
+        Q_y_out = np.diag([1, 5.0])    # UPDATE TUNER: Q = 5.0
+        R_y_out = 50.0                 # UPDATE TUNER: R = 50
+        Kp, Ki, Kd = self.solve_pid_hinf(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out, 50.0)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # Inner Loop: Phi -> tau_x
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([10, 1])
-        R_y_in = 0.01
-        Kp, Ki, Kd = self.solve_pid_hinf(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in, gamma_in)
+        Q_y_in = np.diag([1, 0.5])      # Relaxed from [10, 1]
+        R_y_in = 1.0                    # Relaxed from 0.01 to penalize torque
+        Kp, Ki, Kd = self.solve_pid_hinf(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in, 50.0)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -133,7 +133,7 @@ class PIDHinfSolver:
         Az = np.array([[0, 1], [0, 0]])
         Bz = np.array([[0], [1/m]])
         Cz = np.array([[1, 0]])
-        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, np.diag([10, 1]), 1.0, gamma_in)
+        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, np.diag([1, 5.0]), 0.5, 50.0)
         gains['z'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================

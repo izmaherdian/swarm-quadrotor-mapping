@@ -1,0 +1,95 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="iris_base">
+    <!-- Body pose awal agar tidak tenggelam di tanah -->
+    <pose>0 0 0.1 0 0 0</pose>
+
+    <!-- BAGIAN UTAMA (MAIN BODY) -->
+    <link name="base_link">
+      <inertial>
+        <mass>1.0</mass>  <!-- HARUS SAMA DENGAN quadrotor_params.yaml -->
+        <inertia>
+          <ixx>0.0081</ixx><iyy>0.0081</iyy><izz>0.0142</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+      
+      <!-- Box Tengah -->
+      <visual name="body_visual">
+        <geometry><box><size>0.15 0.15 0.05</size></box></geometry>
+        <material><ambient>0.2 0.2 0.2 1</ambient><diffuse>0.2 0.2 0.2 1</diffuse></material>
+      </visual>
+      <collision name="body_collision">
+        <geometry><box><size>0.15 0.15 0.05</size></box></geometry>
+      </collision>
+
+      <!-- Visual Lengan (Arms) -->
+      <!-- Arm 1 (Kanan Depan) -->
+      <visual name="arm_fr"><pose>0.1 -0.1 0 0 0 -0.785</pose><geometry><box><size>0.15 0.02 0.01</size></box></geometry><material><ambient>0.4 0.4 0.4 1</ambient></material></visual>
+      <!-- Arm 2 (Kiri Belakang) -->
+      <visual name="arm_bl"><pose>-0.1 0.1 0 0 0 -0.785</pose><geometry><box><size>0.15 0.02 0.01</size></box></geometry><material><ambient>0.4 0.4 0.4 1</ambient></material></visual>
+      <!-- Arm 3 (Kiri Depan) -->
+      <visual name="arm_fl"><pose>0.1 0.1 0 0 0 0.785</pose><geometry><box><size>0.15 0.02 0.01</size></box></geometry><material><ambient>0.4 0.4 0.4 1</ambient></material></visual>
+      <!-- Arm 4 (Kanan Belakang) -->
+      <visual name="arm_br"><pose>-0.1 -0.1 0 0 0 0.785</pose><geometry><box><size>0.15 0.02 0.01</size></box></geometry><material><ambient>0.4 0.4 0.4 1</ambient></material></visual>
+    </link>
+
+    <!-- BALING-BALING 0 (Depan Kanan, Berlawanan Arah Jarum Jam) -->
+    <link name="rotor_0">
+      <pose>0.15 -0.15 0.03 0 0 0</pose>
+      <inertial><mass>0.005</mass><inertia><ixx>9e-7</ixx><iyy>9e-7</iyy><izz>1e-6</izz></inertia></inertial>
+      <visual name="rotor_0_visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.005</length></cylinder></geometry>
+        <!-- Warna Biru Transparan -->
+        <material><ambient>0 0 1 0.5</ambient><diffuse>0 0 1 0.5</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rotor_0_joint" type="revolute">
+      <child>rotor_0</child><parent>base_link</parent>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+
+    <!-- BALING-BALING 1 (Belakang Kiri, Berlawanan Arah Jarum Jam) -->
+    <link name="rotor_1">
+      <pose>-0.15 0.15 0.03 0 0 0</pose>
+      <inertial><mass>0.005</mass><inertia><ixx>9e-7</ixx><iyy>9e-7</iyy><izz>1e-6</izz></inertia></inertial>
+      <visual name="rotor_1_visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.005</length></cylinder></geometry>
+        <!-- Warna Merah Transparan -->
+        <material><ambient>1 0 0 0.5</ambient><diffuse>1 0 0 0.5</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rotor_1_joint" type="revolute">
+      <child>rotor_1</child><parent>base_link</parent>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+
+    <!-- BALING-BALING 2 (Depan Kiri, Searah Jarum Jam) -->
+    <link name="rotor_2">
+      <pose>0.15 0.15 0.03 0 0 0</pose>
+      <inertial><mass>0.005</mass><inertia><ixx>9e-7</ixx><iyy>9e-7</iyy><izz>1e-6</izz></inertia></inertial>
+      <visual name="rotor_2_visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.005</length></cylinder></geometry>
+        <material><ambient>0 0 1 0.5</ambient><diffuse>0 0 1 0.5</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rotor_2_joint" type="revolute">
+      <child>rotor_2</child><parent>base_link</parent>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+
+    <!-- BALING-BALING 3 (Belakang Kanan, Searah Jarum Jam) -->
+    <link name="rotor_3">
+      <pose>-0.15 -0.15 0.03 0 0 0</pose>
+      <inertial><mass>0.005</mass><inertia><ixx>9e-7</ixx><iyy>9e-7</iyy><izz>1e-6</izz></inertia></inertial>
+      <visual name="rotor_3_visual">
+        <geometry><cylinder><radius>0.1</radius><length>0.005</length></cylinder></geometry>
+        <material><ambient>1 0 0 0.5</ambient><diffuse>1 0 0 0.5</diffuse></material>
+      </visual>
+    </link>
+    <joint name="rotor_3_joint" type="revolute">
+      <child>rotor_3</child><parent>base_link</parent>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit></axis>
+    </joint>
+  </model>
+</sdf>

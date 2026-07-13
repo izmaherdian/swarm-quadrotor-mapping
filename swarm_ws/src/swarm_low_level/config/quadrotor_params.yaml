@@ -15,3 +15,10 @@ actuator_limits:
   tau_rp_max: 1.0     # Nm (Batas Torsi Roll/Pitch)
   tau_y_max: 0.2      # Nm (Batas Torsi Yaw)
   angle_max: 0.785    # rad (Batas kemiringan Roll/Pitch, 45 derajat)
+
+actuator_physics:
+  kf: 8.54858e-06     # N / (rad/s)^2 (Thrust coefficient)
+  km: 1.3677e-07      # Nm / (rad/s)^2 (Torque coefficient)
+  tau_m: 0.02         # s (Motor time constant / First-Order Lag)
+  omega_max: 1100.0   # rad/s (Batas maksimal putaran baling-baling)
+  omega_min: 0.0      # rad/s
