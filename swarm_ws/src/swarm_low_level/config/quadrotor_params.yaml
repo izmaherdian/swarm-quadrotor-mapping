@@ -1,0 +1,17 @@
+# Parameter Fisik Quadrotor
+# Nilai ini diekstrak dari nominal MATLAB Phase 0
+# Anda bisa membuat file berbeda (misal: quadrotor_berat.yaml) untuk skenario "Heterogeneous Swarm"
+physics:
+  mass: 1.0        # kg
+  g: 9.81          # m/s^2
+  ix: 8.1e-3       # kg.m^2
+  iy: 8.1e-3       # kg.m^2
+  iz: 14.2e-3      # kg.m^2
+  arm_length: 0.24 # meter
+
+actuator_limits:
+  thrust_min: -9.81   # N (perturbasi minimum, setara thrust 0 N)
+  thrust_max: 10.19   # N (berdasarkan TWR 2:1, max 20 N)
+  tau_rp_max: 1.0     # Nm (Batas Torsi Roll/Pitch)
+  tau_y_max: 0.2      # Nm (Batas Torsi Yaw)
+  angle_max: 0.785    # rad (Batas kemiringan Roll/Pitch, 45 derajat)
