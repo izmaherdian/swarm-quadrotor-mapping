@@ -70,7 +70,7 @@ def simulate():
     
     # 2. Setup Parameter Simulasi Waktu Kontinu
     dt = 0.01  # Waktu sampling 10ms
-    t_end = 30.0 # Simulasi selama 10 detik
+    t_end = 20.0 # Simulasi selama 10 detik
     time = np.arange(0, t_end, dt)
     n_steps = len(time)
     
