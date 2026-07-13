@@ -50,7 +50,7 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
 * **Tujuan:** Menyiapkan jembatan dari aset yang sudah Anda miliki ke ekosistem ROS 2.
 * **Modul Pekerjaan:**
   1. **Konversi MATLAB $\\rightarrow$ Python:** Menerjemahkan kode PID-LQR dan H-infinity dari Simulink ke dalam blok *script* Python (menggunakan library `scipy.signal` atau modul `control`).
-  2. **Clone Template Quadrotor:** Mengunduh template URDF/SDF *open-source* (misal model *X500* dari Gazebo) agar tidak perlu merancang fisika baling-baling dari nol.
+  2. **Clone Template Quadrotor:** Mengunduh template URDF/SDF *open-source* (misal model *3DR Iris* dari Gazebo) agar tidak perlu merancang fisika baling-baling dari nol.
 
 ### FASE 1: Membangun Pondasi Fisik (Low-Level & Sim)
 * **Tujuan:** Memastikan 1 quadrotor bisa terbang stabil dan tahan angin.
