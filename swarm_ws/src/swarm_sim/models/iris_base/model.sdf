@@ -6,7 +6,9 @@
 
     <!-- BAGIAN UTAMA (MAIN BODY) -->
     <link name="base_link">
+      <enable_wind>true</enable_wind>
       <inertial>
+        <pose>0 0 0 0 0 0</pose>
         <mass>1.0</mass>  <!-- HARUS SAMA DENGAN quadrotor_params.yaml -->
         <inertia>
           <ixx>0.0081</ixx><iyy>0.0081</iyy><izz>0.0142</izz>
@@ -97,7 +99,7 @@
       name="gz::sim::systems::OdometryPublisher">
       <odom_frame>world</odom_frame>
       <robot_base_frame>base_link</robot_base_frame>
-      <odom_publish_frequency>50</odom_publish_frequency>
+      <odom_publish_frequency>250</odom_publish_frequency>
       <odom_topic>/model/iris_1/odometry</odom_topic>
       <dimensions>3</dimensions>
     </plugin>

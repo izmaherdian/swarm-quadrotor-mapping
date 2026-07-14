@@ -1,9 +1,11 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, AppendEnvironmentVariable, DeclareLaunchArgument
+from launch.actions import IncludeLaunchDescription, AppendEnvironmentVariable, DeclareLaunchArgument, EmitEvent
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 
 def generate_launch_description():
@@ -19,11 +21,29 @@ def generate_launch_description():
         model_dir
     )
     
-    # Jalankan Gazebo (-r untuk auto-run, -s untuk jalankan server/headless jika tanpa GUI)
-    gz_sim = IncludeLaunchDescription(
+    # Setup Headless Argument
+    headless_arg = DeclareLaunchArgument(
+        'headless',
+        default_value='false',
+        description='Run Gazebo in headless mode (no GUI)'
+    )
+    
+    # Run Gazebo headless (-s) or with GUI
+    gz_args_headless = f'-r -s "{world_file}"'
+    gz_args_gui = f'-r "{world_file}"'
+    
+    gz_sim_headless = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': f'-r "{world_file}"'}.items(),
+        launch_arguments={'gz_args': gz_args_headless}.items(),
+        condition=IfCondition(LaunchConfiguration('headless'))
+    )
+    
+    gz_sim_gui = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
+        launch_arguments={'gz_args': gz_args_gui}.items(),
+        condition=UnlessCondition(LaunchConfiguration('headless'))
     )
     
     # Spawn drone iris_base ke dalam dunia Gazebo
@@ -73,13 +93,16 @@ def generate_launch_description():
         executable=LaunchConfiguration('controller'),
         name=LaunchConfiguration('controller'),
         output='screen',
-        parameters=[{'log_dir': results_dir}]
+        parameters=[{'log_dir': results_dir}],
+        on_exit=[EmitEvent(event=Shutdown())]
     )
     
     return LaunchDescription([
         set_env,
+        headless_arg,
         controller_arg,
-        gz_sim,
+        gz_sim_headless,
+        gz_sim_gui,
         spawn_drone,
         bridge,
         controller_node

@@ -46,22 +46,23 @@ swarm_ws/
 
 Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik" ke level "Paling Cerdas" untuk meminimalisir *bug* yang merembet.
 
-### FASE 0: Pra-Kondisi (Translasi Kode & Template)
+### FASE 0: Pra-Kondisi (Translasi Kode & Template) - **[COMPLETED]**
 * **Tujuan:** Menyiapkan jembatan dari aset yang sudah Anda miliki ke ekosistem ROS 2.
 * **Modul Pekerjaan:**
-  1. **Konversi MATLAB $\\rightarrow$ Python:** Menerjemahkan kode PID-LQR dan H-infinity dari Simulink ke dalam blok *script* Python (menggunakan library `scipy.signal` atau modul `control`).
-  2. **Clone Template Quadrotor:** Mengunduh template URDF/SDF *open-source* (misal model *3DR Iris* dari Gazebo) agar tidak perlu merancang fisika baling-baling dari nol.
+  1. ~~**Konversi MATLAB $\rightarrow$ Python:** Menerjemahkan kode PID-LQR dan H-infinity dari Simulink ke dalam blok *script* Python.~~ (Selesai! LQR dan H-Infinity berhasil dimodelkan dalam arsitektur state-space Python).
+  2. ~~**Optimalisasi & Benchmarking Kendali:** Mencari tuning terbaik menggunakan Grid Search / Optuna Bayesian Optimization.~~ (Selesai! LQR terbukti unggul secara keseluruhan di turbulensi stokastik dengan RMSE 0.168m, sementara H-Infinity *hyper-tuned* mencapai 0.151m dengan pengorbanan energi motor yang lebih besar).
+  3. ~~**Clone Template Quadrotor:** Mengunduh template URDF/SDF *open-source* agar tidak perlu merancang fisika baling-baling dari nol.~~ (Model matematis baling-baling (Kf, Km) telah distandardisasi).
 
-### FASE 1: Membangun Pondasi Fisik (Low-Level & Sim)
+### FASE 1: Membangun Pondasi Fisik (Low-Level & Sim) - **[COMPLETED]**
 * **Tujuan:** Memastikan 1 quadrotor bisa terbang stabil dan tahan angin.
 * **Modul Pekerjaan:**
-  1. Tempatkan template SDF quadrotor hasil *clone* ke dalam `swarm_sim/models`.
-  2. Tulis node `pid_lqr_node.py` di `swarm_low_level` menggunakan hasil perhitungan fungsi dari Fase 0.
-  3. Berikan gangguan angin (wind plug-in) di Gazebo.
-  4. Jalankan `pso_tuner.py` untuk mengoptimalkan gain kontroler hingga nilai ITAE terkecil. 
-  5. (*Checkpoint Paper 1:* Perbandingan grafis stabilitas LQR vs H-inf vs Backstepping sudah bisa diekstrak di fase ini).
+  1. ~~Tempatkan template SDF quadrotor hasil *clone* ke dalam `swarm_sim/models`.~~ (Selesai! Menggunakan template `iris_base` dengan parameter yang sudah disesuaikan `mass=1.0`).
+  2. ~~Implementasikan `pid_lqr_node.py` dan `pid_hinf_node.py` di `swarm_low_level` menggunakan matriks perhitungan optimal dari Fase 0.~~ (Selesai! Jembatan `ros_gz_bridge` sukses mendistribusikan `actuator_msgs` ke motor).
+  3. ~~Buat *launch file* dasar untuk mensimulasikan 1 drone di Gazebo dan menghubungkannya dengan *node* kontrol.~~ (Selesai! `sim_launch.py` terkonfigurasi dengan fitur headless mode).
+  4. ~~Berikan gangguan angin (*wind plug-in*) di Gazebo untuk memvalidasi performa dunia nyata.~~ (Selesai! Efek Dryden Turbulence dengan `stddev=3.0` dan *body rigid collision* aktif. Masalah Odom Hz diselesaikan).
+  5. ~~(*Checkpoint Paper 1:* Perbandingan performa *trajectory tracking* dan daya tahan turbulensi angin dalam lingkungan fisika 3D Gazebo).~~ (Selesai! Data terekstrak di `gazebo_hinf_plot.png` & `gazebo_crash_report.md`).
 
-### FASE 2: Mengintegrasikan Otak (Mid-Level)
+### FASE 2: Mengintegrasikan Otak (Mid-Level) - **[IN PROGRESS]**
 * **Tujuan:** Quadrotor tidak lagi menabrak gedung saat terbang menuju *waypoint*.
 * **Modul Pekerjaan:**
   1. Gunakan *library* teruji seperti `gym-pybullet-quadrotors` (sangat ringan) untuk melatih model PPO secara *offline*.

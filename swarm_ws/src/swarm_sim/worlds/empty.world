@@ -16,10 +16,37 @@
       name="gz::sim::systems::SceneBroadcaster">
     </plugin>
 
-    <!-- PENGATURAN ANGIN (WIND) - Untuk Modul 3 Fase 1 -->
-    <!-- Secara default kita set kecepatan angin konstan 0 m/s dulu, nanti bisa diubah -->
+    <!-- PLUGIN ANGIN (WIND EFFECTS) -->
+    <!-- Menerjemahkan vektor kecepatan angin menjadi gaya fisik dorongan (Drag) -->
+    <plugin
+      filename="gz-sim-wind-effects-system"
+      name="gz::sim::systems::WindEffects">
+      <force_approximation_scaling_factor>1.0</force_approximation_scaling_factor>
+      <horizontal>
+        <magnitude>
+          <noise type="gaussian">
+             <mean>0.0</mean>
+             <stddev>3.0</stddev>
+          </noise>
+        </magnitude>
+        <direction>
+          <noise type="gaussian">
+             <mean>0</mean>
+             <stddev>1.0</stddev>
+          </noise>
+        </direction>
+      </horizontal>
+      <vertical>
+        <noise type="gaussian">
+           <mean>0</mean>
+           <stddev>1.0</stddev>
+        </noise>
+      </vertical>
+    </plugin>
+
+    <!-- PENGATURAN ANGIN KONDISI AWAL -->
     <wind>
-      <linear_velocity>0 0 0</linear_velocity>
+      <linear_velocity>2.0 2.0 0</linear_velocity>
     </wind>
 
     <!-- MATAHARI (SUN) -->

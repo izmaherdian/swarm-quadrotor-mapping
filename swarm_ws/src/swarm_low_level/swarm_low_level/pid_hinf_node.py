@@ -215,6 +215,7 @@ class PIDHinfNode(Node):
         
         act_msg = Actuators()
         act_msg.velocity = [float(w_cmd[0]), float(w_cmd[1]), float(w_cmd[2]), float(w_cmd[3])]
+        act_msg.normalized = act_msg.velocity  # Gazebo bridge trick
         self.publisher.publish(act_msg)
         
         # Logging
