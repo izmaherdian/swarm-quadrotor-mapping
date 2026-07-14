@@ -1,8 +1,9 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, AppendEnvironmentVariable
+from launch.actions import IncludeLaunchDescription, AppendEnvironmentVariable, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
@@ -33,35 +34,53 @@ def generate_launch_description():
             '-world', 'empty_world',
             '-name', 'iris_1',
             '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
-            '-x', '0.0',
-            '-y', '0.0',
-            '-z', '5.0'
+            '-x', '1.0',
+            '-y', '1.0',
+            '-z', '1.0'
         ],
         output='screen'
     )
     
-    # Bridge Odometry dari Gazebo ke ROS 2
+    # Bridge Odometry & Actuators dari/ke Gazebo
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=[
-            '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry'
+            '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators'
         ],
         output='screen'
     )
     
-    # Node Logger/Kontroler PID-LQR
-    pid_node = Node(
+    # Declare argument for controller type
+    controller_arg = DeclareLaunchArgument(
+        'controller',
+        default_value='pid_lqr_node',
+        description='Which controller to run: pid_lqr_node or pid_hinf_node'
+    )
+    
+    # Define the absolute path to the results directory inside the src tree
+    pkg_share = get_package_share_directory('swarm_sim')
+    # Because pkg_share is usually .../install/swarm_sim/share/swarm_sim, 
+    # we go up 4 levels to the workspace root, then into src.
+    ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
+    results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'single_agent')
+    os.makedirs(results_dir, exist_ok=True)
+    
+    # 2. Node untuk Controller (Bisa PID-LQR atau PID-HINF)
+    controller_node = Node(
         package='swarm_low_level',
-        executable='pid_lqr_node',
-        name='pid_lqr_node',
-        output='screen'
+        executable=LaunchConfiguration('controller'),
+        name=LaunchConfiguration('controller'),
+        output='screen',
+        parameters=[{'log_dir': results_dir}]
     )
     
     return LaunchDescription([
         set_env,
+        controller_arg,
         gz_sim,
         spawn_drone,
         bridge,
-        pid_node
+        controller_node
     ])

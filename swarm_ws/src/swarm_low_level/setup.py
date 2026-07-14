@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pid_lqr_node = swarm_low_level.pid_lqr_node:main',
+            'pid_hinf_node = swarm_low_level.pid_hinf_node:main',
         ],
     },
 )

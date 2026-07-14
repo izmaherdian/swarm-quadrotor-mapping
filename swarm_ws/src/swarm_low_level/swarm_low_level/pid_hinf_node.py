@@ -7,8 +7,7 @@ import csv
 import os
 import numpy as np
 import yaml
-
-from .solver_pid_lqr import PIDLQRSolver
+from swarm_low_level.solver_pid_hinf import PIDHinfSolver
 
 class PID:
     def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf):
@@ -33,9 +32,9 @@ class PID:
         output = proportional + self.Ki * self.integral + derivative
         return np.clip(output, self.out_min, self.out_max)
 
-class PIDLQRNode(Node):
+class PIDHinfNode(Node):
     def __init__(self):
-        super().__init__('pid_lqr_node')
+        super().__init__('pid_hinf_node')
         
         # Load parameters fisik dari config YAML
         config_path = os.path.join(os.getcwd(), 'src', 'swarm_low_level', 'config', 'quadrotor_params.yaml')
@@ -50,9 +49,9 @@ class PIDLQRNode(Node):
             self.limits = yaml_data['actuator_limits']
             self.act_phys = yaml_data['actuator_physics']
             
-        # Dapatkan nilai Gain menggunakan Solver LQR bawaan Anda
-        solver = PIDLQRSolver(self.params)
-        gains = solver.compute_all_gains()
+        # 1. Inisialisasi Solver H-Infinity
+        self.solver = PIDHinfSolver(self.params)
+        gains = self.solver.get_all_gains()
         
         self.dt = 0.02 # Asumsi 50Hz, akan diupdate dinamis
         
@@ -105,10 +104,10 @@ class PIDLQRNode(Node):
         self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
             
         self.get_logger().info("=========================================")
-        self.get_logger().info("OTAK PID-LQR AKTIF! Misi: Melayang di Z=2.0m")
+        self.get_logger().info("OTAK PID-HINF AKTIF! Misi: Melayang di Z=2.0m")
         self.get_logger().info("=========================================")
         
-        self.csv_path = os.path.join(log_dir, 'flight_data_log_lqr.csv')
+        self.csv_path = os.path.join(log_dir, 'flight_data_log_hinf.csv')
         self.csv_file = open(self.csv_path, mode='w', newline='')
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(['Time_s', 'X', 'Y', 'Z', 'Roll_deg', 'Pitch_deg', 'Yaw_deg',
@@ -240,7 +239,7 @@ class PIDLQRNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = PIDLQRNode()
+    node = PIDHinfNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
