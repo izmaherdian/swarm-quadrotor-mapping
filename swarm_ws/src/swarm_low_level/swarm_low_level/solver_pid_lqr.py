@@ -84,8 +84,8 @@ class PIDLQRSolver:
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([1, 100])  # UPDATE TUNER: Q_damping = 100
-        R_x_out = np.array([[800]])  # UPDATE TUNER: R = 800
+        Q_x_out = np.diag([10.0, 1.0])
+        R_x_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -93,8 +93,8 @@ class PIDLQRSolver:
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([1, 1])       # Relaxed from [10, 5]
-        R_x_in = np.array([[5.0]])     # Relaxed from 0.05 to penalize torque
+        Q_x_in = np.diag([1.0, 0.1])
+        R_x_in = np.array([[0.01]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -105,8 +105,8 @@ class PIDLQRSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([1, 100])  # UPDATE TUNER: Q_damping = 100
-        R_y_out = np.array([[800]])  # UPDATE TUNER: R = 800
+        Q_y_out = np.diag([10.0, 1.0])
+        R_y_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -114,8 +114,8 @@ class PIDLQRSolver:
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([1, 1])       # Relaxed from [10, 5]
-        R_y_in = np.array([[5.0]])     # Relaxed from 0.05 to penalize torque
+        Q_y_in = np.diag([1.0, 0.1])
+        R_y_in = np.array([[0.01]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 

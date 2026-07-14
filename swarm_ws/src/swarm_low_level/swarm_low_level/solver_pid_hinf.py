@@ -55,6 +55,12 @@ class PIDHinfSolver:
         # Mengekstrak Gain khusus untuk jalur kontrol u
         Ka = (1.0 / R_val) * Bu_aug.T @ P_inf 
         
+        # 2.5. HURWITZ STABILITY CHECK (A_aug - Bu_aug @ Ka)
+        # H-infinity can produce matrices that stabilize A_tilde but destabilize the real plant.
+        eigvals = np.linalg.eigvals(A_aug - Bu_aug @ Ka)
+        if np.max(np.real(eigvals)) >= 0:
+            raise ValueError("Non-Hurwitz: Plant is unstable in reality!")
+            
         # 3. MATRIKS TRANSFORMASI GAMMA (\Gamma)
         Gamma_mat = np.block([
             [C.T,             (C @ A).T,        (C @ A @ A).T],
@@ -81,8 +87,9 @@ class PIDHinfSolver:
         
         return Kp, Ki, Kd
 
-    def get_all_gains(self, gamma_out=15.0, gamma_in=10.0):
+    def get_all_gains(self, gamma_out=80.0, gamma_in=64.0):
         gains = {}
+        
         g = self.g; m = self.m; Ix = self.Ix; Iy = self.Iy; Iz = self.Iz
         
         # ==========================================
@@ -92,18 +99,18 @@ class PIDHinfSolver:
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([1, 5.0])    # UPDATE TUNER: Q = 5.0
-        R_x_out = 50.0                 # UPDATE TUNER: R = 50
-        Kp, Ki, Kd = self.solve_pid_hinf(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out, 50.0)
+        Q_x_out = np.diag([60.0, 12.0])
+        R_x_out = 5.0
+        Kp, Ki, Kd = self.solve_pid_hinf(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out, gamma_out)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # Inner Loop: Theta -> tau_y
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([1, 0.5])      # Relaxed from [10, 1]
-        R_x_in = 1.0                    # Relaxed from 0.01 to penalize torque
-        Kp, Ki, Kd = self.solve_pid_hinf(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in, 50.0)
+        Q_x_in = np.diag([10.0, 5.0])
+        R_x_in = 1.0
+        Kp, Ki, Kd = self.solve_pid_hinf(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in, gamma_in)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -113,18 +120,18 @@ class PIDHinfSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([1, 5.0])    # UPDATE TUNER: Q = 5.0
-        R_y_out = 50.0                 # UPDATE TUNER: R = 50
-        Kp, Ki, Kd = self.solve_pid_hinf(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out, 50.0)
+        Q_y_out = np.diag([60.0, 12.0])
+        R_y_out = 5.0
+        Kp, Ki, Kd = self.solve_pid_hinf(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out, gamma_out)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # Inner Loop: Phi -> tau_x
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([1, 0.5])      # Relaxed from [10, 1]
-        R_y_in = 1.0                    # Relaxed from 0.01 to penalize torque
-        Kp, Ki, Kd = self.solve_pid_hinf(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in, 50.0)
+        Q_y_in = np.diag([10.0, 5.0])
+        R_y_in = 1.0
+        Kp, Ki, Kd = self.solve_pid_hinf(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in, gamma_in)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -133,7 +140,7 @@ class PIDHinfSolver:
         Az = np.array([[0, 1], [0, 0]])
         Bz = np.array([[0], [1/m]])
         Cz = np.array([[1, 0]])
-        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, np.diag([1, 5.0]), 0.5, 50.0)
+        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, np.diag([100.0, 20.0]), 0.1, gamma_in)
         gains['z'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -142,8 +149,7 @@ class PIDHinfSolver:
         Ayaw = np.array([[0, 1], [0, 0]])
         Byaw = np.array([[0], [1/Iz]])
         Cyaw = np.array([[1, 0]])
-        # Hasil Tuning: Q_pos = 5, Q_vel = 0.1, R = 1.0
-        Kp, Ki, Kd = self.solve_pid_hinf(Ayaw, Byaw, Cyaw, np.diag([5, 0.1]), 1.0, gamma_in)
+        Kp, Ki, Kd = self.solve_pid_hinf(Ayaw, Byaw, Cyaw, np.diag([15.0, 5.0]), 1.0, gamma_in)
         gains['yaw'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         return gains
