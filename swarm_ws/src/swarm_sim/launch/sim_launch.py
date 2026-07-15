@@ -51,12 +51,12 @@ def generate_launch_description():
         package='ros_gz_sim',
         executable='create',
         arguments=[
-            '-world', 'empty_world',
+            '-world', 'swarm_world',
             '-name', 'iris_1',
             '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
-            '-x', '1.0',
-            '-y', '1.0',
-            '-z', '1.0'
+            '-x', '0.0',
+            '-y', '0.0',
+            '-z', '0.01'
         ],
         output='screen'
     )
@@ -67,7 +67,13 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators'
+            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+            '/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            '/model/iris_1/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
+        ],
+        remappings=[
+            ('/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan', '/lidar_scan'),
+            ('/model/iris_1/pose', '/tf')
         ],
         output='screen'
     )
@@ -87,6 +93,34 @@ def generate_launch_description():
     results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'single_agent')
     os.makedirs(results_dir, exist_ok=True)
     
+    # RViz2 Configuration
+    rviz_config_file = os.path.join(pkg_swarm_sim, 'rviz', 'swarm.rviz')
+    rviz_arg = DeclareLaunchArgument(
+        'rviz',
+        default_value='true',
+        description='Launch RViz2 for 3D visualization'
+    )
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', rviz_config_file],
+        condition=IfCondition(LaunchConfiguration('rviz')),
+        output='screen'
+    )
+    
+    # Mid-Level AI Obstacle Avoidance Configuration
+    mid_level_arg = DeclareLaunchArgument(
+        'mid_level',
+        default_value='false',
+        description='Launch collision avoidance DRL node (mid-level)'
+    )
+    collision_avoidance_node = Node(
+        package='swarm_mid_level',
+        executable='collision_avoidance_node',
+        condition=IfCondition(LaunchConfiguration('mid_level')),
+        output='screen'
+    )
+    
     # 2. Node untuk Controller (Bisa PID-LQR atau PID-HINF)
     controller_node = Node(
         package='swarm_low_level',
@@ -101,9 +135,13 @@ def generate_launch_description():
         set_env,
         headless_arg,
         controller_arg,
+        rviz_arg,
+        mid_level_arg,
         gz_sim_headless,
         gz_sim_gui,
         spawn_drone,
         bridge,
+        rviz_node,
+        collision_avoidance_node,
         controller_node
     ])

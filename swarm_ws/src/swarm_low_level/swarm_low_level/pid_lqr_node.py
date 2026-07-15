@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from actuator_msgs.msg import Actuators
+from geometry_msgs.msg import PoseStamped
 import math
 import csv
 import os
@@ -21,8 +22,12 @@ class PID:
         self.integral = 0
         self.prev_error = 0
         
-    def compute(self, error):
+    def compute(self, error, dt=None, reset_derivative=False):
+        if dt is not None:
+            self.dt = dt
         proportional = self.Kp * error
+        if reset_derivative:
+            self.prev_error = error
         derivative = self.Kd * (error - self.prev_error) / self.dt
         self.prev_error = error
         
@@ -81,15 +86,15 @@ class PIDLQRNode(Node):
         ])
         self.M_inv = np.linalg.inv(M)
         
-        # Target referensi akhir di (2, 2, 2)
-        self.x_cmd, self.y_cmd, self.z_cmd = 2.0, 2.0, 2.0
-        self.yaw_cmd = np.radians(10.0)
+        # Target referensi awal di (0, 0, 2)
+        self.x_cmd, self.y_cmd, self.z_cmd = 0.0, 0.0, 2.0
+        self.yaw_cmd = np.radians(0.0)
         
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
-        # Mulai dari titik awal (1, 1, 1)
-        self.filt_x = [1.0, 0.0]
-        self.filt_y = [1.0, 0.0]
-        self.filt_z = [1.0, 0.0]
+        # Mulai dari titik awal (0, 0, 0)
+        self.filt_x = [0.0, 0.0]
+        self.filt_y = [0.0, 0.0]
+        self.filt_z = [0.0, 0.0]
         self.filt_yaw = [0.0, 0.0]
         
         # Parameter Pre-filter (wn = 1.5 rad/s, zeta = 1.0)
@@ -102,6 +107,7 @@ class PIDLQRNode(Node):
         log_dir = self.get_parameter('log_dir').value
         
         self.subscription = self.create_subscription(Odometry, '/model/iris_1/odometry', self.odom_callback, 10)
+        self.target_sub = self.create_subscription(PoseStamped, '/iris_1/target_pose', self.target_pose_callback, 10)
         self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
             
         self.get_logger().info("=========================================")
@@ -147,14 +153,21 @@ class PIDLQRNode(Node):
         dt = current_time - self.last_time
         self.last_time = current_time
         
-        # Update dt Dinamis
-        if dt > 0 and dt < 0.1:
-            self.pid_x_out.dt = dt
-            self.pid_x_in.dt = dt
-            self.pid_y_out.dt = dt
-            self.pid_y_in.dt = dt
-            self.pid_z.dt = dt
-            self.pid_yaw.dt = dt
+        # Tangani Time Jumps atau Nilai dt Invalid
+        reset_derivative = False
+        if dt <= 0 or dt >= 0.1:
+            reset_derivative = True
+            dt_control = 0.02  # Gunakan default dt untuk menjaga stabilitas filter/PID
+        else:
+            dt_control = dt
+            
+        # Update dt Dinamis ke seluruh PID
+        self.pid_x_out.dt = dt_control
+        self.pid_x_in.dt = dt_control
+        self.pid_y_out.dt = dt_control
+        self.pid_y_in.dt = dt_control
+        self.pid_z.dt = dt_control
+        self.pid_yaw.dt = dt_control
         
         # 1. BACA SENSOR
         x = msg.pose.pose.position.x
@@ -177,34 +190,35 @@ class PIDLQRNode(Node):
         
         # 1.5 UPDATE PRE-FILTER
         # Mencegah step response mendadak dengan menghaluskan target (seperti di simulator)
-        self.filt_x[1] += (self.w_n_sq * (self.x_cmd - self.filt_x[0]) - self.two_zeta_wn * self.filt_x[1]) * dt
-        self.filt_x[0] += self.filt_x[1] * dt
+        # Gunakan dt_control untuk stabilitas integrasi numerik pre-filter
+        self.filt_x[1] += (self.w_n_sq * (self.x_cmd - self.filt_x[0]) - self.two_zeta_wn * self.filt_x[1]) * dt_control
+        self.filt_x[0] += self.filt_x[1] * dt_control
         
-        self.filt_y[1] += (self.w_n_sq * (self.y_cmd - self.filt_y[0]) - self.two_zeta_wn * self.filt_y[1]) * dt
-        self.filt_y[0] += self.filt_y[1] * dt
+        self.filt_y[1] += (self.w_n_sq * (self.y_cmd - self.filt_y[0]) - self.two_zeta_wn * self.filt_y[1]) * dt_control
+        self.filt_y[0] += self.filt_y[1] * dt_control
         
-        self.filt_z[1] += (self.w_n_sq * (self.z_cmd - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt
-        self.filt_z[0] += self.filt_z[1] * dt
+        self.filt_z[1] += (self.w_n_sq * (self.z_cmd - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
+        self.filt_z[0] += self.filt_z[1] * dt_control
         
-        self.filt_yaw[1] += (self.w_n_sq * (self.yaw_cmd - self.filt_yaw[0]) - self.two_zeta_wn * self.filt_yaw[1]) * dt
-        self.filt_yaw[0] += self.filt_yaw[1] * dt
+        self.filt_yaw[1] += (self.w_n_sq * (self.yaw_cmd - self.filt_yaw[0]) - self.two_zeta_wn * self.filt_yaw[1]) * dt_control
+        self.filt_yaw[0] += self.filt_yaw[1] * dt_control
         
         # 2. PROSES DI OTAK (KONTROLER) menggunakan target ber-filter
         err_x = self.filt_x[0] - x
-        theta_ref = self.pid_x_out.compute(err_x)
+        theta_ref = self.pid_x_out.compute(err_x, reset_derivative=reset_derivative)
         err_theta = theta_ref - theta
-        uy_pid = self.pid_x_in.compute(err_theta)
+        uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
         err_y = self.filt_y[0] - y
-        phi_ref = self.pid_y_out.compute(err_y)
+        phi_ref = self.pid_y_out.compute(err_y, reset_derivative=reset_derivative)
         err_phi = phi_ref - phi
-        ux_pid = self.pid_y_in.compute(err_phi)
+        ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
         
         err_z = self.filt_z[0] - z
-        uz_pid = self.pid_z.compute(err_z) 
+        uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
         
         err_yaw = self.filt_yaw[0] - yaw
-        uyaw_pid = self.pid_yaw.compute(err_yaw)
+        uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
         
         # 3. KIRIM PERINTAH KE OTOT (AKTUATOR)
         # Menambah gaya berat agar hovering, lalu dikonversi ke kecepatan rotasi via Inverse Mixer
@@ -226,7 +240,15 @@ class PIDLQRNode(Node):
         
         if int(t * 50) % 15 == 0:
             self.get_logger().info(
-                f"T={t:.1f}s | Ketinggian Z = {z:.2f}m (Target: {self.z_cmd:.1f}m) | Kecepatan Baling-Baling (RPM): [{int(w_cmd[0])}, {int(w_cmd[1])}, {int(w_cmd[2])}, {int(w_cmd[3])}]"
+                f"\n"
+                f"━━━━━━━━━━━━━━━━━━━ [PID-LQR | T={t:.1f}s] ━━━━━━━━━━━━━━━━━━━\n"
+                f"  Posisi  │  Aktual   │  Target   │  Error\n"
+                f"  X       │  {x:+7.3f}m │  {self.x_cmd:+7.3f}m │  {self.x_cmd - x:+7.3f}m\n"
+                f"  Y       │  {y:+7.3f}m │  {self.y_cmd:+7.3f}m │  {self.y_cmd - y:+7.3f}m\n"
+                f"  Z       │  {z:+7.3f}m │  {self.z_cmd:+7.3f}m │  {self.z_cmd - z:+7.3f}m\n"
+                f"  Yaw     │  {yaw_deg:+7.2f}° │  {math.degrees(self.yaw_cmd):+7.2f}° │  {math.degrees(self.yaw_cmd) - yaw_deg:+7.2f}°\n"
+                f"  RPM → [{int(w_cmd[0])}, {int(w_cmd[1])}, {int(w_cmd[2])}, {int(w_cmd[3])}]\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             )
             
         self.csv_writer.writerow([t, x, y, z, roll_deg, pitch_deg, yaw_deg,
@@ -234,6 +256,11 @@ class PIDLQRNode(Node):
                                   vx, vy, vz, p, q_ang, r_ang,
                                   uz_pid, ux_pid, uy_pid, uyaw_pid,
                                   w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
+
+    def target_pose_callback(self, msg):
+        self.x_cmd = msg.pose.position.x
+        self.y_cmd = msg.pose.position.y
+        self.z_cmd = msg.pose.position.z
 
     def destroy_node(self):
         self.csv_file.close()

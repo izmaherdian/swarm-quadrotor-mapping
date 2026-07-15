@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.8">
-  <world name="empty_world">
+  <world name="swarm_world">
     <!-- PLUGIN INTI GAZEBO HARMONIC -->
     <!-- Wajib ada agar gaya gravitasi dan benturan berfungsi -->
     <plugin
@@ -15,9 +15,13 @@
       filename="gz-sim-scene-broadcaster-system"
       name="gz::sim::systems::SceneBroadcaster">
     </plugin>
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
 
-    <!-- PLUGIN ANGIN (WIND EFFECTS) -->
-    <!-- Menerjemahkan vektor kecepatan angin menjadi gaya fisik dorongan (Drag) -->
+    <!-- PLUGIN ANGIN (WIND EFFECTS) DITUTUP SEMENTARA
     <plugin
       filename="gz-sim-wind-effects-system"
       name="gz::sim::systems::WindEffects">
@@ -44,10 +48,10 @@
       </vertical>
     </plugin>
 
-    <!-- PENGATURAN ANGIN KONDISI AWAL -->
     <wind>
       <linear_velocity>2.0 2.0 0</linear_velocity>
     </wind>
+    -->
 
     <!-- MATAHARI (SUN) -->
     <light type="directional" name="sun">
@@ -91,5 +95,46 @@
         </visual>
       </link>
     </model>
+
+    <!-- OBSTACLE A - X=2, sisi kanan (Y=-1.5) → drone harus belok kiri -->
+    <model name="obstacle_a">
+      <static>true</static>
+      <pose>2 -1.5 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- OBSTACLE B - X=3.5, sisi kiri (Y=+1.5) → drone harus belok kanan -->
+    <model name="obstacle_b">
+      <static>true</static>
+      <pose>3.5 1.5 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- OBSTACLE C - X=5, sisi kanan (Y=-1.5) → drone harus belok kiri -->
+    <model name="obstacle_c">
+      <static>true</static>
+      <pose>5 -1.5 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>0 0 1 1</ambient><diffuse>0 0 1 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- OBSTACLE D - X=6.5, sisi kiri (Y=+2.5) → drone harus belok kanan -->
+    <model name="obstacle_d">
+      <static>true</static>
+      <pose>6.5 2.5 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
+        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material></visual>
+      </link>
+    </model>
+
   </world>
 </sdf>
