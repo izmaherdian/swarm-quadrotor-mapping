@@ -62,15 +62,15 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
   4. ~~Berikan gangguan angin (*wind plug-in*) di Gazebo untuk memvalidasi performa dunia nyata.~~ (Selesai! Efek Dryden Turbulence dengan `stddev=3.0` dan *body rigid collision* aktif. Masalah Odom Hz diselesaikan).
   5. ~~(*Checkpoint Paper 1:* Perbandingan performa *trajectory tracking* dan daya tahan turbulensi angin dalam lingkungan fisika 3D Gazebo).~~ (Selesai! Data terekstrak di `gazebo_hinf_plot.png` & `gazebo_crash_report.md`).
 
-### FASE 2: Mengintegrasikan Otak (Mid-Level) - **[IN PROGRESS]**
+### FASE 2: Mengintegrasikan Otak (Mid-Level) - **[COMPLETED]**
 * **Tujuan:** Quadrotor tidak lagi menabrak gedung saat terbang menuju *waypoint*.
 * **Modul Pekerjaan:**
-  1. Gunakan *library* teruji seperti `gym-pybullet-quadrotors` (sangat ringan) untuk melatih model PPO secara *offline*.
-  2. *Export* model yang sudah konvergen ke format `.onnx` atau `.pth`.
-  3. Tulis node `ppo_inference.py` di `swarm_mid_level` untuk membaca sensor LiDAR virtual dan mem-publish target kecepatan ($V_x, V_y$).
-  4. *Test Flight:* Perintahkan quadrotor menembus gedung, pastikan AI membelokkannya secara mulus.
+  1. ~~Gunakan *library* teruji seperti `gym-pybullet-quadrotors` (sangat ringan) untuk melatih model PPO secara *offline*.~~ (Selesai! Model PPO untuk penghindar rintangan berbasis LiDAR telah dilatih).
+  2. ~~*Export* model yang sudah konvergen ke format `.onnx` atau `.pth`.~~ (Selesai! ONNX model `ppo_lidar_avoidance.onnx` dimuat secara sukses).
+  3. ~~Tulis node `ppo_inference.py` di `swarm_mid_level` untuk membaca sensor LiDAR virtual dan mem-publish target kecepatan.~~ (Selesai! Diimplementasikan dalam `collision_avoidance_node.py` yang melacak odometri & LiDAR scan serta mem-publish `/iris_1/target_pose`).
+  4. ~~*Test Flight:* Perintahkan quadrotor menembus gedung, pastikan AI membelokkannya secara mulus.~~ (Selesai! Verifikasi sukses menggunakan peta slalom rintangan merah-hijau-biru-oranye. Penambahan algoritma *Goal-Reacher Stabilization* menahan *overshoot* secara presisi di $X=7.0m$, serta implementasi *Time-Jump Filter* menjamin kestabilan kendali dari lag/lompatan waktu simulator).
 
-### FASE 3: Orkestrasi Armada (High-Level)
+### FASE 3: Orkestrasi Armada (High-Level) - **[IN PROGRESS]**
 * **Tujuan:** 1 quadrotor sukses, saatnya digandakan menjadi 7 quadrotor yang berkolaborasi.
 * **Modul Pekerjaan:**
   1. Integrasikan 7 model quadrotor ke dalam satu *launch file* Gazebo.
