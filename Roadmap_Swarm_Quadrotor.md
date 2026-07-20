@@ -70,17 +70,19 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
   3. ~~Tulis node `ppo_inference.py` di `swarm_mid_level` untuk membaca sensor LiDAR virtual dan mem-publish target kecepatan.~~ (Selesai! Diimplementasikan dalam `collision_avoidance_node.py` yang melacak odometri & LiDAR scan serta mem-publish `/iris_1/target_pose`).
   4. ~~*Test Flight:* Perintahkan quadrotor menembus gedung, pastikan AI membelokkannya secara mulus.~~ (Selesai! Verifikasi sukses menggunakan peta slalom rintangan merah-hijau-biru-oranye. Penambahan algoritma *Goal-Reacher Stabilization* menahan *overshoot* secara presisi di $X=7.0m$, serta implementasi *Time-Jump Filter* menjamin kestabilan kendali dari lag/lompatan waktu simulator).
 
-### FASE 3: Orkestrasi Armada (High-Level) - **[IN PROGRESS]**
-* **Tujuan:** 1 quadrotor sukses, saatnya digandakan menjadi 7 quadrotor yang berkolaborasi.
+### FASE 3: Orkestrasi Armada (High-Level) - **[COMPLETED]**
+* **Tujuan:** 1 quadrotor sukses, saatnya digandakan menjadi 7 quadrotor yang berkolaborasi secara P2P.
 * **Modul Pekerjaan:**
-  1. Integrasikan 7 model quadrotor ke dalam satu *launch file* Gazebo.
-  2. Buat definisi *custom message* di `swarm_msgs` (misalnya `Heartbeat.msg`).
-  3. Tulis `voronoi_node.py` dan `bezier_path.py` di `swarm_high_level` untuk membagi-bagi peta geodesi menjadi 7 blok operasi.
-  4. Aktifkan fitur **FT-CC**: Matikan paksa node quadrotor nomor 3, dan pastikan quadrotor nomor 2 dan 4 mengambil alih sisa area quadrotor nomor 3.
+  1. ~~Integrasikan 7 model quadrotor ke dalam satu *launch file* Gazebo (`swarm_launch.py` mendukung dynamic scaling 1 s.d. 7 drone).~~ (Selesai! Modular dengan namespaces terisolasi dan topic remapping).
+  2. ~~Buat definisi *custom message* di `swarm_msgs` (`Heartbeat.msg` untuk koordinat & status keaktifan).~~ (Selesai! Dikompilasi mandiri tanpa error spasi path).
+  3. ~~Tulis `voronoi_node.py` dan `bezier_path.py` di `swarm_high_level` untuk membagi wilayah.~~ (Selesai! Menggunakan kliping poligon dinamis Sutherland-Hodgman & kurva kuadratik Bézier G1 continuity).
+  4. ~~Aktifkan fitur **FT-CC**: Jika ada drone mati (timeout > 2.5s), sel Voronoi drone aktif membesar secara otomatis.~~ (Selesai! Diimplementasikan dengan konsep **Resilient Continue** di mana rute lawnmower lokal dihitung ulang dan dilanjutkan dari titik terdekat).
+  5. ~~Buat simulator kinematik mandiri interaktif (`simulator_kinematics.py`) untuk visualisasi 2D cepat.~~ (Selesai! Lengkap dengan tampilan trail coverage, metrik persentase area ter-mapping, dan tombol keyboard 1-7 untuk simulasi crash drone).
 
-### FASE 4: Visualisasi Akhir & Pengambilan Data (Finishing)
-* **Tujuan:** Mempercantik antarmuka untuk di-*screenshot* ke dalam jurnal/paper.
+### FASE 4: Visualisasi Akhir & Pengambilan Data (Finishing) - **[IN PROGRESS]**
+* **Tujuan:** Mempercantik antarmuka untuk di-*screenshot* ke dalam jurnal/paper dan mengambil data metrik performa.
 * **Modul Pekerjaan:**
   1. Setup RViz2 untuk memvisualisasikan `Marker` batas Voronoi, garis Bézier, dan titik LiDAR.
   2. Jalankan misi penuh (Fase 1 + 2 + 3 secara serentak).
   3. Ekstrak plot log (Kinerja Baterai, Coverage Area, Error ITAE) untuk ditulis di naskah konferensi EPIC.
+
