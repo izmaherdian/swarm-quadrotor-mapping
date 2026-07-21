@@ -107,7 +107,7 @@ class PIDHinfNode(Node):
         
         self.subscription = self.create_subscription(Odometry, '/model/iris_1/odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, '/iris_1/target_pose', self.target_pose_callback, 10)
-        self.publisher = self.create_publisher(Actuators, '/model/iris_1/command/motor_speed', 10)
+        self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
             
         self.get_logger().info("=========================================")
         self.get_logger().info("OTAK PID-HINF AKTIF! Misi: Melayang di Z=2.0m")
@@ -227,11 +227,8 @@ class PIDHinfNode(Node):
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
         w_cmd = np.clip(w_cmd, self.w_min, self.w_max)
         
-        # Gazebo Harmonic MulticopterMotorModel expects RPM (rad/s * 9.5492965)
-        w_rpm = w_cmd * 9.5492965
-        
         act_msg = Actuators()
-        act_msg.velocity = [float(w_rpm[0]), float(w_rpm[1]), float(w_rpm[2]), float(w_rpm[3])]
+        act_msg.velocity = [float(w_cmd[0]), float(w_cmd[1]), float(w_cmd[2]), float(w_cmd[3])]
         act_msg.normalized = act_msg.velocity  # Gazebo bridge trick
         self.publisher.publish(act_msg)
         

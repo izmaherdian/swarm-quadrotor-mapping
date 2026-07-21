@@ -67,7 +67,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/model/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
             '/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/model/iris_1/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
         ],

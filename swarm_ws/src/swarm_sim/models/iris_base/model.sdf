@@ -76,7 +76,7 @@
     </link>
     <joint name="rotor_0_joint" type="revolute">
       <child>rotor_0</child><parent>base_link</parent>
-      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.0001</damping></dynamics></axis>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.005</damping><friction>0.01</friction></dynamics></axis>
     </joint>
 
     <!-- BALING-BALING 1 (Belakang Kiri, Berlawanan Arah Jarum Jam) -->
@@ -91,7 +91,7 @@
     </link>
     <joint name="rotor_1_joint" type="revolute">
       <child>rotor_1</child><parent>base_link</parent>
-      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.0001</damping></dynamics></axis>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.005</damping><friction>0.01</friction></dynamics></axis>
     </joint>
 
     <!-- BALING-BALING 2 (Depan Kiri, Searah Jarum Jam) -->
@@ -105,7 +105,7 @@
     </link>
     <joint name="rotor_2_joint" type="revolute">
       <child>rotor_2</child><parent>base_link</parent>
-      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.0001</damping></dynamics></axis>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.005</damping><friction>0.01</friction></dynamics></axis>
     </joint>
 
     <!-- BALING-BALING 3 (Belakang Kanan, Searah Jarum Jam) -->
@@ -119,7 +119,7 @@
     </link>
     <joint name="rotor_3_joint" type="revolute">
       <child>rotor_3</child><parent>base_link</parent>
-      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.0001</damping></dynamics></axis>
+      <axis><xyz>0 0 1</xyz><limit><lower>-1e16</lower><upper>1e16</upper></limit><dynamics><damping>0.005</damping><friction>0.01</friction></dynamics></axis>
     </joint>
     <!-- PLUGIN SENSOR: Ground Truth Odometry untuk Akuisisi Data -->
     <plugin
@@ -139,12 +139,11 @@
       <turningDirection>ccw</turningDirection>
       <timeConstantUp>0.02</timeConstantUp>
       <timeConstantDown>0.02</timeConstantDown>
-      <maxRotVelocity>15000.0</maxRotVelocity>
+      <maxRotVelocity>1100.0</maxRotVelocity>
       <motorConstant>8.54858e-06</motorConstant>
       <motorType>velocity</motorType>
       <momentConstant>0.016</momentConstant>
       <commandSubTopic>command/motor_speed</commandSubTopic>
-      <motorNumber>0</motorNumber>
       <actuator_number>0</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
@@ -158,12 +157,11 @@
       <turningDirection>ccw</turningDirection>
       <timeConstantUp>0.02</timeConstantUp>
       <timeConstantDown>0.02</timeConstantDown>
-      <maxRotVelocity>15000.0</maxRotVelocity>
+      <maxRotVelocity>1100.0</maxRotVelocity>
       <motorConstant>8.54858e-06</motorConstant>
       <motorType>velocity</motorType>
       <momentConstant>0.016</momentConstant>
       <commandSubTopic>command/motor_speed</commandSubTopic>
-      <motorNumber>1</motorNumber>
       <actuator_number>1</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
@@ -177,12 +175,11 @@
       <turningDirection>cw</turningDirection>
       <timeConstantUp>0.02</timeConstantUp>
       <timeConstantDown>0.02</timeConstantDown>
-      <maxRotVelocity>15000.0</maxRotVelocity>
+      <maxRotVelocity>1100.0</maxRotVelocity>
       <motorConstant>8.54858e-06</motorConstant>
       <motorType>velocity</motorType>
       <momentConstant>0.016</momentConstant>
       <commandSubTopic>command/motor_speed</commandSubTopic>
-      <motorNumber>2</motorNumber>
       <actuator_number>2</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
@@ -196,12 +193,11 @@
       <turningDirection>cw</turningDirection>
       <timeConstantUp>0.02</timeConstantUp>
       <timeConstantDown>0.02</timeConstantDown>
-      <maxRotVelocity>15000.0</maxRotVelocity>
+      <maxRotVelocity>1100.0</maxRotVelocity>
       <motorConstant>8.54858e-06</motorConstant>
       <motorType>velocity</motorType>
       <momentConstant>0.016</momentConstant>
       <commandSubTopic>command/motor_speed</commandSubTopic>
-      <motorNumber>3</motorNumber>
       <actuator_number>3</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
