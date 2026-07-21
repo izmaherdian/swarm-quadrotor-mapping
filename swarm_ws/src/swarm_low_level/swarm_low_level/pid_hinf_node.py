@@ -43,7 +43,11 @@ class PIDHinfNode(Node):
         super().__init__('pid_hinf_node')
         
         # Load parameters fisik dari config YAML
-        config_path = os.path.join(os.getcwd(), 'src', 'swarm_low_level', 'config', 'quadrotor_params.yaml')
+        self.declare_parameter('config_dir', '')
+        config_dir = self.get_parameter('config_dir').value
+        if not config_dir:
+            config_dir = os.path.join(os.path.dirname(__file__), '..', 'config')
+        config_path = os.path.join(config_dir, 'quadrotor_params.yaml')
         
         if not os.path.exists(config_path):
             self.get_logger().error(f"Config file not found at {config_path}")
@@ -86,31 +90,34 @@ class PIDHinfNode(Node):
         ])
         self.M_inv = np.linalg.inv(M)
         
-        # Target referensi awal (Z = 2.0m)
-        self.x_cmd, self.y_cmd, self.z_cmd = 0.0, 0.0, 2.0
+        # Konfigurasi drone_id
+        self.declare_parameter('drone_id', 1)
+        did = self.get_parameter('drone_id').get_parameter_value().integer_value
+        if not did:
+            did = 1
+        self.drone_id = did
+
+        # Target referensi awal formasi swarm (Z = 2.0m, Y sesuai urutan drone)
+        spacing = 2.0
+        self.formation_x = 0.0
+        self.formation_y = float((self.drone_id - 4.0) * spacing)
+        self.formation_z = 2.0
+        self.x_cmd, self.y_cmd, self.z_cmd = self.formation_x, self.formation_y, self.formation_z
         self.yaw_cmd = np.radians(0.0)
         self.target_pose_received = False
 
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
-        # Mulai dari titik awal (0, 0, 0)
         self.filt_x = [0.0, 0.0]
         self.filt_y = [0.0, 0.0]
         self.filt_z = [0.0, 0.0]
         self.filt_yaw = [0.0, 0.0]
         
-        # Parameter Pre-filter (wn = 1.5 rad/s, zeta = 1.0)
         self.w_n_sq = 2.25
         self.two_zeta_wn = 3.0
-        
-        # Subscriber ke Odometry dan Publisher ke Motor (Actuators)
-        # Konfigurasi Log Directory (untuk menyimpan CSV ke tempat yang terstruktur)
+
+        # Konfigurasi Log Directory
         self.declare_parameter('log_dir', os.getcwd())
-        self.declare_parameter('drone_id', 1)
         log_dir = self.get_parameter('log_dir').value
-        did = self.get_parameter('drone_id').get_parameter_value().integer_value
-        if not did:
-            did = 1
-        self.drone_id = did
         
         self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, f'/iris_{did}/target_pose', self.target_pose_callback, 10)
@@ -241,8 +248,6 @@ class PIDHinfNode(Node):
             self.last_time = current_time
             self.spawn_x = x
             self.spawn_y = y
-            self.x_cmd = x
-            self.y_cmd = y
             self.filt_x = [x, 0.0]
             self.filt_y = [y, 0.0]
             return
@@ -251,12 +256,10 @@ class PIDHinfNode(Node):
         dt = current_time - self.last_time
         self.last_time = current_time
         
-        # Selama fase takeoff (Z < 1.5m) dan belum ada waypoint eksternal, kunci X, Y di posisi spawn
+        # Selama fase takeoff (Z < 1.5m) dan belum ada waypoint eksternal, kunci X, Y di posisi formasi
         if z < 1.5 and not self.target_pose_received:
-            self.x_cmd = self.spawn_x
-            self.y_cmd = self.spawn_y
-            self.filt_x[0] = self.spawn_x
-            self.filt_y[0] = self.spawn_y
+            self.x_cmd = self.formation_x
+            self.y_cmd = self.formation_y
         
         # Tangani Time Jumps atau Nilai dt Invalid
         reset_derivative = False
@@ -309,13 +312,15 @@ class PIDHinfNode(Node):
         self.filt_yaw[0] += self.filt_yaw[1] * dt_control
         
         # 2. PROSES DI OTAK (KONTROLER) menggunakan target ber-filter
+        max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
+        
         err_x = self.filt_x[0] - x
-        theta_ref = self.pid_x_out.compute(err_x, reset_derivative=reset_derivative)
+        theta_ref = np.clip(self.pid_x_out.compute(err_x, reset_derivative=reset_derivative), -max_angle_takeoff, max_angle_takeoff)
         err_theta = theta_ref - theta
         uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
         err_y = self.filt_y[0] - y
-        phi_ref = self.pid_y_out.compute(err_y, reset_derivative=reset_derivative)
+        phi_ref = np.clip(self.pid_y_out.compute(err_y, reset_derivative=reset_derivative), -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
         ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
         

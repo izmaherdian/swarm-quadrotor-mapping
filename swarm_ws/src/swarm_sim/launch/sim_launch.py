@@ -68,11 +68,6 @@ def generate_launch_description():
     
     # 4. RViz2 Node
     rviz_config_file = os.path.join(pkg_swarm_sim, 'rviz', 'swarm.rviz')
-    rviz_arg = DeclareLaunchArgument(
-        'rviz',
-        default_value='true',
-        description='Launch RViz2 for 3D visualization'
-    )
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -86,6 +81,7 @@ def generate_launch_description():
     ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
     results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'swarm')
     os.makedirs(results_dir, exist_ok=True)
+    config_dir = os.path.join(ws_root, 'src', 'swarm_low_level', 'config')
 
     swarm_nodes = []
     max_drones = 7
@@ -144,7 +140,8 @@ def generate_launch_description():
             name=f'controller_iris_{i}',
             parameters=[
                 {'drone_id': i},
-                {'log_dir': results_dir}
+                {'log_dir': results_dir},
+                {'config_dir': config_dir}
             ],
             condition=drone_condition,
             output='screen'
