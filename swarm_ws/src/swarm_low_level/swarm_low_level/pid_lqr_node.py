@@ -2,7 +2,8 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from actuator_msgs.msg import Actuators
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point as GeometryPoint
+from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
 import os
@@ -115,6 +116,7 @@ class PIDLQRNode(Node):
         self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, f'/iris_{did}/target_pose', self.target_pose_callback, 10)
         self.publisher = self.create_publisher(Actuators, f'/iris_{did}/command/motor_speed', 10)
+        self.marker_pub = self.create_publisher(MarkerArray, f'/iris_{did}/marker_visual', 10)
             
         self.get_logger().info("=========================================")
         self.get_logger().info(f"OTAK PID-LQR iris_{did} AKTIF! Misi: Melayang di Z=2.0m")
@@ -131,6 +133,86 @@ class PIDLQRNode(Node):
         
         self.start_time = None
         self.last_time = None
+
+    def publish_drone_marker(self, x, y, z, roll, pitch, yaw, q_msg):
+        color_map = {
+            1: (1.0, 0.0, 0.0),
+            2: (1.0, 0.5, 0.0),
+            3: (1.0, 1.0, 0.0),
+            4: (0.0, 1.0, 0.0),
+            5: (0.0, 1.0, 1.0),
+            6: (0.0, 0.5, 1.0),
+            7: (1.0, 0.0, 1.0)
+        }
+        r_c, g_c, b_c = color_map.get(self.drone_id, (1.0, 1.0, 1.0))
+        
+        ma = MarkerArray()
+        
+        # 1. Kotak 3D (Cube)
+        m_cube = Marker()
+        m_cube.header.frame_id = 'world'
+        m_cube.header.stamp = self.get_clock().now().to_msg()
+        m_cube.ns = f'drone_cube_{self.drone_id}'
+        m_cube.id = 0
+        m_cube.type = Marker.CUBE
+        m_cube.action = Marker.ADD
+        m_cube.pose.position.x = float(x)
+        m_cube.pose.position.y = float(y)
+        m_cube.pose.position.z = float(z)
+        m_cube.pose.orientation = q_msg
+        m_cube.scale.x = 0.4
+        m_cube.scale.y = 0.4
+        m_cube.scale.z = 0.15
+        m_cube.color.r = float(r_c)
+        m_cube.color.g = float(g_c)
+        m_cube.color.b = float(b_c)
+        m_cube.color.a = 0.9
+        ma.markers.append(m_cube)
+        
+        # 2. Sumbu X (Depan) - Merah (Panah)
+        x_dir_x = math.cos(yaw) * math.cos(pitch)
+        x_dir_y = math.sin(yaw) * math.cos(pitch)
+        x_dir_z = math.sin(pitch)
+        
+        m_x = Marker()
+        m_x.header.frame_id = 'world'
+        m_x.header.stamp = m_cube.header.stamp
+        m_x.ns = f'axis_x_{self.drone_id}'
+        m_x.id = 1
+        m_x.type = Marker.ARROW
+        m_x.action = Marker.ADD
+        m_x.scale.x = 0.04
+        m_x.scale.y = 0.08
+        m_x.scale.z = 0.1
+        m_x.color.r, m_x.color.g, m_x.color.b, m_x.color.a = 1.0, 0.0, 0.0, 1.0
+        
+        p1 = GeometryPoint(x=float(x), y=float(y), z=float(z))
+        p2_x = GeometryPoint(x=float(x + 0.6 * x_dir_x), y=float(y + 0.6 * x_dir_y), z=float(z + 0.6 * x_dir_z))
+        m_x.points = [p1, p2_x]
+        ma.markers.append(m_x)
+        
+        # 3. Sumbu Y (Samping Kiri) - Hijau (Panah) - HANYA X dan Y (Tanpa Sumbu Z!)
+        y_dir_x = -math.sin(yaw)
+        y_dir_y = math.cos(yaw)
+        y_dir_z = 0.0
+        
+        m_y = Marker()
+        m_y.header.frame_id = 'world'
+        m_y.header.stamp = m_cube.header.stamp
+        m_y.ns = f'axis_y_{self.drone_id}'
+        m_y.id = 2
+        m_y.type = Marker.ARROW
+        m_y.action = Marker.ADD
+        m_y.scale.x = 0.04
+        m_y.scale.y = 0.08
+        m_y.scale.z = 0.1
+        m_y.color.r, m_y.color.g, m_y.color.b, m_y.color.a = 0.0, 1.0, 0.0, 1.0
+        
+        p2_y = GeometryPoint(x=float(x + 0.6 * y_dir_x), y=float(y + 0.6 * y_dir_y), z=float(z + 0.6 * y_dir_z))
+        m_y.points = [p1, p2_y]
+        ma.markers.append(m_y)
+        
+        self.marker_pub.publish(ma)
 
     def euler_from_quaternion(self, x, y, z, w):
         t0 = +2.0 * (w * x + y * z)
@@ -281,6 +363,9 @@ class PIDLQRNode(Node):
                                   uz_pid, ux_pid, uy_pid, uyaw_pid,
                                   w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
         self.csv_file.flush()
+        
+        # Publikasikan Visualisasi Marker 3D Drone (Kotak + Sumbu X & Y Saja)
+        self.publish_drone_marker(x, y, z, roll, pitch, yaw, msg.pose.pose.orientation)
 
     def target_pose_callback(self, msg):
         self.x_cmd = msg.pose.position.x
