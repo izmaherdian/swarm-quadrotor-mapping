@@ -364,7 +364,7 @@ class PIDHinfNode(Node):
         self.csv_file.flush()
         
         # Publikasikan Visualisasi Marker 3D Drone (Kotak + Sumbu X & Y Saja)
-        self.publish_drone_marker(x, y, z, roll, pitch, yaw, msg.pose.pose.orientation)
+        self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation)
 
     def target_pose_callback(self, msg):
         self.x_cmd = msg.pose.position.x
