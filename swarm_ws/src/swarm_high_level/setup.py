@@ -22,7 +22,6 @@ setup(
         'console_scripts': [
             'heartbeat_p2p = swarm_high_level.heartbeat_p2p:main',
             'voronoi_node = swarm_high_level.voronoi_node:main',
-            'bezier_path = swarm_high_level.bezier_path:main',
         ],
     },
 )

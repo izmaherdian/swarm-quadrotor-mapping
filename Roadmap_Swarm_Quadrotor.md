@@ -30,9 +30,9 @@ swarm_ws/
     │
     ├── swarm_high_level/           # (Package 4: Koordinasi Swarm)
     │   └── swarm_high_level/
-    │       ├── voronoi_node.py     # Algoritma partisi geodesi 2D & FT-CC
-    │       ├── bezier_path.py      # Algoritma penghalusan lintasan (G1 Continuity)
-    │       └── heartbeat_p2p.py    # Publisher/Subscriber sinyal hidup quadrotor
+    │       ├── voronoi_node.py     # Algoritma partisi Voronoi 2D & Lawnmower Planner
+    │       ├── heartbeat_p2p.py    # Publisher/Subscriber P2P sinyal detak jantung quadrotor
+    │       └── simulator_kinematics.py # Simulator kinematika 2D interaktif
     │
     └── swarm_sim/                  # (Package 5: Gazebo & Visualisasi)
         ├── launch/                 # Script untuk menjalankan node serentak (.launch.py)
