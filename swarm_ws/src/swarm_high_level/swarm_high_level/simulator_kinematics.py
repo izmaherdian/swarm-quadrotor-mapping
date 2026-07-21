@@ -295,7 +295,7 @@ class SwarmSim:
     DT       = 0.05
     SENSOR_R = 0.40
     GRID_N   = 100
-    PAUSE_FRAMES = 30
+    PAUSE_FRAMES = 0       # Reroute instan seketika saat tombol ditekan (tanpa jeda 30 frame)
     # Ambang batas: berapa titik recovery per-drone.
     # Set ke 6 agar jika waypoint recovery > 6, otomatis dibagi ke 2 atau 3 drone helper!
     RECOVERY_POINTS_PER_DRONE = 6
@@ -378,10 +378,8 @@ class SwarmSim:
         self.pause_counter  = 0
         self.newly_died     = []
         self.recovery_mode  = False
-        # Titik recovery "yatim": milik drone yang mati SAAT sedang membawa
-        # tugas recovery (belum sempat selesai). Kalau tidak disimpan, titik
-        # ini akan hilang permanen dan coverage macet selamanya.
         self.pending_recovery_pts = []
+        self.merged_dead_comp_polys = []
 
     # ── Plot setup ───────────────────────────────────────────────────
 
@@ -689,8 +687,8 @@ class SwarmSim:
             try:
                 from shapely.geometry import Polygon as SpPolygon
                 from shapely.ops import unary_union
-                sp_polys = [SpPolygon(p).buffer(1e-4) for p in all_dead_polys]
-                merged = unary_union(sp_polys)
+                sp_polys = [SpPolygon(p).buffer(0.05) for p in all_dead_polys if len(p) >= 3]
+                merged = unary_union(sp_polys).buffer(-0.05)
                 if merged.geom_type == 'Polygon':
                     comp_polys = [np.array(merged.exterior.coords)]
                 elif merged.geom_type == 'MultiPolygon':
