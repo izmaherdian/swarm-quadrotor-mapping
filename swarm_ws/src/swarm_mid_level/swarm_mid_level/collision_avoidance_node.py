@@ -27,7 +27,7 @@ class CollisionAvoidanceNode(Node):
         self.max_speed = self.get_parameter('max_speed').value
         self.target_z_height = self.get_parameter('target_z_height').value
         self.dt = self.get_parameter('dt').value
-        self.drone_id = self.get_parameter('drone_id').value
+        self.drone_id = int(self.get_parameter('drone_id').value)
         did = self.drone_id
 
         # If model_path is empty, find the default ONNX model path

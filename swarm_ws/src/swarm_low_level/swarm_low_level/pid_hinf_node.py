@@ -105,7 +105,7 @@ class PIDHinfNode(Node):
         self.declare_parameter('log_dir', os.getcwd())
         self.declare_parameter('drone_id', 1)
         log_dir = self.get_parameter('log_dir').value
-        self.drone_id = self.get_parameter('drone_id').value
+        self.drone_id = int(self.get_parameter('drone_id').value)
         did = self.drone_id
         
         self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
