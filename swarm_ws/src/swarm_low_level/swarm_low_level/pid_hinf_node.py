@@ -149,19 +149,32 @@ class PIDHinfNode(Node):
         nanosec = msg.header.stamp.nanosec
         current_time = sec + nanosec * 1e-9
         
+        # Ekstrak Posisi Aktual
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        z = msg.pose.pose.position.z
+
         if self.start_time is None:
             self.start_time = current_time
             self.last_time = current_time
-            if not self.target_pose_received:
-                self.x_cmd = msg.pose.pose.position.x
-                self.y_cmd = msg.pose.pose.position.y
-                self.filt_x = [self.x_cmd, 0.0]
-                self.filt_y = [self.y_cmd, 0.0]
+            self.spawn_x = x
+            self.spawn_y = y
+            self.x_cmd = x
+            self.y_cmd = y
+            self.filt_x = [x, 0.0]
+            self.filt_y = [y, 0.0]
             return
             
         t = current_time - self.start_time
         dt = current_time - self.last_time
         self.last_time = current_time
+        
+        # Selama fase takeoff (Z < 1.5m) dan belum ada waypoint eksternal, kunci X, Y di posisi spawn
+        if z < 1.5 and not self.target_pose_received:
+            self.x_cmd = self.spawn_x
+            self.y_cmd = self.spawn_y
+            self.filt_x[0] = self.spawn_x
+            self.filt_y[0] = self.spawn_y
         
         # Tangani Time Jumps atau Nilai dt Invalid
         reset_derivative = False
