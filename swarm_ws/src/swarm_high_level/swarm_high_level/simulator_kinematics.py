@@ -139,10 +139,12 @@ def polygon_scanline_intersections(polygon, y):
     return xs
 
 
-def generate_boustrophedon(polygon, sweep_spacing=0.65, margin=0.35):
+def generate_boustrophedon(polygon, sweep_spacing=0.65, margin=0.35, fixed_angle=0.0):
     """
     Jalur Boustrophedon (zigzag lawnmower) untuk poligon arbitrer.
     Setiap segmen hanya dilalui SATU kali → tidak ada path overlap.
+    Jika fixed_angle=0.0, seluruh garis Lawnmower dijamin SELALU HORIZONTAL
+    (sejajar sumbu X dunia), tidak pernah miring/vertikal/diagonal!
     """
     if len(polygon) < 3:
         return [poly_centroid(polygon)]
@@ -150,11 +152,15 @@ def generate_boustrophedon(polygon, sweep_spacing=0.65, margin=0.35):
     poly = np.array(polygon, dtype=float)
     centroid = poly_centroid(poly)
 
-    pts_c = poly - centroid
-    cov   = pts_c.T @ pts_c / max(len(pts_c) - 1, 1)
-    _, evecs = np.linalg.eigh(cov)
-    main_axis = evecs[:, 1]
-    angle = -math.atan2(main_axis[1], main_axis[0])
+    if fixed_angle is not None:
+        angle = fixed_angle
+    else:
+        pts_c = poly - centroid
+        cov   = pts_c.T @ pts_c / max(len(pts_c) - 1, 1)
+        _, evecs = np.linalg.eigh(cov)
+        main_axis = evecs[:, 1]
+        angle = -math.atan2(main_axis[1], main_axis[0])
+
     ca, sa = math.cos(angle), math.sin(angle)
 
     def rot(p):
@@ -210,7 +216,9 @@ def generate_boustrophedon(polygon, sweep_spacing=0.65, margin=0.35):
     wp_arr   = np.array(waypoints_r)
     wp_world = rot_inv(wp_arr)
 
-    path = [centroid] + [np.array(p) for p in wp_world]
+    # Scanlines sudah mundur sebesar margin=0.36m dari batas poligon,
+    # sehingga wp_world secara alami 100% berada DI DALAM poligon tanpa perlu di-clamp ke centroid!
+    path = [np.array(p) for p in wp_world]
     return path
 
 
@@ -615,10 +623,11 @@ class SwarmSim:
 
     def _handle_failure_recovery(self):
         """
-        Redistribusi area sel drone yang mati ke helper terdekat.
-        Setiap area recovery disapu menggunakan pola LAWNMOWER (Boustrophedon)
-        struktur penuh (kiri-kanan-kiri-kanan), yang ditempel SETELAH sisa
-        jalur sendiri helper selesai.
+        KONSOLIDASI GLOBAL (Global Re-pooling):
+        Saat ada event failure baru (meskipun recovery sebelumnya belum selesai),
+        sistem mengamankan seluruh sisa tugas recovery yang belum dikunjungi dari
+        drone manapun, menggabungkannya dengan sel mati yang baru, lalu
+        melakukan redistribusi ulang secara SPASIAL OPTIMAL ke drone aktif tersisa.
         """
         alive = [i for i in range(1, self.nd+1)
                  if self.active[i] and not self.collided[i]]
@@ -632,13 +641,34 @@ class SwarmSim:
         spacing = self.SENSOR_R * 1.50   # Overlap 25% (tanpa celah tipis!)
         margin  = self.SENSOR_R * 0.9
 
-        for dead_idx in self.newly_died:
-            dead_cell = self.cells[dead_idx]
-            if len(dead_cell) < 3:
-                print(f"[RECOVERY] Drone {dead_idx}: sel tidak valid, skip.")
-                continue
+        # 1. LUPAKAN / HAPUS seluruh waypoint recovery lama yang belum sempat dikunjungi
+        #    (supaya poligon Voronoi sel mati lama & baru bisa DIGABUNGKAN URAIAN ASLI-nya)
+        self.pending_recovery_pts = []
+        for h in alive:
+            # Reset jalur drone h HANYA ke sisa jalur sendiri (wp_flags == True)
+            own_wps = []
+            own_flags = []
+            if self.wp_idx[h] < len(self.paths[h]):
+                for idx_w in range(self.wp_idx[h], len(self.paths[h])):
+                    if idx_w < len(self.wp_flags[h]) and self.wp_flags[h][idx_w]:
+                        own_wps.append(self.paths[h][idx_w])
+                        own_flags.append(True)
+            new_p = [self.pos[h].copy()] + own_wps
+            new_f = [True] + own_flags
+            self.paths[h]    = new_p
+            self.wp_flags[h] = new_f
+            self.wp_idx[h]   = 1
+            self.seg_s[h]    = self.pos[h].copy()
+            self.seg_e[h]    = new_p[1].copy() if len(new_p) > 1 else None
+            self.seg_t[h]    = 0.0
 
-            # 1. HAPUS coverage di dalam sel drone yang mati (data dianggap hilang)
+        # 2. HAPUS coverage & GABUNG POLIGON (Polygon Merging via Shapely) untuk seluruh drone mati
+        dead_drones = [d for d in range(1, self.nd+1)
+                       if not (self.active[d] and not self.collided[d]) and len(self.cells[d]) >= 3]
+
+        all_dead_polys = []
+        for dead_idx in dead_drones:
+            dead_cell = self.cells[dead_idx]
             N  = self.GRID_N
             dx = (self.x_max - self.x_min) / N
             dy = (self.y_max - self.y_min) / N
@@ -652,115 +682,168 @@ class SwarmSim:
                         if self.cov_grid[r, c] == 1.0:
                             erased += 1
                         self.cov_grid[r, c] = 0.0
-            print(f"[RECOVERY] Drone {dead_idx} mati — {erased} grid cells hasil scan-nya dihapus.")
+            all_dead_polys.append(dead_cell)
 
-            # 2. Buat jalur Lawnmower (Boustrophedon) LENGKAP untuk sel drone mati
-            full_boust = generate_boustrophedon(dead_cell, sweep_spacing=spacing, margin=margin)
-            # Filter centroid dari awal jika ada waypoint lanjutan
-            if len(full_boust) > 1:
-                boust_wps = full_boust[1:]
-            else:
+        # Merge poligon-poligon sel mati yang saling menempel menggunakan Shapely unary_union
+        if all_dead_polys:
+            try:
+                from shapely.geometry import Polygon as SpPolygon
+                from shapely.ops import unary_union
+                sp_polys = [SpPolygon(p).buffer(1e-4) for p in all_dead_polys]
+                merged = unary_union(sp_polys)
+                if merged.geom_type == 'Polygon':
+                    comp_polys = [np.array(merged.exterior.coords)]
+                elif merged.geom_type == 'MultiPolygon':
+                    comp_polys = [np.array(p.exterior.coords) for p in merged.geoms]
+                else:
+                    comp_polys = all_dead_polys
+            except Exception as e:
+                print(f"[RECOVERY WARN] Shapely merge fallback: {e}")
+                comp_polys = all_dead_polys
+
+            self.merged_dead_comp_polys = comp_polys
+            for comp in comp_polys:
+                full_boust = generate_boustrophedon(comp, sweep_spacing=spacing, margin=margin, fixed_angle=0.0)
                 boust_wps = full_boust
+                if boust_wps:
+                    self.pending_recovery_pts.extend(boust_wps)
 
-            if not boust_wps:
-                print(f"[RECOVERY] Drone {dead_idx}: tidak ada waypoint recovery yang dapat dibuat.")
-                continue
+        if not self.pending_recovery_pts:
+            self.newly_died.clear()
+            self.recovery_mode = False
+            return
 
-            centroid_dead = poly_centroid(dead_cell)
+        print(f"[POLYGON MERGING & KONSOLIDASI] Total {len(self.pending_recovery_pts)} waypoint Lawnmower bersambung "
+              f"digabungkan & siap didistribusikan ulang ke {len(alive)} drone aktif.")
 
-            def get_helper_end_pos(h):
-                if self.seg_s[h] is not None and self.seg_e[h] is not None:
-                    rem = [self.seg_e[h]] + self.paths[h][self.wp_idx[h]+1:]
-                    return rem[-1]
-                elif self.wp_idx[h] < len(self.paths[h]):
-                    return self.paths[h][-1]
-                return self.pos[h]
+        def get_helper_end_pos(h):
+            if self.seg_s[h] is not None and self.seg_e[h] is not None:
+                rem = [self.seg_e[h]] + self.paths[h][self.wp_idx[h]+1:]
+                return rem[-1]
+            elif self.wp_idx[h] < len(self.paths[h]):
+                return self.paths[h][-1]
+            return self.pos[h]
 
-            def are_polygons_adjacent(poly1, poly2, tol=0.15):
-                if len(poly1) < 3 or len(poly2) < 3:
-                    return False
-                pts1 = np.array(poly1)
-                pts2 = np.array(poly2)
-                min_d = np.min([np.linalg.norm(p1 - p2) for p1 in pts1 for p2 in pts2])
-                if min_d < tol:
-                    return True
-                for i in range(len(pts1)):
-                    a = pts1[i]
-                    b = pts1[(i+1)%len(pts1)]
-                    ab = b - a
-                    ab2 = np.dot(ab, ab)
-                    if ab2 < 1e-6: continue
-                    for p in pts2:
-                        t = max(0, min(1, np.dot(p - a, ab) / ab2))
-                        proj = a + t * ab
-                        if np.linalg.norm(p - proj) < tol:
-                            return True
+        def are_polygons_adjacent(poly1, poly2, tol=0.15):
+            if len(poly1) < 3 or len(poly2) < 3:
                 return False
+            pts1 = np.array(poly1)
+            pts2 = np.array(poly2)
+            min_d = np.min([np.linalg.norm(p1 - p2) for p1 in pts1 for p2 in pts2])
+            if min_d < tol:
+                return True
+            for i in range(len(pts1)):
+                a = pts1[i]
+                b = pts1[(i+1)%len(pts1)]
+                ab = b - a
+                ab2 = np.dot(ab, ab)
+                if ab2 < 1e-6: continue
+                for p in pts2:
+                    t = max(0, min(1, np.dot(p - a, ab) / ab2))
+                    proj = a + t * ab
+                    if np.linalg.norm(p - proj) < tol:
+                        return True
+            return False
 
-            # 3. Pilih helper TERDEKAT dari daftar drone yang sel Voronoi-nya MENEMPEL (Share Edge)
-            adj_helpers = [i for i in alive if are_polygons_adjacent(dead_cell, self.cells[i])]
+        # 3. Kumpulkan sel-sel Voronoi dari drone yang mati
+        dead_polys = [self.cells[d] for d in range(1, self.nd+1)
+                      if not (self.active[d] and not self.collided[d]) and len(self.cells[d]) >= 3]
 
-            # Fallback jika seluruh tetangga langsung mati: gunakan drone aktif mana saja
-            candidate_helpers = adj_helpers if adj_helpers else alive
+        # Prioritaskan helper yang sel Voronoi-nya menempel ke salah satu sel mati
+        adj_helpers = set()
+        for d_poly in dead_polys:
+            for h in alive:
+                if are_polygons_adjacent(d_poly, self.cells[h]):
+                    adj_helpers.add(h)
 
-            n_needed = max(1, math.ceil(len(boust_wps) / self.RECOVERY_POINTS_PER_DRONE))
-            n_helpers = min(n_needed, 3, len(alive))
+        candidate_helpers = list(adj_helpers) if adj_helpers else alive
+        n_needed = max(1, math.ceil(len(self.pending_recovery_pts) / self.RECOVERY_POINTS_PER_DRONE))
+        n_helpers = min(n_needed, 3, len(alive))   # KUNCI: Maksimal HANYA 3 drone helper!
 
-            dists_to_centroid = [(i, np.linalg.norm(get_helper_end_pos(i) - centroid_dead))
-                                  for i in candidate_helpers]
-            dists_to_centroid.sort(key=lambda x: x[1])
-            helpers = [idx for idx, _ in dists_to_centroid[:n_helpers]]
+        centroid_global = np.mean(np.array(self.pending_recovery_pts), axis=0)
+        dists_to_centroid = [(i, np.linalg.norm(get_helper_end_pos(i) - centroid_global))
+                              for i in candidate_helpers]
+        dists_to_centroid.sort(key=lambda x: x[1])
+        helpers = [idx for idx, _ in dists_to_centroid[:n_helpers]]
 
-            # Jika butuh helper tambahan melebihi tetangga menempel yang ada, tambahkan dari drone aktif lain
-            if len(helpers) < n_helpers:
-                remaining_alive = [i for i in alive if i not in helpers]
-                remaining_alive.sort(key=lambda i: np.linalg.norm(get_helper_end_pos(i) - centroid_dead))
-                helpers.extend(remaining_alive[:n_helpers - len(helpers)])
+        if len(helpers) < n_helpers:
+            remaining_alive = [i for i in alive if i not in helpers]
+            remaining_alive.sort(key=lambda i: np.linalg.norm(get_helper_end_pos(i) - centroid_global))
+            helpers.extend(remaining_alive[:n_helpers - len(helpers)])
 
-            adj_str = f"Tetangga menempel: {adj_helpers}" if adj_helpers else "Semua tetangga mati -> Fallback ke drone aktif terdekat"
-            print(f"[RECOVERY] Membagi {len(boust_wps)} waypoint Lawnmower sel D{dead_idx} ke helper: {helpers} "
-                  f"({adj_str})")
+        # 4. ALOKASI GARIS LAWNMOWER UTUH + PARALEL SPASIAL (Intact Line Block Alignment):
+        #    Mengelompokkan waypoint menjadi BARIS LAWNMOWER UTUH (tidak dipecah jadi titik acak),
+        #    lalu mengurutkan blok baris & posisi helper secara paralel sepanjang aksis dominan.
+        #    Hasilnya: 100% GARIS LAWNMOWER RAPI & SEJAJAR, TANPA RUTE BERSILANGAN!
+        boust_wps = self.pending_recovery_pts
+        lines = []
+        for i in range(0, len(boust_wps)-1, 2):
+            lines.append((boust_wps[i], boust_wps[i+1]))
+        if len(boust_wps) % 2 != 0:
+            lines.append((boust_wps[-1], boust_wps[-1]))
 
-            # 4. Bagi potongan jalur Lawnmower secara berurutan, lalu jodohkan tiap potongan
-            #    secara SPASIAL OPTIMAL dengan helper yang posisi akhirnya paling dekat.
-            chunk_size = math.ceil(len(boust_wps) / len(helpers))
-            chunks = []
-            for k in range(len(helpers)):
-                c = boust_wps[k*chunk_size : (k+1)*chunk_size]
-                if c:
-                    chunks.append(c)
+        n_h = len(helpers)
+        if lines and n_h > 0:
+            block_sz = math.ceil(len(lines) / n_h)
+            blocks = [lines[k*block_sz : (k+1)*block_sz] for k in range(n_h) if lines[k*block_sz : (k+1)*block_sz]]
 
-            unassigned_chunks = list(chunks)
-            for h in helpers:
-                if not unassigned_chunks:
-                    break
+            block_centers = [np.mean([pt for line in b for pt in line], axis=0) for b in blocks]
+            variances = np.var(block_centers, axis=0) if len(block_centers) > 1 else [0, 1]
+            axis_idx = 1 if len(variances) > 1 and variances[1] >= variances[0] else 0
+
+            # Urutkan blok baris sepanjang aksis dominan
+            sorted_blocks = [b for _, b in sorted(zip([c[axis_idx] for c in block_centers], blocks))]
+
+            # Urutkan helper sepanjang aksis dominan yang SAMA
+            sorted_helpers = sorted(helpers, key=lambda h: get_helper_end_pos(h)[axis_idx])
+
+            for h, b in zip(sorted_helpers, sorted_blocks):
+                if not b:
+                    continue
                 h_end = get_helper_end_pos(h)
-                # Pilih sub-potongan Lawnmower yang posisinya paling dekat dengan h_end
-                best_c_idx = min(range(len(unassigned_chunks)),
-                                 key=lambda ci: min(np.linalg.norm(unassigned_chunks[ci][0] - h_end),
-                                                    np.linalg.norm(unassigned_chunks[ci][-1] - h_end)))
-                best_chunk = unassigned_chunks.pop(best_c_idx)
-                self._append_recovery_boustrophedon(h, best_chunk)
+                # 1. Tentukan garis mana di dalam blok yang lebih dekat dengan h_end (garis pertama vs terakhir)
+                first_line = b[0]
+                last_line  = b[-1]
+                d_first = min(np.linalg.norm(h_end - first_line[0]), np.linalg.norm(h_end - first_line[1]))
+                d_last  = min(np.linalg.norm(h_end - last_line[0]),  np.linalg.norm(h_end - last_line[1]))
+                
+                lines_in_order = list(reversed(b)) if d_last < d_first else list(b)
 
-        # ── Titik recovery yatim (jika ada drone crash saat membawa recovery)
-        if self.pending_recovery_pts:
-            alive_now = [i for i in range(1, self.nd+1)
-                         if self.active[i] and not self.collided[i]]
-            if alive_now:
-                closest_h = min(alive_now, key=lambda h: np.linalg.norm(get_helper_end_pos(h) - np.mean(self.pending_recovery_pts, axis=0)))
-                print(f"[RECOVERY] {len(self.pending_recovery_pts)} titik recovery yatim didistribusi ke Drone {closest_h}")
-                self._append_recovery_boustrophedon(closest_h, self.pending_recovery_pts)
-            self.pending_recovery_pts = []
+                # 2. Tentukan arah sapuan kiri/kanan pada garis pertama (pilih titik awal terdekat dari h_end)
+                entry_line = lines_in_order[0]
+                # p_left adalah titik dengan X lebih kecil, p_right titik dengan X lebih besar
+                if entry_line[0][0] <= entry_line[1][0]:
+                    p_left, p_right = entry_line[0], entry_line[1]
+                else:
+                    p_left, p_right = entry_line[1], entry_line[0]
 
+                start_from_left = np.linalg.norm(h_end - p_left) <= np.linalg.norm(h_end - p_right)
+
+                # 3. Susun pola Lawnmower selang-seling (zigzag) yang mulus
+                rec_wps_h = []
+                go_left_to_right = start_from_left
+                for l_start, l_end in lines_in_order:
+                    # Pastikan p_a dan p_b terurut kiri-kanan
+                    pa = l_start if l_start[0] <= l_end[0] else l_end
+                    pb = l_end   if l_start[0] <= l_end[0] else l_start
+                    if go_left_to_right:
+                        rec_wps_h.extend([pa, pb])
+                    else:
+                        rec_wps_h.extend([pb, pa])
+                    go_left_to_right = not go_left_to_right
+
+                if rec_wps_h:
+                    self._append_recovery_boustrophedon(h, rec_wps_h)
+
+        self.pending_recovery_pts = []
         self.newly_died.clear()
         self.recovery_mode = False
 
     def _append_recovery_boustrophedon(self, h, rec_wps):
         """
         Tempel jalur recovery berpola Lawnmower ke sisa jalur sendiri drone h.
-        Urutan Lawnmower (kiri-kanan) dipertahankan utuh, hanya diatur arahnya
-        (maju atau mundur) menyesuaikan mana yang lebih dekat dari posisi akhir
-        jalur sendiri drone h.
+        Menggunakan transisi siku-siku (orthogonal boundary entry) agar penerbangan
+        helper dari posisinya ke area recovery tidak memotong miring melintasi peta.
         """
         remaining_own = []
         if self.seg_s[h] is not None and self.seg_e[h] is not None:
@@ -772,16 +855,7 @@ class SwarmSim:
         if not rec_wps:
             return
 
-        start_for_rec = remaining_own[-1] if remaining_own else self.pos[h]
-
-        # Tentukan arah menyapu (maju atau balik) yang lebih dekat dari start_for_rec
-        d_start = np.linalg.norm(rec_wps[0]  - start_for_rec)
-        d_end   = np.linalg.norm(rec_wps[-1] - start_for_rec)
-
-        if d_end < d_start:
-            ordered_rec = list(reversed(rec_wps))
-        else:
-            ordered_rec = list(rec_wps)
+        ordered_rec = list(rec_wps)
 
         new_path  = [self.pos[h].copy()] + list(remaining_own) + [np.array(p) for p in ordered_rec]
         new_flags = ([True] * (1 + len(remaining_own)) + [False] * len(ordered_rec))
@@ -903,6 +977,15 @@ class SwarmSim:
                 p = self.pos[i]
                 st += f" D{i}: ({p[0]:.1f},{p[1]:.1f})\n"
         self.h_stat_txt.set_text(st)
+
+        # Gambar poligon Voronoi GABUNGAN sel mati (Shapely Merged Polygon) dengan warna merah terbayang
+        if hasattr(self, 'merged_dead_comp_polys') and self.merged_dead_comp_polys:
+            for m_poly in self.merged_dead_comp_polys:
+                if len(m_poly) >= 3:
+                    pat_m = MplPolygon(np.array(m_poly), closed=True, fc='#ff0000',
+                                       alpha=0.15, ec='#cc0000', lw=2.0, ls='--', zorder=1.5)
+                    self.ax.add_patch(pat_m)
+                    self.voronoi_patches.append(pat_m)
 
         # ── Per-drone update ──────────────────────────────────────
         for i in range(1, self.nd+1):
