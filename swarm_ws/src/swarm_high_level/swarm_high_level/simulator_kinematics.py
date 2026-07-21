@@ -295,7 +295,7 @@ class SwarmSim:
     DT       = 0.05
     SENSOR_R = 0.40
     GRID_N   = 100
-    PAUSE_FRAMES = 0       # Reroute instan seketika saat tombol ditekan (tanpa jeda 30 frame)
+    PAUSE_FRAMES = 20       # Jeda pause 1.0 detik (20 frame pada DT=0.05s) saat ada drone mati
     # Ambang batas: berapa titik recovery per-drone.
     # Set ke 6 agar jika waypoint recovery > 6, otomatis dibagi ke 2 atau 3 drone helper!
     RECOVERY_POINTS_PER_DRONE = 6
