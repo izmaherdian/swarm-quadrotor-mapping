@@ -21,14 +21,34 @@ def generate_launch_description():
         model_dir
     )
     
-    # Setup Headless Argument
+    # 2. Deklarasi Arguments Launch
     headless_arg = DeclareLaunchArgument(
         'headless',
         default_value='false',
-        description='Run Gazebo in headless mode (no GUI)'
+        description='Jalankan Gazebo tanpa GUI (headless mode)'
     )
-    
-    # Run Gazebo headless (-s) or with GUI
+    rviz_arg = DeclareLaunchArgument(
+        'rviz',
+        default_value='true',
+        description='Jalankan RViz2 untuk visualisasi'
+    )
+    num_drones_arg = DeclareLaunchArgument(
+        'num_drones',
+        default_value='7',
+        description='Jumlah drone dalam swarm (1 sampai 7)'
+    )
+    controller_arg = DeclareLaunchArgument(
+        'controller',
+        default_value='pid_lqr_node',
+        description='Kontroler low-level: pid_lqr_node atau pid_hinf_node'
+    )
+    use_mid_level_arg = DeclareLaunchArgument(
+        'use_mid_level',
+        default_value='true',
+        description='Jalankan node mid-level collision avoidance (ONNX)'
+    )
+
+    # 3. Launch Gazebo Server & Client (GUI/Headless)
     gz_args_headless = f'-r -s "{world_file}"'
     gz_args_gui = f'-r "{world_file}"'
     
@@ -46,54 +66,7 @@ def generate_launch_description():
         condition=UnlessCondition(LaunchConfiguration('headless'))
     )
     
-    # Spawn drone iris_base ke dalam dunia Gazebo
-    spawn_drone = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments=[
-            '-world', 'swarm_world',
-            '-name', 'iris_1',
-            '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
-            '-x', '0.0',
-            '-y', '0.0',
-            '-z', '0.01'
-        ],
-        output='screen'
-    )
-    
-    # Bridge Odometry & Actuators dari/ke Gazebo
-    bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=[
-            '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
-            '/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            '/model/iris_1/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
-        ],
-        remappings=[
-            ('/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan', '/lidar_scan'),
-            ('/model/iris_1/pose', '/tf')
-        ],
-        output='screen'
-    )
-    
-    # Declare argument for controller type
-    controller_arg = DeclareLaunchArgument(
-        'controller',
-        default_value='pid_lqr_node',
-        description='Which controller to run: pid_lqr_node or pid_hinf_node'
-    )
-    
-    # Define the absolute path to the results directory inside the src tree
-    pkg_share = get_package_share_directory('swarm_sim')
-    # Because pkg_share is usually .../install/swarm_sim/share/swarm_sim, 
-    # we go up 4 levels to the workspace root, then into src.
-    ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
-    results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'single_agent')
-    os.makedirs(results_dir, exist_ok=True)
-    
-    # RViz2 Configuration
+    # 4. RViz2 Node
     rviz_config_file = os.path.join(pkg_swarm_sim, 'rviz', 'swarm.rviz')
     rviz_arg = DeclareLaunchArgument(
         'rviz',
@@ -107,41 +80,101 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('rviz')),
         output='screen'
     )
+
+    # 5. Bangun Arsitektur Kontrol Swarm Secara Dinamis (1 sampai 7 drone)
+    swarm_nodes = []
+    max_drones = 7
+    spacing = 2.0  # Jarak antar drone (meter)
     
-    # Mid-Level AI Obstacle Avoidance Configuration
-    mid_level_arg = DeclareLaunchArgument(
-        'mid_level',
-        default_value='true',
-        description='Launch collision avoidance DRL node (mid-level)'
-    )
-    collision_avoidance_node = Node(
-        package='swarm_mid_level',
-        executable='collision_avoidance_node',
-        condition=IfCondition(LaunchConfiguration('mid_level')),
-        output='screen'
-    )
-    
-    # 2. Node untuk Controller (Bisa PID-LQR atau PID-HINF)
-    controller_node = Node(
-        package='swarm_low_level',
-        executable=LaunchConfiguration('controller'),
-        name=LaunchConfiguration('controller'),
-        output='screen',
-        parameters=[{'log_dir': results_dir}],
-        on_exit=[EmitEvent(event=Shutdown())]
-    )
-    
-    return LaunchDescription([
+    for i in range(1, max_drones + 1):
+        drone_condition = IfCondition(
+            PythonExpression([f"{i} <= ", LaunchConfiguration('num_drones')])
+        )
+        
+        # Formasi sejajar di sepanjang sumbu Y (misal N=7: -6m, -4m, -2m, 0m, 2m, 4m, 6m)
+        y_pos = float((i - 4.0) * spacing)
+
+        # A. Spawn Node
+        spawn_node = Node(
+            package='ros_gz_sim',
+            executable='create',
+            name=f'spawn_iris_{i}',
+            arguments=[
+                '-world', 'swarm_world',
+                '-name', f'iris_{i}',
+                '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
+                '-x', '0.0',
+                '-y', str(y_pos),
+                '-z', '0.01'
+            ],
+            condition=drone_condition,
+            output='screen'
+        )
+        swarm_nodes.append(spawn_node)
+        
+        # B. Bridge Node (Odometry, Actuators, LiDAR, TF)
+        bridge_node = Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name=f'bridge_iris_{i}',
+            arguments=[
+                f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+                f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+                f'/model/iris_{i}/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
+            ],
+            remappings=[
+                (f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan', f'/iris_{i}/lidar_scan'),
+                (f'/model/iris_{i}/pose', '/tf')
+            ],
+            condition=drone_condition,
+            output='screen'
+        )
+        swarm_nodes.append(bridge_node)
+        
+        # C. Low-Level Controller (PID-LQR / PID-Hinf) dengan Parameter drone_id
+        controller_node = Node(
+            package='swarm_low_level',
+            executable=LaunchConfiguration('controller'),
+            name=f'controller_iris_{i}',
+            parameters=[
+                {'drone_id': i},
+                {'log_dir': results_dir}
+            ],
+            condition=drone_condition,
+            output='screen'
+        )
+        swarm_nodes.append(controller_node)
+        
+        # D. Mid-Level AI Obstacle Avoidance dengan Parameter drone_id
+        mid_level_condition = IfCondition(
+            PythonExpression([
+                f"{i} <= ", LaunchConfiguration('num_drones'),
+                " and '", LaunchConfiguration('use_mid_level'), "' == 'true'"
+            ])
+        )
+        ai_node = Node(
+            package='swarm_mid_level',
+            executable='collision_avoidance_node',
+            name=f'ai_iris_{i}',
+            parameters=[
+                {'drone_id': i}
+            ],
+            condition=mid_level_condition,
+            output='screen'
+        )
+        swarm_nodes.append(ai_node)
+        
+    launch_entities = [
         set_env,
         headless_arg,
-        controller_arg,
         rviz_arg,
-        mid_level_arg,
+        num_drones_arg,
+        controller_arg,
+        use_mid_level_arg,
         gz_sim_headless,
         gz_sim_gui,
-        spawn_drone,
-        bridge,
         rviz_node,
-        collision_avoidance_node,
-        controller_node
-    ])
+    ] + swarm_nodes
+
+    return LaunchDescription(launch_entities)

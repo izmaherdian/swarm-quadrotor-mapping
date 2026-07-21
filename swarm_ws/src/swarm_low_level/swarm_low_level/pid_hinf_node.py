@@ -103,17 +103,20 @@ class PIDHinfNode(Node):
         # Subscriber ke Odometry dan Publisher ke Motor (Actuators)
         # Konfigurasi Log Directory (untuk menyimpan CSV ke tempat yang terstruktur)
         self.declare_parameter('log_dir', os.getcwd())
+        self.declare_parameter('drone_id', 1)
         log_dir = self.get_parameter('log_dir').value
+        self.drone_id = self.get_parameter('drone_id').value
+        did = self.drone_id
         
-        self.subscription = self.create_subscription(Odometry, '/model/iris_1/odometry', self.odom_callback, 10)
-        self.target_sub = self.create_subscription(PoseStamped, '/iris_1/target_pose', self.target_pose_callback, 10)
-        self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
+        self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
+        self.target_sub = self.create_subscription(PoseStamped, f'/iris_{did}/target_pose', self.target_pose_callback, 10)
+        self.publisher = self.create_publisher(Actuators, f'/iris_{did}/command/motor_speed', 10)
             
         self.get_logger().info("=========================================")
-        self.get_logger().info("OTAK PID-HINF AKTIF! Misi: Melayang di Z=2.0m")
+        self.get_logger().info(f"OTAK PID-HINF iris_{did} AKTIF! Misi: Melayang di Z=2.0m")
         self.get_logger().info("=========================================")
         
-        self.csv_path = os.path.join(log_dir, 'flight_data_log_hinf.csv')
+        self.csv_path = os.path.join(log_dir, f'flight_data_log_hinf_iris_{did}.csv')
         self.csv_file = open(self.csv_path, mode='w', newline='')
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(['Time_s', 'X', 'Y', 'Z', 'Roll_deg', 'Pitch_deg', 'Yaw_deg',

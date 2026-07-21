@@ -86,3 +86,46 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
   2. Jalankan misi penuh (Fase 1 + 2 + 3 secara serentak).
   3. Ekstrak plot log (Kinerja Baterai, Coverage Area, Error ITAE) untuk ditulis di naskah konferensi EPIC.
 
+  ### 📋 Urutan Eksekusi saat Sistem Dijalankan:
+  
+  #### Langkah 1: Inisialisasi Dunia Fisika Gazebo & Visualizer RViz2
+  
+  • ROS 2 Launch File meluncurkan lingkungan Gazebo Harmonic (empty.world) dan menampilkan GUI
+  RViz2.
+  • N drone (misal iris_1 s/d iris_N) di-spawn pada koordinat dasar tanah (Z = 0.01 m).       
+  • ROS 2 Bridge mengaktifkan topik odometri /model/iris_i/odometry, LiDAR /iris_i/lidar_scan,
+  dan penggerak motor /model/iris_i/command/motor_speed.
+  ──────
+  #### Langkah 2: Peluncuran Low-Level Controller (PID-LQR / PID-Hinf)
+  
+  • Node pid_lqr_node atau pid_hinf_node aktif untuk setiap drone iris_i.
+  • Kontroler membaca sensor odometri fisik Gazebo dan bersiap menerima referensi target pose 
+  dari mid-level.
+  ──────
+  #### Langkah 3: Peluncuran Mid-Level AI Obstacle Avoidance (ONNX PPO)
+  
+  • Node collision_avoidance_node aktif untuk setiap drone iris_i.
+  • Node ini mendengarkan pembacaan 72-ray LiDAR dari Gazebo.
+  • Secara default, node ini memerintahkan drone untuk Takeoff (Lepas Landas) terlebih dahulu 
+  ke ketinggian aman Z = 2.0 m.
+  ──────
+  #### Langkah 4: Peluncuran High-Level Planner (simulator_kinematics / Node Voronoi)         
+  
+  • Algoritma Voronoi + Boustrophedon membagi area pemetaan ke N drone dan menghasilkan urutan
+  titik waypoint.
+  • Node mempublikasikan titik waypoint tujuan pertama (X,Y,Z) ke topik /iris_i/waypoint_pose.
+  ──────
+  #### Langkah 5: Penerbangan & Navigasi Swarm Real-Time
+  
+  1. Mid-Level (AI) membaca waypoint target dari High-Level dan rintangan LiDAR dari Gazebo → 
+  Menghasilkan vektor kemudi lincah
+  
+    V ,V
+     x  y
+  
+  (navigasi zig-zag jika ada rintangan) → Dikirim ke /iris_i/target_pose.
+  2. Low-Level (Kontroler Robust) membaca /iris_i/target_pose → Menghitung perintah RPM 4     
+  motor → Dikirim ke Gazebo /model/iris_i/command/motor_speed.
+  3. Gazebo Harmonic memutar rotor drone berdasarkan dinamika fisika → Drone terbang bergerak 
+  secara nyata.
+  4. RViz2 menampilkan pergerakan 3D drone dan garis jejak penerbangan secara real-time.      

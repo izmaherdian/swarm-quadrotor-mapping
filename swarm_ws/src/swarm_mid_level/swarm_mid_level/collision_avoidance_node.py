@@ -21,11 +21,14 @@ class CollisionAvoidanceNode(Node):
         self.declare_parameter('max_speed', 1.5)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
+        self.declare_parameter('drone_id', 1)
 
         model_path = self.get_parameter('model_path').value
         self.max_speed = self.get_parameter('max_speed').value
         self.target_z_height = self.get_parameter('target_z_height').value
         self.dt = self.get_parameter('dt').value
+        self.drone_id = self.get_parameter('drone_id').value
+        did = self.drone_id
 
         # If model_path is empty, find the default ONNX model path
         if not model_path:
@@ -33,7 +36,7 @@ class CollisionAvoidanceNode(Node):
             pkg_share = get_package_share_directory('swarm_mid_level')
             model_path = os.path.join(pkg_share, 'models', 'ppo_lidar_avoidance.onnx')
 
-        self.get_logger().info(f"Loading ONNX Model from: {model_path}")
+        self.get_logger().info(f"Loading ONNX Model for iris_{did} from: {model_path}")
         try:
             self.ort_session = ort.InferenceSession(model_path)
             self.get_logger().info("Successfully loaded ONNX policy model.")
@@ -51,26 +54,26 @@ class CollisionAvoidanceNode(Node):
         # Subscriptions
         self.lidar_sub = self.create_subscription(
             LaserScan,
-            '/lidar_scan',
+            f'/iris_{did}/lidar_scan',
             self.lidar_callback,
             10
         )
         self.odom_sub = self.create_subscription(
             Odometry,
-            '/model/iris_1/odometry',
+            f'/model/iris_{did}/odometry',
             self.odom_callback,
             10
         )
         self.waypoint_sub = self.create_subscription(
             PointStamped,
-            '/iris_1/waypoint',
+            f'/iris_{did}/waypoint',
             self.waypoint_callback,
             10
         )
-        # Also accept PoseStamped on /iris_1/waypoint_pose for convenience
+        # Also accept PoseStamped on /iris_{did}/waypoint_pose for convenience
         self.waypoint_pose_sub = self.create_subscription(
             PoseStamped,
-            '/iris_1/waypoint_pose',
+            f'/iris_{did}/waypoint_pose',
             self.waypoint_pose_callback,
             10
         )
@@ -78,7 +81,7 @@ class CollisionAvoidanceNode(Node):
         # Publisher to low-level controller
         self.pose_pub = self.create_publisher(
             PoseStamped,
-            '/iris_1/target_pose',
+            f'/iris_{did}/target_pose',
             10
         )
 
