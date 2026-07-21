@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-Simulator Pemetaan Swarm Drone — Voronoi + Boustrophedon Coverage
-Drone bergerak nyata mengikuti jalur zigzag di setiap sel Voronoi.
+===============================================================================
+  SIMULATOR PEMETAAN SWARM QUADROTOR — VORONOI & BOUSTROPHEDON RECOVERY
+===============================================================================
 
-REVISI v3:
-  - Failure recovery sekarang: drone helper SELESAIKAN DULU sisa jalur
-    zigzag miliknya sendiri secara utuh (urutan asli, tidak diacak),
-    BARU setelah itu mengerjakan titik-titik recovery yang ditempel di
-    ujung. Sub-rute recovery-nya sendiri tetap dioptimasi urutannya
-    (nearest-neighbor + 2-opt) supaya efisien, tapi tidak pernah
-    diselipkan di tengah jalur sendiri.
-  - Jumlah drone helper TIDAK selalu 3: default cuma 1 drone terdekat.
-    Helper ke-2/ke-3 baru dilibatkan kalau jumlah titik yang perlu
-    di-scan ulang melebihi RECOVERY_POINTS_PER_DRONE (area terlalu
-    besar untuk satu drone sendirian).
-  - Setiap waypoint punya flag `wp_flags` (True = harus tetap di dalam
-    sel Voronoi sendiri, False = boleh keluar karena titik recovery),
-    dipakai untuk hard-boundary enforcement per-segmen.
+Deskripsi Algoritma Utama:
+  1. Partisi Wilayah (Centroidal Voronoi Tessellation - Lloyd's Relaxation):
+     Membagi wilayah kerja secara adil & proporsional berdasarkan posisi drone.
+  2. Perencanaan Jalur Sapuan (Boustrophedon Lawnmower Sweep):
+     Menghasilkan garis sapuan lurus horizontal (fixed_angle=0.0) di dalam sel.
+  3. Penanganan Kegagalan (Shapely Raw Voronoi Polygon Union):
+     - Membuang antrian recovery lama yang belum disentuh.
+     - Meleburkan sel-sel Voronoi mati yang saling menempel via Shapely unary_union.
+     - Menghasilkan rute Lawnmower horizontal bersambung baru di atas sel gabungan.
+     - Membagi tugas recovery ke maksimal 3 drone helper terdekat dengan penyesuaian
+       posisi akhir scan helper (parallel spatial alignment) & transisi siku-siku
+       (orthogonal boundary entry).
 
-Kontrol keyboard:
-  1–7 : Toggle drone aktif/mati
-  L   : Ganti formasi spawn drone (Grid → Circular → V-Shape)
-  B   : Ganti batas wilayah (Rectangle → Circle → Hexagon)
+Kontrol Keyboard GUI:
+  1 – 7 : Toggle drone aktif / mati (OFF / ON)
+  L     : Ganti formasi awal drone (GRID → CIRCULAR → V-SHAPE)
+  B     : Ganti batas wilayah (RECTANGLE → LARGE RECTANGLE → CIRCLE → HEXAGON)
+===============================================================================
 """
 import math
 import numpy as np
@@ -493,6 +493,7 @@ class SwarmSim:
                     self.needs_plan = True
             elif not was_active and self.active[idx]:
                 print(f"[KEY] Drone {idx} → ON")
+                self.newly_died = [d for d in self.newly_died if d != idx]
                 self.needs_plan = True
         elif k in ('l','L'):
             self.lay_idx = (self.lay_idx+1) % len(self.layouts)
@@ -582,6 +583,33 @@ class SwarmSim:
 
         self.inited     = True
         self.needs_plan = False
+
+        # Evaluasi ulang poligon sel mati: Jika seluruh drone kembali ON (misal dipencet 2x),
+        # hapus total blok merah (merged_dead_comp_polys) dari visualisasi GUI!
+        dead_drones = [d for d in range(1, self.nd+1)
+                       if not (self.active[d] and not self.collided[d]) and len(self.cells[d]) >= 3]
+
+        if dead_drones:
+            try:
+                from shapely.geometry import Polygon as SpPolygon
+                from shapely.ops import unary_union
+                sp_polys = [SpPolygon(self.cells[d]).buffer(0.05) for d in dead_drones if len(self.cells[d]) >= 3]
+                merged = unary_union(sp_polys).buffer(-0.05)
+                if merged.geom_type == 'Polygon':
+                    self.merged_dead_comp_polys = [np.array(merged.exterior.coords)]
+                elif merged.geom_type == 'MultiPolygon':
+                    self.merged_dead_comp_polys = [np.array(p.exterior.coords) for p in merged.geoms]
+                else:
+                    self.merged_dead_comp_polys = [self.cells[d] for d in dead_drones]
+            except Exception:
+                self.merged_dead_comp_polys = [self.cells[d] for d in dead_drones]
+        else:
+            self.merged_dead_comp_polys = []
+            self.pending_recovery_pts = []
+            self.recovery_mode = False
+            # Jika seluruh drone kembali aktif (misal dipencet 2x), bersihkan pula pixel coverage hijau!
+            if all(self.active[d] and not self.collided[d] for d in range(1, self.nd+1)):
+                self.cov_grid.fill(0.0)
 
     # ── Failure Recovery (v2: reroute optimal, bukan greedy per-langkah) ──
 
@@ -975,6 +1003,7 @@ class SwarmSim:
                           f"akan didistribusi ulang ke drone lain")
 
         self._update_cov()
+        self.im_cov.set_extent([self.x_min, self.x_max, self.y_min, self.y_max])
         self.im_cov.set_data(self.cov_grid)
 
         if frame % 5 == 0:

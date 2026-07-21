@@ -76,8 +76,8 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
   1. ~~Integrasikan 7 model quadrotor ke dalam satu *launch file* Gazebo (`swarm_launch.py` mendukung dynamic scaling 1 s.d. 7 drone).~~ (Selesai! Modular dengan namespaces terisolasi dan topic remapping).
   2. ~~Buat definisi *custom message* di `swarm_msgs` (`Heartbeat.msg` untuk koordinat & status keaktifan).~~ (Selesai! Dikompilasi mandiri tanpa error spasi path).
   3. ~~Tulis `voronoi_node.py` dan `bezier_path.py` di `swarm_high_level` untuk membagi wilayah.~~ (Selesai! Menggunakan kliping poligon dinamis Sutherland-Hodgman & kurva kuadratik Bézier G1 continuity).
-  4. ~~Aktifkan fitur **FT-CC**: Jika ada drone mati (timeout > 2.5s), sel Voronoi drone aktif membesar secara otomatis.~~ (Selesai! Diimplementasikan dengan konsep **Resilient Continue** di mana rute lawnmower lokal dihitung ulang dan dilanjutkan dari titik terdekat).
-  5. ~~Buat simulator kinematik mandiri interaktif (`simulator_kinematics.py`) untuk visualisasi 2D cepat.~~ (Selesai! Lengkap dengan tampilan trail coverage, metrik persentase area ter-mapping, dan tombol keyboard 1-7 untuk simulasi crash drone).
+  4. ~~Aktifkan fitur **FT-CC & Shapely Raw Voronoi Polygon Union ($V_{\text{merged}} = \bigcup V_{\text{dead}}$)**:~~ (Selesai! Jika drone tetangga mati saat *mapping* berjalan, antrian *recovery* lama dibuang, sel Voronoi mati yang menempel dilebur utuh via Shapely `unary_union`, dan dihasilkan rute Lawnmower horizontal lurus baru (`fixed_angle=0.0`) yang dibagi ke maksimal 3 helper).
+  5. ~~Buat simulator kinematik mandiri interaktif (`simulator_kinematics.py`) untuk visualisasi 2D cepat.~~ (Selesai! Lengkap dengan *Parallel Spatial Alignment* (0 path crossing), *Orthogonal Boundary Entry Transition*, GUI non-overlapping sidebar, reset instan saat toggle ON, dan integrasi 100% di `.venv`).
 
 ### FASE 4: Visualisasi Akhir & Pengambilan Data (Finishing) - **[IN PROGRESS]**
 * **Tujuan:** Mempercantik antarmuka untuk di-*screenshot* ke dalam jurnal/paper dan mengambil data metrik performa.
