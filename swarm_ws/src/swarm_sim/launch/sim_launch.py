@@ -82,6 +82,11 @@ def generate_launch_description():
     )
 
     # 5. Bangun Arsitektur Kontrol Swarm Secara Dinamis (1 sampai 7 drone)
+    pkg_share = get_package_share_directory('swarm_sim')
+    ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
+    results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'swarm')
+    os.makedirs(results_dir, exist_ok=True)
+
     swarm_nodes = []
     max_drones = 7
     spacing = 2.0  # Jarak antar drone (meter)
