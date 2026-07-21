@@ -386,15 +386,24 @@ class SwarmSim:
     def _setup_plot(self):
         ax = self.ax
         ax.clear()
-        ax.set_xlim(self.x_min-0.5, self.x_max+3.5)
-        ax.set_ylim(self.y_min-0.8, self.y_max+0.8)
+        
+        w_span = max(1.0, self.x_max - self.x_min)
+        h_span = max(1.0, self.y_max - self.y_min)
+        m_x = max(0.8, w_span * 0.05)
+        m_y = max(0.8, h_span * 0.05)
+
+        # Alokasikan 26% area kosong di sebelah kanan khusus untuk Sidebar Legend & Status Box
+        # agar TIDAK PERNAH saling menutupi atau menumpuk di atas peta!
+        ax.set_xlim(self.x_min - m_x, self.x_max + w_span * 0.28)
+        ax.set_ylim(self.y_min - m_y, self.y_max + m_y)
         ax.set_aspect('equal')
         ax.grid(True, ls='--', alpha=0.35, color='#cccccc')
         ax.set_facecolor('#f8f9fa')
+
         ax.set_title(
-            "Swarm Coverage Simulator — Voronoi + Boustrophedon (selesaikan sendiri dulu, recovery di akhir)\n"
-            "[ 1–7: toggle drone  |  L: layout  |  B: boundary ]",
-            fontsize=12, pad=8)
+            "Swarm Quadrotor Coverage Simulator — Centroidal Voronoi + Boustrophedon Recovery\n"
+            "[ 1–7: Toggle Drone  |  L: Toggle Layout  |  B: Toggle Boundary ]",
+            fontsize=12, pad=10, fontweight='bold', color='#111111')
         ax.set_xlabel("X (meter)"); ax.set_ylabel("Y (meter)")
 
         self.im_cov = ax.imshow(
@@ -405,19 +414,23 @@ class SwarmSim:
 
         bv = np.vstack([self.bbox, self.bbox[0]])
         self.h_bdry, = ax.plot(bv[:,0], bv[:,1], 'k-', lw=2.5, zorder=8,
-                               label='Batas wilayah')
+                               label='Batas Wilayah')
 
+        # ── Text Box Coverage (Pojok Kiri Atas Peta) ──────────────────
         self.h_cov_txt = ax.text(
-            0.25, 4.35, "Coverage: 0.0%",
-            fontsize=13, fontweight='bold', color='#155724',
+            self.x_min + w_span * 0.02, self.y_max - h_span * 0.03,
+            "Coverage: 0.0%",
+            fontsize=12, fontweight='bold', color='#155724',
             bbox=dict(fc='#d4edda', alpha=0.92, ec='#155724',
                       boxstyle='round,pad=0.45'), zorder=10)
 
+        # ── Text Box Status Drone (Sidebar Kanan Bawah Legend) ────────
         self.h_stat_txt = ax.text(
-            10.6, 4.5, "Status:\n—",
-            fontsize=9, family='monospace',
-            bbox=dict(fc='white', alpha=0.90, ec='#888',
-                      boxstyle='round,pad=0.4'), zorder=10)
+            self.x_max + w_span * 0.04, self.y_max - h_span * 0.45,
+            "Drone Status:\n—",
+            fontsize=8.5, family='monospace', va='top',
+            bbox=dict(fc='white', alpha=0.90, ec='#aaaaaa',
+                      boxstyle='round,pad=0.45'), zorder=10)
 
         self.h_plan   = {}
         self.h_trail  = {}
@@ -430,15 +443,18 @@ class SwarmSim:
                                         lw=1.2, alpha=0.40, zorder=2)
             self.h_trail[i],  = ax.plot([], [], '-',  color=c,
                                         lw=2.2, alpha=0.80, zorder=4)
-            self.h_marker[i], = ax.plot([], [], 'o',  color=c, ms=12,
+            self.h_marker[i], = ax.plot([], [], 'o',  color=c, ms=11,
                                         mec='white', mew=1.5,
-                                        zorder=6, label=f"D{i}")
+                                        zorder=6, label=f"Drone {i}")
             self.h_label[i]   = ax.text(0, 0, f"D{i}", fontsize=8,
                                         ha='center', va='bottom',
                                         color=c, fontweight='bold',
                                         zorder=7, visible=False)
 
-        ax.legend(loc='upper right', fontsize=8.5, ncol=2)
+        # Legend diletakkan rapi di Sidebar Kanan Atas (TIDAK MENUMPUK DENGAN PETA)
+        ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0),
+                  fontsize=8.5, ncol=2, framealpha=0.90,
+                  title=" Keterangan Warna ")
         self.voronoi_patches = []
 
     # ── Keyboard ────────────────────────────────────────────────────
