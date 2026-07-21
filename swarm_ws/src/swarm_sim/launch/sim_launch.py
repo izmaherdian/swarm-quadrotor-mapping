@@ -92,10 +92,30 @@ def generate_launch_description():
             PythonExpression([f"{i} <= ", LaunchConfiguration('num_drones')])
         )
         
-        # Formasi sejajar di sepanjang sumbu Y (misal N=7: -6m, -4m, -2m, 0m, 2m, 4m, 6m)
+        # Per-drone bridge node for complete topic isolation
+        bridge_args = [
+            f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+            f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
+            f'/model/iris_{i}/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+        ]
+        bridge_remaps = [
+            (f'/model/iris_{i}/odometry', f'/iris_{i}/odometry'),
+            (f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan', f'/iris_{i}/lidar_scan'),
+            (f'/model/iris_{i}/pose', '/tf'),
+        ]
+        swarm_nodes.append(Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name=f'bridge_iris_{i}',
+            arguments=bridge_args,
+            remappings=bridge_remaps,
+            condition=drone_condition,
+            output='screen'
+        ))
+        
         y_pos = float((i - 4.0) * spacing)
 
-        # A. Spawn Node
         spawn_node = Node(
             package='ros_gz_sim',
             executable='create',
@@ -103,7 +123,7 @@ def generate_launch_description():
             arguments=[
                 '-world', 'swarm_world',
                 '-name', f'iris_{i}',
-                '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
+                '-file', os.path.join(model_dir, f'iris_{i}', 'model.sdf'),
                 '-x', '0.0',
                 '-y', str(y_pos),
                 '-z', '0.01'
@@ -113,31 +133,12 @@ def generate_launch_description():
         )
         swarm_nodes.append(spawn_node)
         
-        # B. Bridge Node (Odometry, Actuators, LiDAR, TF)
-        bridge_node = Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name=f'bridge_iris_{i}',
-            arguments=[
-                f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-                f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
-                f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-                f'/model/iris_{i}/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
-            ],
-            remappings=[
-                (f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan', f'/iris_{i}/lidar_scan'),
-                (f'/model/iris_{i}/pose', '/tf')
-            ],
-            condition=drone_condition,
-            output='screen'
-        )
-        swarm_nodes.append(bridge_node)
-        
         # C. Low-Level Controller (PID-LQR / PID-Hinf) dengan Parameter drone_id
         controller_node = Node(
             package='swarm_low_level',
             executable=LaunchConfiguration('controller'),
             name=f'controller_iris_{i}',
+            namespace=f'iris_{i}',
             parameters=[
                 {'drone_id': i},
                 {'log_dir': results_dir},

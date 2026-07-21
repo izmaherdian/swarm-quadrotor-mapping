@@ -121,10 +121,10 @@ class PIDLQRNode(Node):
         self.declare_parameter('log_dir', os.getcwd())
         log_dir = self.get_parameter('log_dir').value
         
-        self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
-        self.target_sub = self.create_subscription(PoseStamped, f'/iris_{did}/target_pose', self.target_pose_callback, 10)
-        self.publisher = self.create_publisher(Actuators, f'/iris_{did}/command/motor_speed', 10)
-        self.marker_pub = self.create_publisher(MarkerArray, f'/iris_{did}/marker_visual', 10)
+        self.subscription = self.create_subscription(Odometry, 'odometry', self.odom_callback, 10)
+        self.target_sub = self.create_subscription(PoseStamped, 'target_pose', self.target_pose_callback, 10)
+        self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
+        self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
             
         self.get_logger().info("=========================================")
         self.get_logger().info(f"OTAK PID-LQR iris_{did} AKTIF! Misi: Melayang di Z=2.0m")
@@ -240,7 +240,6 @@ class PIDLQRNode(Node):
         nanosec = msg.header.stamp.nanosec
         current_time = sec + nanosec * 1e-9
         
-        # Ekstrak Posisi Aktual
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
@@ -258,20 +257,17 @@ class PIDLQRNode(Node):
         dt = current_time - self.last_time
         self.last_time = current_time
         
-        # Selama fase takeoff (Z < 1.5m) dan belum ada waypoint eksternal, kunci X, Y di posisi formasi
         if z < 1.5 and not self.target_pose_received:
             self.x_cmd = self.formation_x
             self.y_cmd = self.formation_y
         
-        # Tangani Time Jumps atau Nilai dt Invalid
         reset_derivative = False
         if dt <= 0 or dt >= 0.1:
             reset_derivative = True
-            dt_control = 0.02  # Gunakan default dt untuk menjaga stabilitas filter/PID
+            dt_control = 0.02
         else:
             dt_control = dt
             
-        # Update dt Dinamis ke seluruh PID
         self.pid_x_out.dt = dt_control
         self.pid_x_in.dt = dt_control
         self.pid_y_out.dt = dt_control
@@ -279,7 +275,6 @@ class PIDLQRNode(Node):
         self.pid_z.dt = dt_control
         self.pid_yaw.dt = dt_control
         
-        # 1. BACA SENSOR
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
@@ -290,7 +285,6 @@ class PIDLQRNode(Node):
         qw = msg.pose.pose.orientation.w
         phi, theta, yaw = self.euler_from_quaternion(qx, qy, qz, qw)
         
-        # Kecepatan Linear dan Angular
         vx = msg.twist.twist.linear.x
         vy = msg.twist.twist.linear.y
         vz = msg.twist.twist.linear.z
@@ -298,9 +292,6 @@ class PIDLQRNode(Node):
         q_ang = msg.twist.twist.angular.y
         r_ang = msg.twist.twist.angular.z
         
-        # 1.5 UPDATE PRE-FILTER
-        # Mencegah step response mendadak dengan menghaluskan target (seperti di simulator)
-        # Gunakan dt_control untuk stabilitas integrasi numerik pre-filter
         self.filt_x[1] += (self.w_n_sq * (self.x_cmd - self.filt_x[0]) - self.two_zeta_wn * self.filt_x[1]) * dt_control
         self.filt_x[0] += self.filt_x[1] * dt_control
         
@@ -313,10 +304,8 @@ class PIDLQRNode(Node):
         self.filt_yaw[1] += (self.w_n_sq * (self.yaw_cmd - self.filt_yaw[0]) - self.two_zeta_wn * self.filt_yaw[1]) * dt_control
         self.filt_yaw[0] += self.filt_yaw[1] * dt_control
         
-        # 2. PROSES DI OTAK (KONTROLER) menggunakan target ber-filter
         err_x = self.filt_x[0] - x
         theta_ref_raw = self.pid_x_out.compute(err_x, reset_derivative=reset_derivative)
-        # Batasi sudut pitch saat masih rendah (takeoff) untuk mencegah jungkir balik
         max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
         theta_ref = np.clip(theta_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_theta = theta_ref - theta
@@ -334,8 +323,6 @@ class PIDLQRNode(Node):
         err_yaw = self.filt_yaw[0] - yaw
         uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
         
-        # 3. KIRIM PERINTAH KE OTOT (AKTUATOR)
-        # Menambah gaya berat agar hovering, lalu dikonversi ke kecepatan rotasi via Inverse Mixer
         U_cmd = np.array([uz_pid + (self.m * self.g), ux_pid, uy_pid, uyaw_pid])
         
         w_sq_cmd = self.M_inv @ U_cmd
@@ -344,10 +331,9 @@ class PIDLQRNode(Node):
         
         act_msg = Actuators()
         act_msg.velocity = [float(w_cmd[0]), float(w_cmd[1]), float(w_cmd[2]), float(w_cmd[3])]
-        act_msg.normalized = act_msg.velocity  # Gazebo bridge trick
+        act_msg.normalized = act_msg.velocity
         self.publisher.publish(act_msg)
         
-        # Logging
         roll_deg = math.degrees(phi)
         pitch_deg = math.degrees(theta)
         yaw_deg = math.degrees(yaw)
@@ -372,7 +358,6 @@ class PIDLQRNode(Node):
                                   w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
         self.csv_file.flush()
         
-        # Publikasikan Visualisasi Marker 3D Drone (Kotak + Sumbu X & Y Saja)
         self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation)
 
     def target_pose_callback(self, msg):
