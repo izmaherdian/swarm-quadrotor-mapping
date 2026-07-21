@@ -106,8 +106,13 @@ class PIDLQRNode(Node):
         self.declare_parameter('log_dir', os.getcwd())
         self.declare_parameter('drone_id', 1)
         log_dir = self.get_parameter('log_dir').value
-        self.drone_id = int(self.get_parameter('drone_id').value)
-        did = self.drone_id
+        
+        node_name = self.get_name()
+        if '_' in node_name and node_name.split('_')[-1].isdigit():
+            did = int(node_name.split('_')[-1])
+        else:
+            did = int(self.get_parameter('drone_id').value)
+        self.drone_id = did
         
         self.subscription = self.create_subscription(Odometry, f'/model/iris_{did}/odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, f'/iris_{did}/target_pose', self.target_pose_callback, 10)
