@@ -67,7 +67,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/model/iris_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+            '/model/iris_1/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
             '/world/swarm_world/model/iris_1/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
             '/model/iris_1/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
         ],
@@ -111,7 +111,7 @@ def generate_launch_description():
     # Mid-Level AI Obstacle Avoidance Configuration
     mid_level_arg = DeclareLaunchArgument(
         'mid_level',
-        default_value='false',
+        default_value='true',
         description='Launch collision avoidance DRL node (mid-level)'
     )
     collision_avoidance_node = Node(
