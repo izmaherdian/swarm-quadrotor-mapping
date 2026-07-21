@@ -86,10 +86,11 @@ class PIDLQRNode(Node):
         ])
         self.M_inv = np.linalg.inv(M)
         
-        # Target referensi awal di (0, 0, 2)
+        # Target referensi awal (Z = 2.0m)
         self.x_cmd, self.y_cmd, self.z_cmd = 0.0, 0.0, 2.0
         self.yaw_cmd = np.radians(0.0)
-        
+        self.target_pose_received = False
+
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
         # Mulai dari titik awal (0, 0, 0)
         self.filt_x = [0.0, 0.0]
@@ -152,6 +153,11 @@ class PIDLQRNode(Node):
         if self.start_time is None:
             self.start_time = current_time
             self.last_time = current_time
+            if not self.target_pose_received:
+                self.x_cmd = msg.pose.pose.position.x
+                self.y_cmd = msg.pose.pose.position.y
+                self.filt_x = [self.x_cmd, 0.0]
+                self.filt_y = [self.y_cmd, 0.0]
             return
             
         t = current_time - self.start_time

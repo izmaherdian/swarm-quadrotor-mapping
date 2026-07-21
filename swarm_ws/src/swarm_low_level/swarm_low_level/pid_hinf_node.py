@@ -85,15 +85,16 @@ class PIDHinfNode(Node):
         ])
         self.M_inv = np.linalg.inv(M)
         
-        # Target referensi akhir di (2, 2, 2)
-        self.x_cmd, self.y_cmd, self.z_cmd = 2.0, 2.0, 2.0
-        self.yaw_cmd = np.radians(10.0)
-        
+        # Target referensi awal (Z = 2.0m)
+        self.x_cmd, self.y_cmd, self.z_cmd = 0.0, 0.0, 2.0
+        self.yaw_cmd = np.radians(0.0)
+        self.target_pose_received = False
+
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
-        # Mulai dari titik awal (1, 1, 1)
-        self.filt_x = [1.0, 0.0]
-        self.filt_y = [1.0, 0.0]
-        self.filt_z = [1.0, 0.0]
+        # Mulai dari titik awal (0, 0, 0)
+        self.filt_x = [0.0, 0.0]
+        self.filt_y = [0.0, 0.0]
+        self.filt_z = [0.0, 0.0]
         self.filt_yaw = [0.0, 0.0]
         
         # Parameter Pre-filter (wn = 1.5 rad/s, zeta = 1.0)
@@ -151,6 +152,11 @@ class PIDHinfNode(Node):
         if self.start_time is None:
             self.start_time = current_time
             self.last_time = current_time
+            if not self.target_pose_received:
+                self.x_cmd = msg.pose.pose.position.x
+                self.y_cmd = msg.pose.pose.position.y
+                self.filt_x = [self.x_cmd, 0.0]
+                self.filt_y = [self.y_cmd, 0.0]
             return
             
         t = current_time - self.start_time
