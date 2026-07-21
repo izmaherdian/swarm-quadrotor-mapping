@@ -52,9 +52,10 @@ class CollisionAvoidanceNode(Node):
         # State Variables
         self.current_pos = np.array([0.0, 0.0, 0.0])
         self.current_vel = np.array([0.0, 0.0])
-        self.target_waypoint = np.array([0.0, 0.0])  # default starting target (X,Y)
+        self.target_waypoint = None  # Will set to initial spawn position on first odom
         self.target_z_height = self.get_parameter('target_z_height').value
         self.lidar_ranges = np.ones(72, dtype=np.float32) * 10.0
+        self.waypoint_received = False
 
         # Subscriptions
         self.lidar_sub = self.create_subscription(
@@ -106,30 +107,48 @@ class CollisionAvoidanceNode(Node):
         self.current_pos[1] = msg.pose.pose.position.y
         self.current_pos[2] = msg.pose.pose.position.z
 
+        # Set default initial target waypoint to initial spawn location if no external waypoint received
+        if self.target_waypoint is None:
+            self.target_waypoint = np.array([self.current_pos[0], self.current_pos[1]])
+            self.get_logger().info(f"[AI] Target awal di-set ke lokasi spawn: X={self.target_waypoint[0]:.2f}, Y={self.target_waypoint[1]:.2f}")
+
         # Update current velocity (in world or body frame depending on odom config)
         self.current_vel[0] = msg.twist.twist.linear.x
         self.current_vel[1] = msg.twist.twist.linear.y
 
     def waypoint_callback(self, msg):
         # Update high-level target waypoint from PointStamped (X, Y, Z)
-        self.target_waypoint[0] = msg.point.x
-        self.target_waypoint[1] = msg.point.y
+        self.target_waypoint = np.array([msg.point.x, msg.point.y])
         self.target_z_height = msg.point.z
+        self.waypoint_received = True
         self.get_logger().info(
             f"[AI] Waypoint baru: X={msg.point.x:.2f}, Y={msg.point.y:.2f}, Z={msg.point.z:.2f}"
         )
 
     def waypoint_pose_callback(self, msg):
         # Update high-level target waypoint from PoseStamped (X, Y, Z)
-        self.target_waypoint[0] = msg.pose.position.x
-        self.target_waypoint[1] = msg.pose.position.y
+        self.target_waypoint = np.array([msg.pose.position.x, msg.pose.position.y])
         self.target_z_height = msg.pose.position.z
+        self.waypoint_received = True
         self.get_logger().info(
             f"[AI] Waypoint baru (PoseStamped): X={msg.pose.position.x:.2f}, Y={msg.pose.position.y:.2f}, Z={msg.pose.position.z:.2f}"
         )
 
     def control_loop(self):
-        if self.ort_session is None:
+        if self.ort_session is None or self.target_waypoint is None:
+            return
+
+        # 0. Takeoff phase check: hold position until Z >= 1.5m
+        if self.current_pos[2] < 1.5 and not self.waypoint_received:
+            # Publish straight takeoff pose
+            target_pose = PoseStamped()
+            target_pose.header.stamp = self.get_clock().now().to_msg()
+            target_pose.header.frame_id = 'world'
+            target_pose.pose.position.x = float(self.target_waypoint[0])
+            target_pose.pose.position.y = float(self.target_waypoint[1])
+            target_pose.pose.position.z = float(self.target_z_height)
+            target_pose.pose.orientation.w = 1.0
+            self.pose_pub.publish(target_pose)
             return
 
         # 1. Calculate relative target coordinates
