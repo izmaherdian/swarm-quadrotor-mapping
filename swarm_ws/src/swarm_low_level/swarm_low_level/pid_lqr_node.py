@@ -228,8 +228,11 @@ class PIDLQRNode(Node):
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
         w_cmd = np.clip(w_cmd, self.w_min, self.w_max)
         
+        # Gazebo Harmonic MulticopterMotorModel expects RPM (rad/s * 9.5492965)
+        w_rpm = w_cmd * 9.5492965
+        
         act_msg = Actuators()
-        act_msg.velocity = [float(w_cmd[0]), float(w_cmd[1]), float(w_cmd[2]), float(w_cmd[3])]
+        act_msg.velocity = [float(w_rpm[0]), float(w_rpm[1]), float(w_rpm[2]), float(w_rpm[3])]
         act_msg.normalized = act_msg.velocity  # Gazebo bridge trick
         self.publisher.publish(act_msg)
         
