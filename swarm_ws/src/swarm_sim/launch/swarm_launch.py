@@ -42,6 +42,11 @@ def generate_launch_description():
         default_value='pid_lqr_node',
         description='Kontroler low-level: pid_lqr_node atau pid_hinf_node'
     )
+    use_mid_level_arg = DeclareLaunchArgument(
+        'use_mid_level',
+        default_value='true',
+        description='Jalankan node mid-level collision avoidance (ONNX)'
+    )
 
     # 3. Launch Gazebo Server & Client (GUI/Headless)
     gz_args_headless = f'-r -s "{world_file}"'
@@ -107,7 +112,7 @@ def generate_launch_description():
                 '-file', os.path.join(model_dir, 'iris_base', 'model.sdf'),
                 '-x', '0.0',
                 '-y', str(y_pos),
-                '-z', '0.01'
+                '-z', '0.10'
             ],
             condition=drone_condition,
             output='screen'
@@ -121,7 +126,8 @@ def generate_launch_description():
             name=f'bridge_iris_{i}',
             arguments=[
                 f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-                f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
+                # Actuator: topic Gazebo MulticopterMotorModel plugin = /model/iris_{i}/command/motor_speed
+                f'/model/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
                 f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
                 f'/model/iris_{i}/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'
             ],
@@ -134,33 +140,36 @@ def generate_launch_description():
         )
         swarm_nodes.append(bridge_node)
         
-        # C. Low-Level Controller (LQR / H-infinity) dengan Remapping
+        # C. Low-Level Controller (LQR / H-infinity) dengan Parameter drone_id
+        # CATATAN: Tidak menggunakan remapping karena ROS2 remapping tidak andal
+        # untuk absolute topic names. Setiap node membangun topicnya sendiri via drone_id.
         controller_node = Node(
             package='swarm_low_level',
             executable=LaunchConfiguration('controller'),
             name=f'controller_iris_{i}',
-            remappings=[
-                ('/model/iris_1/odometry', f'/model/iris_{i}/odometry'),
-                ('/iris_1/command/motor_speed', f'/iris_{i}/command/motor_speed'),
-                ('/iris_1/target_pose', f'/iris_{i}/target_pose')
+            parameters=[
+                {'drone_id': i}   # Kunci: setiap controller tahu ID drone-nya sendiri
             ],
             condition=drone_condition,
             output='screen'
         )
         swarm_nodes.append(controller_node)
         
-        # D. Mid-Level AI Obstacle Avoidance dengan Remapping
+        # D. Mid-Level AI Obstacle Avoidance dengan Parameter drone_id (Di-bypass jika use_mid_level=false)
+        mid_level_condition = IfCondition(
+            PythonExpression([
+                f"{i} <= ", LaunchConfiguration('num_drones'),
+                " and '", LaunchConfiguration('use_mid_level'), "' == 'true'"
+            ])
+        )
         ai_node = Node(
             package='swarm_mid_level',
             executable='collision_avoidance_node',
             name=f'ai_iris_{i}',
-            remappings=[
-                ('/model/iris_1/odometry', f'/model/iris_{i}/odometry'),
-                ('/iris_1/waypoint', f'/iris_{i}/waypoint'),
-                ('/iris_1/target_pose', f'/iris_{i}/target_pose'),
-                ('/lidar_scan', f'/iris_{i}/lidar_scan')
+            parameters=[
+                {'drone_id': i}
             ],
-            condition=drone_condition,
+            condition=mid_level_condition,
             output='screen'
         )
         swarm_nodes.append(ai_node)
@@ -197,19 +206,6 @@ def generate_launch_description():
         )
         swarm_nodes.append(voronoi_node)
         
-        # G. High-Level Bezier Path Smoother
-        bezier_node = Node(
-            package='swarm_high_level',
-            executable='bezier_path',
-            name=f'bezier_iris_{i}',
-            parameters=[
-                {'drone_id': i}
-            ],
-            condition=drone_condition,
-            output='screen'
-        )
-        swarm_nodes.append(bezier_node)
-
     # 6. Susun LaunchDescription Akhir
     launch_entities = [
         set_env,
@@ -217,9 +213,10 @@ def generate_launch_description():
         rviz_arg,
         num_drones_arg,
         controller_arg,
+        use_mid_level_arg,
         gz_sim_headless,
         gz_sim_gui,
-        rviz_node
+        rviz_node,
     ] + swarm_nodes
 
     return LaunchDescription(launch_entities)

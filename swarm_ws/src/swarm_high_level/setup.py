@@ -20,8 +20,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'heartbeat_p2p = swarm_high_level.heartbeat_p2p:main',
-            'voronoi_node = swarm_high_level.voronoi_node:main',
+            'heartbeat_p2p   = swarm_high_level.heartbeat_p2p:main',
+            'voronoi_node     = swarm_high_level.voronoi_node:main',
+            'takeoff_manager  = swarm_high_level.takeoff_manager:main',
         ],
     },
 )

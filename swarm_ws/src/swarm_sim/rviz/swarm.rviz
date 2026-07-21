@@ -1,9 +1,30 @@
 Panels:
   - Class: rviz_common/Displays
+    Help Height: 78
     Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /TF1
+        - /Drone iris_11
+        - /Drone iris_21
+        - /Drone iris_31
+        - /Drone iris_41
+        - /Drone iris_51
+        - /Drone iris_61
+        - /Drone iris_71
+      Splitter Ratio: 0.5
+    Tree Height: 800
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
+    # ── Grid (Background) ────────────────────────────────────────────────────
     - Alpha: 0.5
       Cell Size: 1
       Class: rviz_default_plugins/Grid
@@ -14,28 +35,318 @@ Visualization Manager:
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
       Plane: XY
+      Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
       Value: true
-    - Class: rviz_default_plugins/LaserScan
-      Color Transformer: FlatColor
-      Color: 255; 0; 0
+
+    # ── TF Transforms (semua drone sekaligus) ────────────────────────────────
+    - Class: rviz_default_plugins/TF
       Enabled: true
-      Name: LaserScan
-      Queue Size: 10
-      Selectable: true
-      Size (Pixels): 5
-      Style: Points
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        {}
+      Update Interval: 0
+      Value: true
+
+    # ── Odometry iris_1 : #FF1F5B (Merah-Pink) ──────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_1"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 255; 31; 91
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
       Topic:
         Depth: 5
         Durability: Volatile
-        Filter:
-          Class: ""
-          Value: ""
+        Filter size: 10
         History: Keep Last
         Reliability: Reliable
-        Value: /lidar_scan
+        Value: /model/iris_1/odometry
       Value: true
+
+    # ── Odometry iris_2 : #00CD6C (Hijau) ───────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_2"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 0; 205; 108
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_2/odometry
+      Value: true
+
+    # ── Odometry iris_3 : #009ADE (Biru) ────────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_3"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 0; 154; 222
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_3/odometry
+      Value: true
+
+    # ── Odometry iris_4 : #AF58BA (Ungu) ────────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_4"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 175; 88; 186
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_4/odometry
+      Value: true
+
+    # ── Odometry iris_5 : #FFC614 (Kuning) ──────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_5"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 255; 198; 20
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_5/odometry
+      Value: true
+
+    # ── Odometry iris_6 : #F28522 (Oranye) ──────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_6"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 242; 133; 34
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_6/odometry
+      Value: true
+
+    # ── Odometry iris_7 : #A6761D (Coklat) ──────────────────────────────────
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.5
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: false
+      Enabled: true
+      Keep: 200
+      Name: "Drone iris_7"
+      Position Tolerance: 0.1
+      Shape:
+        Alpha: 1
+        Axes Length: 0.3
+        Axes Radius: 0.03
+        Color: 166; 118; 29
+        Head Length: 0.1
+        Head Radius: 0.05
+        Shaft Length: 0.3
+        Shaft Radius: 0.025
+        Value: Arrow
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        Filter size: 10
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_7/odometry
+      Value: true
+
   Enabled: true
   Fixed Frame: world
   Frame Rate: 30
@@ -44,15 +355,30 @@ Visualization Manager:
     - Class: rviz_default_plugins/Interact
     - Class: rviz_default_plugins/MoveCamera
     - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
   Value: true
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 10
+      Distance: 20
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.06
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 2.5
+        Y: 1.0
+        Z: 1.5
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
       Name: Current View
-      Pitch: 0.785398
-      Yaw: 0.785398
+      Near Clip Distance: 0.01
+      Pitch: 0.6
+      Target Frame: <Fixed Frame>
+      Value: Orbit (rviz)
+      Yaw: 5.5
+    Saved: ~
