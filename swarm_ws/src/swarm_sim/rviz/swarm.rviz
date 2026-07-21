@@ -1,6 +1,26 @@
 Panels:
   - Class: rviz_common/Displays
+    Help Height: 78
     Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /Grid1
+        - /TF1
+        - /Drone_1_Odometry1
+        - /Drone_2_Odometry1
+        - /Drone_3_Odometry1
+        - /Drone_4_Odometry1
+        - /Drone_5_Odometry1
+        - /Drone_6_Odometry1
+        - /Drone_7_Odometry1
+      Splitter Ratio: 0.5
+  - Class: rviz_common/Selection
+    Name: Selection
+  - Class: rviz_common/Views
+    Expanded:
+      - /Current View1
+    Name: Views
+    Splitter Ratio: 0.5
 Visualization Manager:
   Class: ""
   Displays:
@@ -14,28 +34,285 @@ Visualization Manager:
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
       Plane: XY
+      Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
       Value: true
-    - Class: rviz_default_plugins/LaserScan
-      Color Transformer: FlatColor
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Frames Enabled: true
+      Marker Scale: 0.5
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Value: true
+
+    # --- DRONE 1 (RED) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
       Color: 255; 0; 0
       Enabled: true
-      Name: LaserScan
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_1_Odometry
+      Position Tolerance: 0.1
       Queue Size: 10
-      Selectable: true
-      Size (Pixels): 5
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_1/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 50; 50
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_1_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
       Style: Points
       Topic:
         Depth: 5
         Durability: Volatile
-        Filter:
-          Class: ""
-          Value: ""
         History: Keep Last
         Reliability: Reliable
-        Value: /lidar_scan
+        Value: /iris_1/lidar_scan
       Value: true
+
+    # --- DRONE 2 (ORANGE) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 255; 128; 0
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_2_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_2/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 150; 50
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_2_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_2/lidar_scan
+      Value: true
+
+    # --- DRONE 3 (YELLOW) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 255; 255; 0
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_3_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_3/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 255; 50
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_3_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_3/lidar_scan
+      Value: true
+
+    # --- DRONE 4 (GREEN) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 0; 255; 0
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_4_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_4/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 50; 255; 50
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_4_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_4/lidar_scan
+      Value: true
+
+    # --- DRONE 5 (CYAN) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 0; 255; 255
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_5_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_5/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 50; 255; 255
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_5_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_5/lidar_scan
+      Value: true
+
+    # --- DRONE 6 (BLUE) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 0; 128; 255
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_6_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_6/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 50; 128; 255
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_6_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_6/lidar_scan
+      Value: true
+
+    # --- DRONE 7 (MAGENTA) ---
+    - Class: rviz_default_plugins/Odometry
+      Angle Tolerance: 0.1
+      Axis Length: 0.4
+      Axis Radius: 0.04
+      Color: 255; 0; 255
+      Enabled: true
+      Head Length: 0.15
+      Head Radius: 0.06
+      Keep: 1000
+      Name: Drone_7_Odometry
+      Position Tolerance: 0.1
+      Queue Size: 10
+      Shape: Axes
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /model/iris_7/odometry
+      Value: true
+    - Class: rviz_default_plugins/LaserScan
+      Color: 255; 50; 255
+      Color Transformer: FlatColor
+      Enabled: true
+      Name: Drone_7_LiDAR
+      Queue Size: 10
+      Size (Pixels): 4
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability: Volatile
+        History: Keep Last
+        Reliability: Reliable
+        Value: /iris_7/lidar_scan
+      Value: true
+
   Enabled: true
   Fixed Frame: world
   Frame Rate: 30
@@ -48,11 +325,11 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 10
+      Distance: 15
       Focal Point:
         X: 0
         Y: 0
-        Z: 0
+        Z: 2
       Name: Current View
-      Pitch: 0.785398
-      Yaw: 0.785398
+      Pitch: 0.6
+      Yaw: 0.8
