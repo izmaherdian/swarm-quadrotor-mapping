@@ -108,7 +108,7 @@ class PIDLQRNode(Node):
         
         self.subscription = self.create_subscription(Odometry, '/model/iris_1/odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, '/iris_1/target_pose', self.target_pose_callback, 10)
-        self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
+        self.publisher = self.create_publisher(Actuators, '/model/iris_1/command/motor_speed', 10)
             
         self.get_logger().info("=========================================")
         self.get_logger().info("OTAK PID-LQR AKTIF! Misi: Melayang di Z=2.0m")
