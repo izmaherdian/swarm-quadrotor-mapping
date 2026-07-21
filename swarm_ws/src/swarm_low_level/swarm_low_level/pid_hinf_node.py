@@ -258,6 +258,7 @@ class PIDHinfNode(Node):
                                   vx, vy, vz, p, q_ang, r_ang,
                                   uz_pid, ux_pid, uy_pid, uyaw_pid,
                                   w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
+        self.csv_file.flush()
 
     def target_pose_callback(self, msg):
         self.x_cmd = msg.pose.position.x
