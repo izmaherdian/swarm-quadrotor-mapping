@@ -142,8 +142,8 @@ def generate_launch_description():
             package='swarm_low_level',
             executable=LaunchConfiguration('controller'),
             name=f'controller_iris_{i}',
-            arguments=['--ros-args', '-p', f'drone_id:={i}'],
             parameters=[
+                {'drone_id': i},
                 {'log_dir': results_dir}
             ],
             condition=drone_condition,
@@ -162,7 +162,9 @@ def generate_launch_description():
             package='swarm_mid_level',
             executable='collision_avoidance_node',
             name=f'ai_iris_{i}',
-            arguments=['--ros-args', '-p', f'drone_id:={i}'],
+            parameters=[
+                {'drone_id': i}
+            ],
             condition=mid_level_condition,
             output='screen'
         )
