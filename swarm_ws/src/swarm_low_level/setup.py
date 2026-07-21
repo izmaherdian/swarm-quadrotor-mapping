@@ -17,7 +17,7 @@ setup(
     maintainer_email='user@todo.todo',
     description='Low level control for swarm quadrotor',
     license='TODO: License declaration',
-    tests_require=['pytest'],
+
     entry_points={
         'console_scripts': [
             'pid_lqr_node = swarm_low_level.pid_lqr_node:main',

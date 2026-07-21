@@ -17,7 +17,7 @@ setup(
     maintainer_email='izmaherdian@todo.todo',
     description='Swarm coordination algorithms: Voronoi, Bezier paths, Heartbeat P2P',
     license='Apache-2.0',
-    tests_require=['pytest'],
+
     entry_points={
         'console_scripts': [
             'simulator_kinematics = swarm_high_level.simulator_kinematics:main',

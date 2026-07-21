@@ -236,11 +236,20 @@ class CollisionAvoidanceNode(Node):
 
 
 def main(args=None):
+    import sys
     rclpy.init(args=args)
     node = CollisionAvoidanceNode()
-    rclpy.spin(node)
-    node.destroy_node()
-    rclpy.shutdown()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info('Shutting down gracefully...')
+    finally:
+        node.destroy_node()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()

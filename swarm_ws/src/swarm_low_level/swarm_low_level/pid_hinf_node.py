@@ -379,15 +379,20 @@ class PIDHinfNode(Node):
         super().destroy_node()
 
 def main(args=None):
+    import sys
     rclpy.init(args=args)
     node = PIDHinfNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info('Shutting down gracefully...')
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
+        sys.exit(0)
 
 if __name__ == '__main__':
     main()

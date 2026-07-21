@@ -22,7 +22,7 @@ setup(
     maintainer_email='user@todo.todo',
     description='Mid level AI control and obstacle avoidance for swarm quadrotor',
     license='TODO: License declaration',
-    tests_require=['pytest'],
+
     entry_points={
         'console_scripts': [
             'collision_avoidance_node = swarm_mid_level.collision_avoidance_node:main',
