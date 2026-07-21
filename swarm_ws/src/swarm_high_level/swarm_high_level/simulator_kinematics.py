@@ -1031,7 +1031,7 @@ class SwarmSim:
                 continue
 
             # ── Gerakan kinematika (ikuti self.paths[i] SATU rute tunggal) ──
-            if self.seg_s[i] is not None:
+            if self.seg_s[i] is not None and self.seg_e[i] is not None:
                 P0 = np.array(self.seg_s[i])
                 P1 = np.array(self.seg_e[i])
                 d  = np.linalg.norm(P1 - P0)
