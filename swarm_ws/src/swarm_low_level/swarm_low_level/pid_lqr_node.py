@@ -8,12 +8,8 @@ import csv
 import os
 import numpy as np
 import yaml
-from ament_index_python.packages import get_package_share_directory
 
-try:
-    from swarm_low_level.solver_pid_lqr import PIDLQRSolver
-except ImportError:
-    from solver_pid_lqr import PIDLQRSolver
+from .solver_pid_lqr import PIDLQRSolver
 
 class PID:
     def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf):
@@ -44,28 +40,10 @@ class PID:
 
 class PIDLQRNode(Node):
     def __init__(self):
-        # Deklarasi drone_id SEBELUM super().__init__ agar tersedia saat inisialisasi
-        # Tidak bisa, jadi deklarasikan dulu lalu baca setelah super().__init__
         super().__init__('pid_lqr_node')
         
-        # ── Parameter drone_id ────────────────────────────────────────────────
-        # KUNCI: gunakan drone_id untuk membangun nama topic secara dinamis.
-        # Ini lebih andal daripada remapping launch file untuk absolute topic names.
-        self.declare_parameter('drone_id', 1)
-        self._drone_id = self.get_parameter('drone_id').value
-        
-        # Membaca parameter quadrotor dari quadrotor_params.yaml dengan fallback aman
-        try:
-            from ament_index_python.packages import get_package_share_directory
-            pkg_share = get_package_share_directory('swarm_low_level')
-            config_path = os.path.join(pkg_share, 'config', 'quadrotor_params.yaml')
-            if not os.path.exists(config_path):
-                raise FileNotFoundError(f"{config_path} not found")
-        except Exception:
-            curr_dir = os.path.dirname(os.path.abspath(__file__))
-            config_path = os.path.abspath(os.path.join(curr_dir, '..', 'config', 'quadrotor_params.yaml'))
-            if not os.path.exists(config_path):
-                config_path = "/mnt/windows/Izma_S2_InstrumentasiKontrol_ITB/Akademik/Engineering Physics International Conference/#2 Try/swarm_ws/src/swarm_low_level/config/quadrotor_params.yaml"
+        # Load parameters fisik dari config YAML
+        config_path = os.path.join(os.getcwd(), 'src', 'swarm_low_level', 'config', 'quadrotor_params.yaml')
         
         if not os.path.exists(config_path):
             self.get_logger().error(f"Config file not found at {config_path}")
@@ -87,7 +65,7 @@ class PIDLQRNode(Node):
         self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
         self.pid_x_in  = PID(gains['x_inner']['Kp'], gains['x_inner']['Ki'], gains['x_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        self.pid_y_out = PID(abs(gains['y_outer']['Kp']), abs(gains['y_outer']['Ki']), abs(gains['y_outer']['Kd']), self.dt, -self.limits['angle_max'], self.limits['angle_max'])
+        self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
         self.pid_y_in  = PID(gains['y_inner']['Kp'], gains['y_inner']['Ki'], gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'])
@@ -98,13 +76,13 @@ class PIDLQRNode(Node):
         self.m = self.params['mass']
         kf, km = self.act_phys['kf'], self.act_phys['km']
         self.w_max, self.w_min = self.act_phys['omega_max'], self.act_phys['omega_min']
-        d = 0.15  # Jarak eksak rotor dari pusat (model.sdf: x=±0.15, y=±0.15)
+        d = self.params['arm_length'] * 0.707106781  # sin(45 deg)
         
         M = np.array([
             [kf, kf, kf, kf],
-            [kf*d, -kf*d, -kf*d, kf*d],    # tau_x (Roll)
-            [kf*d, -kf*d, kf*d, -kf*d],    # tau_y (Pitch)
-            [-km, -km, km, km]             # tau_z (Yaw)
+            [-kf*d, kf*d, kf*d, -kf*d],
+            [-kf*d, kf*d, -kf*d, kf*d],
+            [-km, -km, km, km]
         ])
         self.M_inv = np.linalg.inv(M)
         
@@ -123,27 +101,18 @@ class PIDLQRNode(Node):
         self.w_n_sq = 2.25
         self.two_zeta_wn = 3.0
         
-        # ── Topic Names berdasarkan drone_id ─────────────────────────────────
-        # Setiap controller subscribe/publish ke topicnya sendiri secara eksplisit.
-        # Ini menghindari ketergantungan pada remapping launch file.
-        did = self._drone_id
-        odom_topic   = f'/model/iris_{did}/odometry'
-        target_topic = f'/iris_{did}/target_pose'
-        motor_topic  = f'/model/iris_{did}/command/motor_speed'
-        
-        # Konfigurasi Log Directory
+        # Subscriber ke Odometry dan Publisher ke Motor (Actuators)
+        # Konfigurasi Log Directory (untuk menyimpan CSV ke tempat yang terstruktur)
         self.declare_parameter('log_dir', os.getcwd())
         log_dir = self.get_parameter('log_dir').value
         
-        self.subscription = self.create_subscription(Odometry,    odom_topic,   self.odom_callback,         10)
-        self.target_sub   = self.create_subscription(PoseStamped, target_topic, self.target_pose_callback,  10)
-        self.publisher    = self.create_publisher(Actuators,       motor_topic,  10)
+        self.subscription = self.create_subscription(Odometry, '/model/iris_1/odometry', self.odom_callback, 10)
+        self.target_sub = self.create_subscription(PoseStamped, '/iris_1/target_pose', self.target_pose_callback, 10)
+        self.publisher = self.create_publisher(Actuators, '/iris_1/command/motor_speed', 10)
             
-        self.get_logger().info(f"=========================================")
-        self.get_logger().info(f"OTAK PID-LQR AKTIF! iris_{did} | Misi: Melayang di Z=2.0m")
-        self.get_logger().info(f"  Odom  : {odom_topic}")
-        self.get_logger().info(f"  Motor : {motor_topic}")
-        self.get_logger().info(f"=========================================")
+        self.get_logger().info("=========================================")
+        self.get_logger().info("OTAK PID-LQR AKTIF! Misi: Melayang di Z=2.0m")
+        self.get_logger().info("=========================================")
         
         self.csv_path = os.path.join(log_dir, 'flight_data_log_lqr.csv')
         self.csv_file = open(self.csv_path, mode='w', newline='')
@@ -204,24 +173,12 @@ class PIDLQRNode(Node):
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
-
+        
         qx = msg.pose.pose.orientation.x
         qy = msg.pose.pose.orientation.y
         qz = msg.pose.pose.orientation.z
         qw = msg.pose.pose.orientation.w
         phi, theta, yaw = self.euler_from_quaternion(qx, qy, qz, qw)
-
-        # Kunci posisi awal X dan Y dari sensor odometry saat startup
-        if not getattr(self, '_initial_pos_set', False):
-            self.x_cmd = x
-            self.y_cmd = y
-            self.z_cmd = 2.0
-            self.yaw_cmd = yaw
-            self.filt_x = [x, 0.0]
-            self.filt_y = [y, 0.0]
-            self.filt_z = [z, 0.0]
-            self.filt_yaw = [yaw, 0.0]
-            self._initial_pos_set = True
         
         # Kecepatan Linear dan Angular
         vx = msg.twist.twist.linear.x
@@ -241,7 +198,6 @@ class PIDLQRNode(Node):
         self.filt_y[0] += self.filt_y[1] * dt_control
         
         self.filt_z[1] += (self.w_n_sq * (self.z_cmd - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
-        self.filt_z[1] = np.clip(self.filt_z[1], -0.5, 0.5) # Max 0.5 m/s climb rate
         self.filt_z[0] += self.filt_z[1] * dt_control
         
         self.filt_yaw[1] += (self.w_n_sq * (self.yaw_cmd - self.filt_yaw[0]) - self.two_zeta_wn * self.filt_yaw[1]) * dt_control
@@ -250,49 +206,30 @@ class PIDLQRNode(Node):
         # 2. PROSES DI OTAK (KONTROLER) menggunakan target ber-filter
         err_x = self.filt_x[0] - x
         theta_ref = self.pid_x_out.compute(err_x, reset_derivative=reset_derivative)
-        
-        err_y = self.filt_y[0] - y
-        phi_ref = self.pid_y_out.compute(err_y, reset_derivative=reset_derivative)
-
-        # Ground Anti-Saturation: Saat masih di darat (z < 0.15m), kunci moment = 0.0
-        # agar ke-4 motor berputar pada RPM yang sama persis untuk lift-off tegak lurus
-        if z < 0.15:
-            theta_ref = 0.0
-            phi_ref   = 0.0
-            self.pid_x_out.integral = 0.0
-            self.pid_y_out.integral = 0.0
-            self.pid_x_in.integral  = 0.0
-            self.pid_y_in.integral  = 0.0
-
         err_theta = theta_ref - theta
         uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
+        err_y = self.filt_y[0] - y
+        phi_ref = self.pid_y_out.compute(err_y, reset_derivative=reset_derivative)
         err_phi = phi_ref - phi
-        ux_pid = - self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
+        ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
         
         err_z = self.filt_z[0] - z
         uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
         
         err_yaw = self.filt_yaw[0] - yaw
         uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
-
-        if z < 0.15:
-            ux_pid = 0.0
-            uy_pid = 0.0
-            uyaw_pid = 0.0
         
         # 3. KIRIM PERINTAH KE OTOT (AKTUATOR)
         # Menambah gaya berat agar hovering, lalu dikonversi ke kecepatan rotasi via Inverse Mixer
         U_cmd = np.array([uz_pid + (self.m * self.g), ux_pid, uy_pid, uyaw_pid])
         
         w_sq_cmd = self.M_inv @ U_cmd
-        w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0))
-        # Convert rad/s to RPM for Gazebo MulticopterMotorModel plugin (1 rad/s = 9.5492968 RPM)
-        RAD2RPM = 9.549296585513721
-        w_rpm = w_cmd * RAD2RPM
+        w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
+        w_cmd = np.clip(w_cmd, self.w_min, self.w_max)
         
         act_msg = Actuators()
-        act_msg.velocity = [float(w_rpm[0]), float(w_rpm[1]), float(w_rpm[2]), float(w_rpm[3])]
+        act_msg.velocity = [float(w_cmd[0]), float(w_cmd[1]), float(w_cmd[2]), float(w_cmd[3])]
         act_msg.normalized = act_msg.velocity  # Gazebo bridge trick
         self.publisher.publish(act_msg)
         
@@ -321,9 +258,8 @@ class PIDLQRNode(Node):
                                   w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
 
     def target_pose_callback(self, msg):
-        # Misi Lepas Landas / Hold Ketinggian:
-        # Hanya mengupdate target Z (misal Z=2.0m),
-        # X_cmd dan Y_cmd tetap terkunci di posisi awal spawn masing-masing drone
+        self.x_cmd = msg.pose.position.x
+        self.y_cmd = msg.pose.position.y
         self.z_cmd = msg.pose.position.z
 
     def destroy_node(self):

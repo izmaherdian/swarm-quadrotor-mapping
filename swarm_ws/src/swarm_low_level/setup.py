@@ -1,5 +1,3 @@
-import os
-import glob
 from setuptools import find_packages, setup
 
 package_name = 'swarm_low_level'
@@ -12,9 +10,6 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        # Install config YAML ke share/swarm_low_level/config/
-        (os.path.join('share', package_name, 'config'),
-            glob.glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

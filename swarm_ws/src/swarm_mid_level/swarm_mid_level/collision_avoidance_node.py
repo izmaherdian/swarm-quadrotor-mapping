@@ -21,21 +21,11 @@ class CollisionAvoidanceNode(Node):
         self.declare_parameter('max_speed', 1.5)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
-        self.declare_parameter('drone_id', 1)
-        self.declare_parameter('enable_avoidance', False) # Default False untuk takeoff/hover murni
 
-        did = self.get_parameter('drone_id').value
-        self.enable_avoidance = self.get_parameter('enable_avoidance').value
         model_path = self.get_parameter('model_path').value
         self.max_speed = self.get_parameter('max_speed').value
         self.target_z_height = self.get_parameter('target_z_height').value
         self.dt = self.get_parameter('dt').value
-
-        # Dynamic Topics berdasarkan drone_id
-        odom_topic     = f'/model/iris_{did}/odometry'
-        waypoint_topic = f'/iris_{did}/waypoint'
-        target_topic   = f'/iris_{did}/target_pose'
-        lidar_topic    = f'/iris_{did}/lidar_scan'
 
         # If model_path is empty, find the default ONNX model path
         if not model_path:
@@ -43,10 +33,10 @@ class CollisionAvoidanceNode(Node):
             pkg_share = get_package_share_directory('swarm_mid_level')
             model_path = os.path.join(pkg_share, 'models', 'ppo_lidar_avoidance.onnx')
 
-        self.get_logger().info(f"Loading ONNX Model from: {model_path} (iris_{did})")
+        self.get_logger().info(f"Loading ONNX Model from: {model_path}")
         try:
             self.ort_session = ort.InferenceSession(model_path)
-            self.get_logger().info(f"Successfully loaded ONNX policy model for iris_{did}.")
+            self.get_logger().info("Successfully loaded ONNX policy model.")
         except Exception as e:
             self.get_logger().error(f"Failed to load ONNX model: {str(e)}")
             self.ort_session = None
@@ -55,31 +45,32 @@ class CollisionAvoidanceNode(Node):
         self.current_pos = np.array([0.0, 0.0, 0.0])
         self.current_vel = np.array([0.0, 0.0])
         self.target_waypoint = np.array([0.0, 0.0])  # default starting target (X,Y)
+        self.target_z_height = self.get_parameter('target_z_height').value
         self.lidar_ranges = np.ones(72, dtype=np.float32) * 10.0
 
         # Subscriptions
         self.lidar_sub = self.create_subscription(
             LaserScan,
-            lidar_topic,
+            '/lidar_scan',
             self.lidar_callback,
             10
         )
         self.odom_sub = self.create_subscription(
             Odometry,
-            odom_topic,
+            '/model/iris_1/odometry',
             self.odom_callback,
             10
         )
         self.waypoint_sub = self.create_subscription(
             PointStamped,
-            waypoint_topic,
+            '/iris_1/waypoint',
             self.waypoint_callback,
             10
         )
-        # Also accept PoseStamped on waypoint_pose for convenience
+        # Also accept PoseStamped on /iris_1/waypoint_pose for convenience
         self.waypoint_pose_sub = self.create_subscription(
             PoseStamped,
-            f'/iris_{did}/waypoint_pose',
+            '/iris_1/waypoint_pose',
             self.waypoint_pose_callback,
             10
         )
@@ -87,7 +78,7 @@ class CollisionAvoidanceNode(Node):
         # Publisher to low-level controller
         self.pose_pub = self.create_publisher(
             PoseStamped,
-            target_topic,
+            '/iris_1/target_pose',
             10
         )
 
@@ -102,13 +93,10 @@ class CollisionAvoidanceNode(Node):
         self.lidar_ranges = np.clip(ranges, 0.1, 10.0)
 
     def odom_callback(self, msg):
-        x = msg.pose.pose.position.x
-        y = msg.pose.pose.position.y
-        z = msg.pose.pose.position.z
-        self.current_pos = np.array([x, y, z])
-        if not getattr(self, '_initial_waypoint_set', False):
-            self.target_waypoint = np.array([x, y])
-            self._initial_waypoint_set = True
+        # Update current position
+        self.current_pos[0] = msg.pose.pose.position.x
+        self.current_pos[1] = msg.pose.pose.position.y
+        self.current_pos[2] = msg.pose.pose.position.z
 
         # Update current velocity (in world or body frame depending on odom config)
         self.current_vel[0] = msg.twist.twist.linear.x
@@ -133,19 +121,6 @@ class CollisionAvoidanceNode(Node):
         )
 
     def control_loop(self):
-        # Jika enable_avoidance False (Default saat Takeoff / Hover Murni):
-        # Langsung publish target_pose (X_spawn, Y_spawn, Z=2.0) tanpa inference RL atau integrasi velocity
-        if not self.enable_avoidance:
-            target_pose = PoseStamped()
-            target_pose.header.stamp = self.get_clock().now().to_msg()
-            target_pose.header.frame_id = 'world'
-            target_pose.pose.position.x = self.target_waypoint[0]
-            target_pose.pose.position.y = self.target_waypoint[1]
-            target_pose.pose.position.z = self.target_z_height
-            target_pose.pose.orientation.w = 1.0
-            self.pose_pub.publish(target_pose)
-            return
-
         if self.ort_session is None:
             return
 
