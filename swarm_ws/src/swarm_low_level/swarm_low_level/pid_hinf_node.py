@@ -247,8 +247,15 @@ class PIDHinfNode(Node):
             self.last_time = current_time
             self.spawn_x = x
             self.spawn_y = y
+            qx0 = msg.pose.pose.orientation.x
+            qy0 = msg.pose.pose.orientation.y
+            qz0 = msg.pose.pose.orientation.z
+            qw0 = msg.pose.pose.orientation.w
+            _, _, yaw0 = self.euler_from_quaternion(qx0, qy0, qz0, qw0)
             self.filt_x = [x, 0.0]
             self.filt_y = [y, 0.0]
+            self.filt_z = [z, 0.0]
+            self.filt_yaw = [yaw0, 0.0]
             return
             
         t = current_time - self.start_time
@@ -272,6 +279,11 @@ class PIDHinfNode(Node):
         self.pid_y_in.dt = dt_control
         self.pid_z.dt = dt_control
         self.pid_yaw.dt = dt_control
+
+        if z < 0.15:
+            self.pid_x_in.integral = 0.0
+            self.pid_y_in.integral = 0.0
+            self.pid_yaw.integral = 0.0
         
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
