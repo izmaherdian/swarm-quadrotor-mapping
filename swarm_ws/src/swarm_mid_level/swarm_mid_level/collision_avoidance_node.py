@@ -194,7 +194,11 @@ class CollisionAvoidanceNode(Node):
         # State Variables
         self.current_pos = np.zeros(3, dtype=np.float32) # [x, y, z]
         self.current_vel = np.zeros(2, dtype=np.float32) # [vx, vy]
-        self.target_waypoint = None                      # [x, y]
+        
+        # Target awal waypoint = lokasi formation spawn persis
+        spacing = 2.0
+        spawn_y = float((did - 4.0) * spacing)
+        self.target_waypoint = np.array([0.0, spawn_y], dtype=np.float32)
         self.waypoint_received = False
         self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
         self.steps = 0
@@ -274,12 +278,6 @@ class CollisionAvoidanceNode(Node):
 
         self.current_vel[0] = msg.twist.twist.linear.x
         self.current_vel[1] = msg.twist.twist.linear.y
-
-        if self.target_waypoint is None:
-            self.target_waypoint = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
-            self.get_logger().info(
-                f"[ORCA] Target awal di-set ke lokasi spawn: X={self.target_waypoint[0]:.2f}, Y={self.target_waypoint[1]:.2f}"
-            )
 
     def waypoint_callback(self, msg):
         self.target_waypoint = np.array([msg.point.x, msg.point.y], dtype=np.float32)
