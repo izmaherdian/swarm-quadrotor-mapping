@@ -34,7 +34,7 @@ class ORCASolver2D:
         for neighbor in neighbors:
             is_static = neighbor.get('is_static', False)
             weight = 1.0 if is_static else 0.5
-            rad_obs = 0.4 if is_static else self.radius
+            rad_obs = 0.8 if is_static else self.radius # 0.8m obstacle safety radius
             combined_radius = self.radius + rad_obs
             combined_radius_sq = combined_radius ** 2
 
@@ -167,7 +167,7 @@ class CollisionAvoidanceNode(Node):
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
         self.declare_parameter('num_drones', 7)
-        self.declare_parameter('safety_radius', 0.5)
+        self.declare_parameter('safety_radius', 0.8) # 0.8m radius -> 1.6m center-to-center = 80cm prop clearance
         self.declare_parameter('time_horizon', 5.0)
 
         self.max_speed = self.get_parameter('max_speed').value
@@ -368,7 +368,7 @@ class CollisionAvoidanceNode(Node):
                 tangent = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                 if np.cross(pref_vel, obs_dir) > 0:
                     tangent = -tangent
-                pref_vel += tangent * (self.max_speed * 0.4)
+                pref_vel += tangent * (self.max_speed * 0.6)
 
         # 4. Compute ORCA Reciprocal Safe Velocity
         safe_vel = self.orca_solver.compute_orca_velocity(
@@ -391,20 +391,20 @@ class CollisionAvoidanceNode(Node):
         out_vx, out_vy = self.cmd_vel_smooth[0], self.cmd_vel_smooth[1]
 
         # 5b. Safe Heading-Tracking Yaw Control
-        # Hanya aktif jika waypoint dari test_waypoints.py SUDAH diterima & drone mengudara (z >= 1.5m)
+        # Hanya aktif jika waypoint dari test_waypoints.py SUDAH diterima
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
         speed_xy = float(np.sqrt(out_vx**2 + out_vy**2))
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
-        MAX_YAW_RATE = np.radians(30.0)  # Maksimal 30 derajat per detik (mulus untuk kamera)
+        MAX_YAW_RATE = np.radians(120.0)  # Maksimal 120 derajat per detik (responsif tanpa lag drift)
 
         if self.waypoint_received and speed_xy > YAW_DEADBAND and dist_to_target > 0.2:
             yaw_target = float(np.arctan2(out_vy, out_vx))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
-            # Slew-rate limiting: maksimal 30 deg/sec (dt = 0.1s -> max step = 3 deg = ~0.052 rad)
+            # Slew-rate limiting: maksimal 120 deg/sec (dt = 0.1s -> max step = 12 deg = ~0.209 rad)
             max_step = MAX_YAW_RATE * self.dt
             clamped_delta = np.clip(delta_yaw, -max_step, max_step)
             self.yaw_smooth += clamped_delta
