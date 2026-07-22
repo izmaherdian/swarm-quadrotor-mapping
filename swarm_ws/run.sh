@@ -17,9 +17,15 @@ source "$WS_DIR/../.venv/bin/activate"
 # 2. Setup symlink python yang pendek agar shebang colcon tidak terpotong (error path too long)
 ln -sf "$WS_DIR/../.venv/bin/python" /tmp/venv_py
 
-# 3. Jalankan colcon build
+# 3. Jalankan colcon build dengan Python yang benar
 echo "🔨 Membangun (Build) workspace..."
-colcon build --cmake-args -DPYTHON_EXECUTABLE="/tmp/venv_py"
+# Pastikan CMake memakai python dari venv (bukan python sistem)
+export PYTHON_EXECUTABLE="/tmp/venv_py"
+colcon build \
+    --cmake-args \
+        -DPYTHON_EXECUTABLE="/tmp/venv_py" \
+        -DPython3_EXECUTABLE="/tmp/venv_py" \
+    --event-handlers console_cohesion+
 
 # 4. Patching shebang secara aman di sistem partisi NTFS (tanpa mengubah permission bawaan)
 echo "🔧 Memperbaiki kompatibilitas eksekusi file..."
