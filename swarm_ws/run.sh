@@ -7,8 +7,8 @@ echo "🚀 Memulai proses Build & Run Swarm Drone..."
 cd "$(dirname "$0")"
 WS_DIR="$PWD"
 
-# 0. Matikan sisa proses node / gazebo dari sesi sebelumnya
-pkill -9 -f "collision_avoidance_node|pid_lqr_node|pid_hinf_node|tf_prefix_node|gz_sim|parameter_bridge" 2>/dev/null || true
+# 0. Matikan sisa proses node / gazebo dari sesi sebelumnya secara aman
+pkill -9 -f "install/swarm_mid_level|install/swarm_low_level|install/swarm_sim|ros_gz_sim|parameter_bridge" 2>/dev/null || true
 
 # 1. Bersihkan riwayat environment & Source dependensi dasar
 unset AMENT_PREFIX_PATH
