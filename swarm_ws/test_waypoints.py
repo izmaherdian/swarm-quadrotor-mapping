@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PointStamped
+import time
 
 class WaypointTester(Node):
     def __init__(self):
@@ -23,32 +24,30 @@ class WaypointTester(Node):
             topic = f'/iris_{i}/waypoint'
             self.pubs[i] = self.create_publisher(PointStamped, topic, 10)
             
-        self.get_logger().info("Menunggu 2 detik agar koneksi ROS 2 stabil...")
-        self.timer = self.create_timer(2.0, self.send_waypoints)
-        self.sent = False
+        self.get_logger().info("Menunggu sebentar agar koneksi ROS 2 stabil...")
+        self.attempt = 0
+        self.timer = self.create_timer(1.0, self.send_waypoints)
 
     def send_waypoints(self):
-        if self.sent:
-            return
-            
-        self.get_logger().info("Mengirim target waypoint X=10 ke semua drone serentak...")
+        self.attempt += 1
+        self.get_logger().info(f'Mengirim target waypoint X=10 ke semua drone serentak... (Percobaan {self.attempt})')
         
         for i in range(1, 8):
             msg = PointStamped()
-            msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = 'world'
+            msg.header.stamp = self.get_clock().now().to_msg()
             
-            # Targetkan sejauh 10 meter ke depan (X = 10)
             msg.point.x = 10.0
             msg.point.y = self.y_starts[i]
             msg.point.z = 2.0
             
             self.pubs[i].publish(msg)
-            self.get_logger().info(f"-> Drone {i} ditugaskan ke (X: 10.0, Y: {self.y_starts[i]})")
-            
-        self.sent = True
-        self.get_logger().info("Semua waypoint telah dikirim! Tekan Ctrl+C untuk keluar.")
-        self.timer.cancel()
+            if self.attempt == 1:
+                self.get_logger().info(f'-> Drone {i} ditugaskan ke (X: {msg.point.x}, Y: {msg.point.y})')
+        
+        if self.attempt >= 3:
+            self.get_logger().info('Semua waypoint telah dikirim! Tekan Ctrl+C untuk keluar.')
+            self.timer.cancel()
 
 def main(args=None):
     rclpy.init(args=args)

@@ -18,7 +18,7 @@ class CollisionAvoidanceNode(Node):
 
         # Parameters
         self.declare_parameter('model_path', '')
-        self.declare_parameter('max_speed', 1.5)
+        self.declare_parameter('max_speed', 2.5)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
@@ -195,20 +195,21 @@ class CollisionAvoidanceNode(Node):
 
         # 1. Calculate relative target coordinates
         rel_target_raw = self.target_waypoint - self.current_pos[:2]
-
-        # Normalize relative target to [-1, 1] range (model trained with max 10m)
-        max_range = 10.0
-        rel_target_norm = np.clip(rel_target_raw / max_range, -1.0, 1.0)
-
-        # Normalize velocity (assume max vel ~5 m/s during training)
-        vel_norm = np.clip(self.current_vel / 5.0, -1.0, 1.0)
+        rel_target = rel_target_raw.copy()
+        dist_to_target = float(np.linalg.norm(rel_target))
+        
+        # OOD PREVENTION: The AI was trained with targets 2.0 to 4.0 meters away.
+        # If we feed a target 10m away, the neural network saturates and outputs near-zero action.
+        # We must cap the relative target magnitude to 4.0 meters ("Carrot on a stick" approach).
+        if dist_to_target > 4.0:
+            rel_target = (rel_target / dist_to_target) * 4.0
 
         # 2. Build observation vector (shape: 1, 364)
-        # Structure: 360 (Lidar, 0.1-10m) + 2 (rel_target normalized) + 2 (vel normalized)
+        # Structure: 360 (Lidar, 0.1-10m) + 2 (rel_target raw) + 2 (vel raw)
         obs = np.concatenate([
-            self.lidar_ranges / max_range,  # normalize lidar to [0, 1]
-            rel_target_norm,
-            vel_norm
+            self.lidar_ranges,
+            rel_target,
+            self.current_vel
         ]).astype(np.float32)
         obs = np.expand_dims(obs, axis=0) # Add batch dimension
 
@@ -226,10 +227,23 @@ class CollisionAvoidanceNode(Node):
         ref_vx = action[0] * self.max_speed
         ref_vy = action[1] * self.max_speed
 
+        # Clear Path Blending: Jika jalur di depan aman (lidar > 1.5m),
+        # padukan kontrol AI dengan vektor langsung ke target untuk mencegah miring/drift
+        dist_to_target = np.linalg.norm(rel_target)
+        direction = rel_target_raw / max(dist_to_target, 0.1)
+        min_lidar_dist = float(np.min(self.lidar_ranges))
+
+        if min_lidar_dist > 1.5:
+            clear_factor = np.clip((min_lidar_dist - 1.5) / 1.0, 0.0, 1.0)
+            target_vx = direction[0] * self.max_speed
+            target_vy = direction[1] * self.max_speed
+            ref_vx = (1.0 - clear_factor) * ref_vx + clear_factor * target_vx
+            ref_vy = (1.0 - clear_factor) * ref_vy + clear_factor * target_vy
+
         # Debug: log action dan posisi setiap 20 loop (~2 detik)
         self._debug_counter = getattr(self, '_debug_counter', 0) + 1
         if self._debug_counter % 20 == 0:
-            dist = np.linalg.norm(rel_target_raw)
+            dist = np.linalg.norm(rel_target)
             self.get_logger().info(
                 f"[AI] Pos=({self.current_pos[0]:.2f},{self.current_pos[1]:.2f}) "
                 f"Target=({self.target_waypoint[0]:.1f},{self.target_waypoint[1]:.1f}) "
@@ -237,13 +251,10 @@ class CollisionAvoidanceNode(Node):
                 f"→ Vx={ref_vx:.2f} Vy={ref_vy:.2f}"
             )
 
-        # Fallback: jika AI output hampir nol tapi masih jauh dari target,
-        # tambahkan dorongan langsung menuju target (blend AI + direct)
-        dist_to_target = np.linalg.norm(rel_target_raw)
+        # Fallback: jika AI output hampir nol tapi masih jauh dari target
         if dist_to_target > 0.5:
-            direction = rel_target_raw / dist_to_target
             ai_strength = abs(action[0]) + abs(action[1])
-            blend = max(0.0, 0.8 - ai_strength)  # lebih agresif push ke target
+            blend = max(0.0, 0.8 - ai_strength)
             ref_vx += direction[0] * blend * self.max_speed
             ref_vy += direction[1] * blend * self.max_speed
 
@@ -253,9 +264,8 @@ class CollisionAvoidanceNode(Node):
             ref_vy = 0.8 * (rel_target_raw[1] / dist_to_target * self.max_speed) + 0.2 * ref_vy
 
         # Stabilisasi Target Terdekat (Goal Reacher Mode):
-        # Jika jarak ke target < 1.0m, transisi mulus dari AI ke kontrol proporsional murni agar berhenti tepat di target
         if dist_to_target < 1.0:
-            alpha = dist_to_target  # linear blend factor
+            alpha = dist_to_target
             v_direct_x = (rel_target_raw[0] / max(dist_to_target, 0.1)) * self.max_speed * dist_to_target
             v_direct_y = (rel_target_raw[1] / max(dist_to_target, 0.1)) * self.max_speed * dist_to_target
             ref_vx = alpha * ref_vx + (1.0 - alpha) * v_direct_x
@@ -291,7 +301,6 @@ def main(args=None):
             rclpy.shutdown()
         except Exception:
             pass
-        sys.exit(0)
 
 if __name__ == '__main__':
     main()
