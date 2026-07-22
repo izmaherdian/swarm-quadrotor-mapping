@@ -79,9 +79,26 @@ def generate_launch_description():
     # 5. Bangun Arsitektur Kontrol Swarm Secara Dinamis (1 sampai 7 drone)
     pkg_share = get_package_share_directory('swarm_sim')
     ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
-    results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'multi_agent')
-    os.makedirs(results_dir, exist_ok=True)
+    base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'multi_agent')
     config_dir = os.path.join(ws_root, 'src', 'swarm_low_level', 'config')
+
+    # Buat kedua subfolder hasil simulasi sekaligus
+    results_lqr  = os.path.join(base_results_dir, 'pid_lqr')
+    results_hinf = os.path.join(base_results_dir, 'pid_hinf')
+    os.makedirs(results_lqr,  exist_ok=True)
+    os.makedirs(results_hinf, exist_ok=True)
+
+    # Pilih subfolder berdasarkan controller yang dipakai
+    import sys
+    _ctrl = None
+    for arg in sys.argv:
+        if arg.startswith('controller:='):
+            _ctrl = arg.split(':=', 1)[1]
+            break
+    if _ctrl and 'hinf' in _ctrl:
+        results_dir = results_hinf
+    else:
+        results_dir = results_lqr
 
     swarm_nodes = []
     max_drones = 7

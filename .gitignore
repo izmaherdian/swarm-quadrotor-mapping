@@ -23,6 +23,9 @@ Thumbs.db
 # Temporary images or debug artifacts (optional, keep commented if you want to push the graphics)
 # *.png
 # Hasil log simulasi multi-agent (tidak perlu di-commit)
-swarm_ws/src/swarm_sim/results/multi_agent/*.csv
-swarm_ws/src/swarm_sim/results/multi_agent/*.png
-swarm_ws/src/swarm_sim/results/multi_agent/*.log
+swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.csv
+swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.png
+swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.log
+swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.csv
+swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.png
+swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.log
