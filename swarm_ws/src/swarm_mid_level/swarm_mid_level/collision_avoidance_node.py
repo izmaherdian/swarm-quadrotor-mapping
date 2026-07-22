@@ -30,13 +30,17 @@ class ORCASolver2D:
         orca_lines = []
         inv_tau = 1.0 / self.tau
 
-        # 1. Build ORCA half-planes for each neighbor drone
+        # 1. Build ORCA half-planes for each neighbor (dynamic drone or static obstacle)
         for neighbor in neighbors:
+            is_static = neighbor.get('is_static', False)
+            weight = 1.0 if is_static else 0.5
+            rad_obs = 0.4 if is_static else self.radius
+            combined_radius = self.radius + rad_obs
+            combined_radius_sq = combined_radius ** 2
+
             pos_rel = neighbor['pos'] - pos_self
             vel_rel = vel_self - neighbor['vel']
             dist_sq = np.dot(pos_rel, pos_rel)
-            combined_radius = self.radius * 2.0
-            combined_radius_sq = combined_radius ** 2
 
             if dist_sq > (self.max_speed * self.tau + combined_radius) ** 2:
                 continue
@@ -51,7 +55,7 @@ class ORCASolver2D:
                 unit_pos = pos_rel * dist_inv
                 direction = np.array([-unit_pos[1], unit_pos[0]])
                 u = (combined_radius - dist) * inv_tau * unit_pos
-                line_point = vel_self + 0.5 * u
+                line_point = vel_self + weight * u
                 line_dir = direction
             else:
                 # No current collision, check reciprocal velocity obstacle cone
@@ -62,7 +66,7 @@ class ORCASolver2D:
                     unit_w = w / w_len
                     direction = np.array([unit_w[1], -unit_w[0]])
                     u = (combined_radius * inv_tau - w_len) * unit_w
-                    line_point = vel_self + 0.5 * u
+                    line_point = vel_self + weight * u
                     line_dir = direction
                 else:
                     # Legs projection
@@ -73,7 +77,7 @@ class ORCASolver2D:
                     else:
                         direction = np.array([-leg_unit_x, -leg_unit_y])
                     u = np.dot(vel_rel, direction) * direction - vel_rel
-                    line_point = vel_self + 0.5 * u
+                    line_point = vel_self + weight * u
                     line_dir = direction
 
             orca_lines.append({'point': line_point, 'dir': line_dir})
@@ -158,7 +162,7 @@ class CollisionAvoidanceNode(Node):
         super().__init__('collision_avoidance_node')
 
         # Parameters
-        self.declare_parameter('max_speed', 4.0)
+        self.declare_parameter('max_speed', 2.5)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
@@ -321,20 +325,33 @@ class CollisionAvoidanceNode(Node):
         # 2. Extract neighbor drone states
         neighbor_list = list(self.neighbors_state.values())
 
-        # 3. Extract static Lidar obstacles as static ORCA obstacles (vel = [0, 0])
+        # 3. Extract static Lidar obstacles as a single convex ORCA agent with tangential bias
         angles = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
-        obs_mask = self.lidar_ranges < 2.2
+        obs_mask = self.lidar_ranges < 2.5
+
         if np.any(obs_mask):
-            obs_indices = np.where(obs_mask)[0]
-            sorted_indices = obs_indices[np.argsort(self.lidar_ranges[obs_indices])][:3]
-            for idx in sorted_indices:
-                dist_obs = float(self.lidar_ranges[idx])
-                angle_obs = float(angles[idx])
-                obs_rel = np.array([dist_obs * np.cos(angle_obs), dist_obs * np.sin(angle_obs)], dtype=np.float32)
-                neighbor_list.append({
-                    'pos': self.current_pos[:2] + obs_rel,
-                    'vel': np.zeros(2, dtype=np.float32)
-                })
+            min_idx = np.argmin(self.lidar_ranges)
+            dist_min = float(self.lidar_ranges[min_idx])
+            angle_min = float(angles[min_idx])
+
+            # Position of static obstacle center
+            obs_rel = np.array([dist_min * np.cos(angle_min), dist_min * np.sin(angle_min)], dtype=np.float32)
+            neighbor_list.append({
+                'pos': self.current_pos[:2] + obs_rel,
+                'vel': np.zeros(2, dtype=np.float32),
+                'is_static': True
+            })
+
+            # Tangential bias: jika rintangan berada tepat di jalur depan, beri geseran bias kecil pada pref_vel
+            # agar ORCA tidak terjebak di tengah (deadlock/local minima)
+            obs_dir = obs_rel / max(dist_min, 0.05)
+            dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
+            if dot_front > 0.5:
+                # Pilih arah belok memutar (tangensial): jika rintangan agak di kanan, bias ke kiri; vice versa
+                tangent = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
+                if np.cross(pref_vel, obs_dir) > 0:
+                    tangent = -tangent
+                pref_vel += tangent * (self.max_speed * 0.4)
 
         # 4. Compute ORCA Reciprocal Safe Velocity
         safe_vel = self.orca_solver.compute_orca_velocity(
@@ -345,7 +362,16 @@ class CollisionAvoidanceNode(Node):
             lidar_lines=None
         )
 
-        ref_vx, ref_vy = safe_vel[0], safe_vel[1]
+        # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
+        ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
+        ref_vy = np.clip(safe_vel[1], -1.0, 1.0) # Cap lateral speed for pitch/roll stability
+
+        if not hasattr(self, 'cmd_vel_smooth'):
+            self.cmd_vel_smooth = np.array([ref_vx, ref_vy], dtype=np.float32)
+        else:
+            self.cmd_vel_smooth = 0.75 * self.cmd_vel_smooth + 0.25 * np.array([ref_vx, ref_vy], dtype=np.float32)
+
+        out_vx, out_vy = self.cmd_vel_smooth[0], self.cmd_vel_smooth[1]
 
         # Debug log every ~2s
         if self.steps % 20 == 0:
@@ -353,16 +379,16 @@ class CollisionAvoidanceNode(Node):
                 f"[ORCA] Pos=({self.current_pos[0]:.2f},{self.current_pos[1]:.2f}) "
                 f"Target=({self.target_waypoint[0]:.1f},{self.target_waypoint[1]:.1f}) "
                 f"Dist={dist_to_target:.2f}m | PrefVel=({pref_vel[0]:.2f},{pref_vel[1]:.2f}) "
-                f"→ ORCA Vel=({ref_vx:.2f},{ref_vy:.2f})"
+                f"→ ORCA Vel=({out_vx:.2f},{out_vy:.2f})"
             )
 
-        # 5. Integrate ORCA velocity to position command for low-level controller
+        # 6. Integrate ORCA velocity to position command for low-level controller
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
 
-        target_pose.pose.position.x = float(self.current_pos[0] + ref_vx * self.dt)
-        target_pose.pose.position.y = float(self.current_pos[1] + ref_vy * self.dt)
+        target_pose.pose.position.x = float(self.current_pos[0] + out_vx * self.dt)
+        target_pose.pose.position.y = float(self.current_pos[1] + out_vy * self.dt)
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.w = 1.0
 

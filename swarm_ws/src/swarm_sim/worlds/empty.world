@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <sdf version="1.8">
   <world name="swarm_world">
-    <!-- SPEEDUP SIMULATION: Run unthrottled (real_time_factor = 0.0 means max CPU speed) -->
+    <!-- SPEEDUP SIMULATION: max_step_size=0.001 (1000Hz stable physics) & real_time_factor=0.0 unthrottled -->
     <physics name="fast_physics" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>0.0</real_time_factor>
