@@ -390,24 +390,22 @@ class CollisionAvoidanceNode(Node):
 
         out_vx, out_vy = self.cmd_vel_smooth[0], self.cmd_vel_smooth[1]
 
-        # 5b. Safe Heading-Tracking Yaw Control
-        # Hanya aktif jika waypoint dari test_waypoints.py SUDAH diterima
+        # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
-        speed_xy = float(np.sqrt(out_vx**2 + out_vy**2))
+        # Hitung yaw_target langsung dari safe_vel ORCA (bukan dari cmd_vel_smooth) untuk menghilangkan lag drift
+        safe_speed = float(np.sqrt(safe_vel[0]**2 + safe_vel[1]**2))
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
-        MAX_YAW_RATE = np.radians(120.0)  # Maksimal 120 derajat per detik (responsif tanpa lag drift)
 
-        if self.waypoint_received and speed_xy > YAW_DEADBAND and dist_to_target > 0.2:
-            yaw_target = float(np.arctan2(out_vy, out_vx))
+        if self.waypoint_received and safe_speed > YAW_DEADBAND and dist_to_target > 0.3:
+            yaw_target = float(np.arctan2(safe_vel[1], safe_vel[0]))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
-            # Slew-rate limiting: maksimal 120 deg/sec (dt = 0.1s -> max step = 12 deg = ~0.209 rad)
-            max_step = MAX_YAW_RATE * self.dt
-            clamped_delta = np.clip(delta_yaw, -max_step, max_step)
-            self.yaw_smooth += clamped_delta
+            # Responsif tanpa lag drift: ikuti arah safe_vel secara langsung dengan smoothing ringan
+            alpha_yaw = min(0.35 * (safe_speed / self.max_speed) + 0.1, 0.5)
+            self.yaw_smooth += alpha_yaw * delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
         # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)
@@ -424,13 +422,20 @@ class CollisionAvoidanceNode(Node):
             )
 
         # 6. Integrate ORCA velocity to target position with lookahead for full PID-LQR velocity tracking
-        lookahead_sec = 0.75
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
 
-        target_pose.pose.position.x = float(self.current_pos[0] + out_vx * lookahead_sec)
-        target_pose.pose.position.y = float(self.current_pos[1] + out_vy * lookahead_sec)
+        if dist_to_target < 0.3:
+            # Tiba di tujuan: Kunci target_pose tepat pada target_waypoint (cegah overshoot / oscilasi)
+            target_pose.pose.position.x = float(self.target_waypoint[0])
+            target_pose.pose.position.y = float(self.target_waypoint[1])
+            self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
+        else:
+            lookahead_sec = 0.75
+            target_pose.pose.position.x = float(self.current_pos[0] + out_vx * lookahead_sec)
+            target_pose.pose.position.y = float(self.current_pos[1] + out_vy * lookahead_sec)
+
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.x = 0.0
         target_pose.pose.orientation.y = 0.0
