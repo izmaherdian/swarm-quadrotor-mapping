@@ -367,21 +367,23 @@ class CollisionAvoidanceNode(Node):
             # Vektor relatif ke permukaan tembok rintangan terdekat
             obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
 
-            # Normal tembok menunjuk dari permukaan tembok ke arah drone
+            # Vektor relatif & arah rintangan (dari drone ke rintangan)
             obs_dir = obs_rel_min / max(dist_min, 0.05)
-            n_wall = -obs_dir  # Normal keluar dari tembok menuju drone
-            d_wall = np.array([-n_wall[1], n_wall[0]], dtype=np.float32)  # Vektor sejajar permukaan tembok
+
+            # Konvensi Setengah Bidang ORCASolver2D: cross(line_dir, v - line_point) <= 0 adalah AREA DIIZINKAN.
+            # Agar gerakan MENDEKATI rintangan terlarang (cross > 0), line_dir HARUS diset rotasi 90 deg searah jarum jam dari obs_dir.
+            line_dir = np.array([obs_dir[1], -obs_dir[0]], dtype=np.float32)
 
             # Wall Segment ORCA Constraint dengan Margin Aman 1.2m
             SAFETY_WALL_MARGIN = 1.2
             if dist_min < SAFETY_WALL_MARGIN:
-                # Dorong kecepatan keluar dari batas aman tembok
-                u_push = (SAFETY_WALL_MARGIN - dist_min) * (1.0 / self.time_horizon) * n_wall
+                # Dorong kecepatan keluar dari tembok (arah -obs_dir)
+                u_push = (SAFETY_WALL_MARGIN - dist_min) * (1.0 / self.time_horizon) * (-obs_dir)
                 line_point = self.current_vel[:2] + u_push
             else:
                 line_point = self.current_vel[:2]
 
-            lidar_lines.append({'point': line_point, 'dir': d_wall})
+            lidar_lines.append({'point': line_point, 'dir': line_dir})
 
             # Non-Linear Repulsion & Tangential Dodge untuk titik Lidar dekat (< 3.5m)
             close_indices = np.where(obs_mask)[0]
