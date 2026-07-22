@@ -299,8 +299,8 @@ class CollisionAvoidanceNode(Node):
         if self.target_waypoint is None:
             return
 
-        # 0. Takeoff phase check
-        if self.current_pos[2] < 1.5 and not self.waypoint_received:
+        # 0. Takeoff phase & Hover until Waypoint is received
+        if not self.waypoint_received or self.current_pos[2] < 1.5:
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()
             target_pose.header.frame_id = 'world'
