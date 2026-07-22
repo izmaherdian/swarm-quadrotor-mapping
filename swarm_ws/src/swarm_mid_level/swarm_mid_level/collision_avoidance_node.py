@@ -97,6 +97,11 @@ class CollisionAvoidanceNode(Node):
     def lidar_callback(self, msg):
         # Read the 72 ranges and handle inf/nan values
         ranges = np.array(msg.ranges, dtype=np.float32)
+        
+        # INFLATION RADIUS: Kurangi 25cm (0.25m) dari pembacaan sensor
+        # agar drone menganggap halangan lebih dekat, menghindari benturan baling-baling.
+        ranges = ranges - 0.25
+        
         # Handle invalid values (replace inf and nan with max range)
         ranges = np.nan_to_num(ranges, nan=10.0, posinf=10.0, neginf=0.1)
         self.lidar_ranges = np.clip(ranges, 0.1, 10.0)

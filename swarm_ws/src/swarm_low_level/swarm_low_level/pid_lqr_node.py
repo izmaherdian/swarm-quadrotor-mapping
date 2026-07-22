@@ -169,9 +169,9 @@ class PIDLQRNode(Node):
         m_body.pose.position.z = float(z)
         m_body.pose.orientation = q_msg
         
-        m_body.scale.x = 0.5 # Diameter bola 50cm agar sangat jelas
-        m_body.scale.y = 0.5
-        m_body.scale.z = 0.5
+        m_body.scale.x = 0.15 # Diameter bodi asli di Gazebo (15cm)
+        m_body.scale.y = 0.15
+        m_body.scale.z = 0.15
         
         m_body.color.r = float(r_c)
         m_body.color.g = float(g_c)
