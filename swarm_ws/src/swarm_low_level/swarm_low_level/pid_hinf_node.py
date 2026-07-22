@@ -154,69 +154,29 @@ class PIDHinfNode(Node):
         
         ma = MarkerArray()
         
-        # 1. Kotak 3D (Cube)
-        m_cube = Marker()
-        m_cube.header.frame_id = 'world'
-        m_cube.header.stamp = self.get_clock().now().to_msg()
-        m_cube.ns = f'drone_cube_{self.drone_id}'
-        m_cube.id = 0
-        m_cube.type = Marker.CUBE
-        m_cube.action = Marker.ADD
-        m_cube.pose.position.x = float(x)
-        m_cube.pose.position.y = float(y)
-        m_cube.pose.position.z = float(z)
-        m_cube.pose.orientation = q_msg
-        m_cube.scale.x = 0.4
-        m_cube.scale.y = 0.4
-        m_cube.scale.z = 0.15
-        m_cube.color.r = float(r_c)
-        m_cube.color.g = float(g_c)
-        m_cube.color.b = float(b_c)
-        m_cube.color.a = 0.9
-        ma.markers.append(m_cube)
+        # 1. Bodi Drone (Bola / Sphere) saja, sangat simpel!
+        m_body = Marker()
+        m_body.header.frame_id = 'world'
+        m_body.header.stamp = self.get_clock().now().to_msg()
+        m_body.ns = 'swarm_drones'
+        m_body.id = self.drone_id
+        m_body.type = Marker.SPHERE
+        m_body.action = Marker.ADD
+        m_body.pose.position.x = float(x)
+        m_body.pose.position.y = float(y)
+        m_body.pose.position.z = float(z)
+        m_body.pose.orientation = q_msg
         
-        # 2. Sumbu X (Depan) - Merah (Panah)
-        x_dir_x = math.cos(yaw) * math.cos(pitch)
-        x_dir_y = math.sin(yaw) * math.cos(pitch)
-        x_dir_z = math.sin(pitch)
+        m_body.scale.x = 0.5 # Diameter bola 50cm agar sangat jelas
+        m_body.scale.y = 0.5
+        m_body.scale.z = 0.5
         
-        m_x = Marker()
-        m_x.header.frame_id = 'world'
-        m_x.header.stamp = m_cube.header.stamp
-        m_x.ns = f'axis_x_{self.drone_id}'
-        m_x.id = 1
-        m_x.type = Marker.ARROW
-        m_x.action = Marker.ADD
-        m_x.scale.x = 0.04
-        m_x.scale.y = 0.08
-        m_x.scale.z = 0.1
-        m_x.color.r, m_x.color.g, m_x.color.b, m_x.color.a = 1.0, 0.0, 0.0, 1.0
+        m_body.color.r = float(r_c)
+        m_body.color.g = float(g_c)
+        m_body.color.b = float(b_c)
+        m_body.color.a = 1.0
         
-        p1 = GeometryPoint(x=float(x), y=float(y), z=float(z))
-        p2_x = GeometryPoint(x=float(x + 0.6 * x_dir_x), y=float(y + 0.6 * x_dir_y), z=float(z + 0.6 * x_dir_z))
-        m_x.points = [p1, p2_x]
-        ma.markers.append(m_x)
-        
-        # 3. Sumbu Y (Samping Kiri) - Hijau (Panah) - HANYA X dan Y (Tanpa Sumbu Z!)
-        y_dir_x = -math.sin(yaw)
-        y_dir_y = math.cos(yaw)
-        y_dir_z = 0.0
-        
-        m_y = Marker()
-        m_y.header.frame_id = 'world'
-        m_y.header.stamp = m_cube.header.stamp
-        m_y.ns = f'axis_y_{self.drone_id}'
-        m_y.id = 2
-        m_y.type = Marker.ARROW
-        m_y.action = Marker.ADD
-        m_y.scale.x = 0.04
-        m_y.scale.y = 0.08
-        m_y.scale.z = 0.1
-        m_y.color.r, m_y.color.g, m_y.color.b, m_y.color.a = 0.0, 1.0, 0.0, 1.0
-        
-        p2_y = GeometryPoint(x=float(x + 0.6 * y_dir_x), y=float(y + 0.6 * y_dir_y), z=float(z + 0.6 * y_dir_z))
-        m_y.points = [p1, p2_y]
-        ma.markers.append(m_y)
+        ma.markers.append(m_body)
         
         self.marker_pub.publish(ma)
 

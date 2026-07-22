@@ -55,14 +55,14 @@ def generate_launch_description():
     gz_sim_headless = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': gz_args_headless}.items(),
+        launch_arguments={'gz_args': f'-r -s "{world_file}"'}.items(),
         condition=IfCondition(LaunchConfiguration('headless'))
     )
     
     gz_sim_gui = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
-        launch_arguments={'gz_args': gz_args_gui}.items(),
+        launch_arguments={'gz_args': f'-r "{world_file}"'}.items(),
         condition=UnlessCondition(LaunchConfiguration('headless'))
     )
     
@@ -94,6 +94,7 @@ def generate_launch_description():
         
         # Per-drone bridge node for complete topic isolation
         bridge_args = [
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
             f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
             f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
@@ -168,6 +169,26 @@ def generate_launch_description():
         )
         swarm_nodes.append(ai_node)
         
+        # E. TF Prefix Node untuk mencegah bentrok frame base_link antar drone
+        tf_prefix = Node(
+            package='swarm_low_level',
+            executable='tf_prefix_node',
+            name=f'tf_prefix_iris_{i}',
+            parameters=[
+                {'drone_id': i}
+            ],
+            condition=drone_condition,
+            output='screen'
+        )
+        swarm_nodes.append(tf_prefix)
+    tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['--x', '0', '--y', '0', '--z', '0', '--yaw', '0', '--pitch', '0', '--roll', '0', '--frame-id', 'world', '--child-frame-id', 'swarm_world']
+    )
+
+
+        
     launch_entities = [
         set_env,
         headless_arg,
@@ -178,6 +199,7 @@ def generate_launch_description():
         gz_sim_headless,
         gz_sim_gui,
         rviz_node,
+        tf_node,
     ] + swarm_nodes
 
     return LaunchDescription(launch_entities)

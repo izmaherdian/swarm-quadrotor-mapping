@@ -1,286 +1,390 @@
 Panels:
-  - Class: rviz_common/Displays
-    Help Height: 78
-    Name: Displays
-    Property Tree Widget:
-      Expanded:
-        - /Grid1
-        - /Drone_1_Visual1
-        - /Drone_2_Visual1
-        - /Drone_3_Visual1
-        - /Drone_4_Visual1
-        - /Drone_5_Visual1
-        - /Drone_6_Visual1
-        - /Drone_7_Visual1
-      Splitter Ratio: 0.5
-  - Class: rviz_common/Selection
-    Name: Selection
-  - Class: rviz_common/Views
+- Class: rviz_common/Displays
+  Help Height: 78
+  Name: Displays
+  Property Tree Widget:
     Expanded:
-      - /Current View1
-    Name: Views
+    - /Grid1
+    - /Drone_1_Visual1
+    - /Drone_2_Visual1
+    - /Drone_3_Visual1
+    - /Drone_4_Visual1
+    - /Drone_5_Visual1
+    - /Drone_6_Visual1
+    - /Drone_7_Visual1
     Splitter Ratio: 0.5
+- Class: rviz_common/Selection
+  Name: Selection
+- Class: rviz_common/Views
+  Expanded:
+  - /Current View1
+  Name: Views
+  Splitter Ratio: 0.5
 Visualization Manager:
-  Class: ""
+  Class: ''
   Displays:
-    - Alpha: 0.5
-      Cell Size: 1
-      Class: rviz_default_plugins/Grid
-      Color: 160; 160; 164
-      Enabled: true
-      Line Style:
-        Line Width: 0.03
-        Value: Lines
-      Name: Grid
-      Normal Cell Count: 0
-      Offset:
-        X: 0
-        Y: 0
-        Z: 0
-      Plane: XY
-      Plane Cell Count: 20
-      Reference Frame: <Fixed Frame>
-      Value: true
-
-    # --- DRONE 1 (RED) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_1_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_1/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 255; 0; 0
-      Enabled: true
-      Keep: 1000
-      Name: Drone_1_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_1/odometry
-      Value: true
-
-    # --- DRONE 2 (ORANGE) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_2_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_2/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 255; 128; 0
-      Enabled: true
-      Keep: 1000
-      Name: Drone_2_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_2/odometry
-      Value: true
-
-    # --- DRONE 3 (YELLOW) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_3_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_3/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 255; 255; 0
-      Enabled: true
-      Keep: 1000
-      Name: Drone_3_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_3/odometry
-      Value: true
-
-    # --- DRONE 4 (GREEN) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_4_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_4/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 0; 255; 0
-      Enabled: true
-      Keep: 1000
-      Name: Drone_4_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_4/odometry
-      Value: true
-
-    # --- DRONE 5 (CYAN) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_5_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_5/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 0; 255; 255
-      Enabled: true
-      Keep: 1000
-      Name: Drone_5_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_5/odometry
-      Value: true
-
-    # --- DRONE 6 (BLUE) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_6_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_6/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 0; 128; 255
-      Enabled: true
-      Keep: 1000
-      Name: Drone_6_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_6/odometry
-      Value: true
-
-    # --- DRONE 7 (MAGENTA) ---
-    - Class: rviz_default_plugins/MarkerArray
-      Enabled: true
-      Name: Drone_7_Visual
-      Namespaces:
-        {}
-      Queue Size: 100
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /iris_7/marker_visual
-      Value: true
-    - Class: rviz_default_plugins/Odometry
-      Angle Tolerance: 0.1
-      Axis Length: 0.0
-      Axis Radius: 0.0
-      Color: 255; 0; 255
-      Enabled: true
-      Keep: 1000
-      Name: Drone_7_Trail
-      Position Tolerance: 0.1
-      Queue Size: 10
-      Shape: Point
-      Topic:
-        Depth: 5
-        Durability: Volatile
-        History: Keep Last
-        Reliability: Reliable
-        Value: /model/iris_7/odometry
-      Value: true
-
+  - Alpha: 0.5
+    Cell Size: 1
+    Class: rviz_default_plugins/Grid
+    Color: 160; 160; 164
+    Enabled: true
+    Line Style:
+      Line Width: 0.03
+      Value: Lines
+    Name: Grid
+    Normal Cell Count: 0
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Plane: XY
+    Plane Cell Count: 20
+    Reference Frame: <Fixed Frame>
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_1_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_1/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 255; 0; 0
+    Enabled: true
+    Keep: 1000
+    Name: Drone_1_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_1/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_2_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_2/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 255; 128; 0
+    Enabled: true
+    Keep: 1000
+    Name: Drone_2_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_2/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_3_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_3/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 255; 255; 0
+    Enabled: true
+    Keep: 1000
+    Name: Drone_3_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_3/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_4_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_4/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 0; 255; 0
+    Enabled: true
+    Keep: 1000
+    Name: Drone_4_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_4/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_5_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_5/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 0; 255; 255
+    Enabled: true
+    Keep: 1000
+    Name: Drone_5_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_5/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_6_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_6/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 0; 128; 255
+    Enabled: true
+    Keep: 1000
+    Name: Drone_6_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_6/odometry
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_7_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_7/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/Odometry
+    Angle Tolerance: 0.1
+    Axis Length: 0.0
+    Axis Radius: 0.0
+    Color: 255; 0; 255
+    Enabled: true
+    Keep: 1000
+    Name: Drone_7_Trail
+    Position Tolerance: 0.1
+    Queue Size: 10
+    Shape: Point
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /model/iris_7/odometry
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 0; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 1
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_1/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 127; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 2
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_2/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 255; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 3
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_3/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 0; 255; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 4
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_4/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 0; 255; 255
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 5
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_5/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 0; 127; 255
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 6
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_6/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 0; 255
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 7
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_7/lidar_scan
+    Use Rainbow: false
+    Value: true
   Enabled: true
   Fixed Frame: world
   Frame Rate: 30
   Name: root
   Tools:
-    - Class: rviz_default_plugins/Interact
-    - Class: rviz_default_plugins/MoveCamera
-    - Class: rviz_default_plugins/Select
+  - Class: rviz_default_plugins/Interact
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: rviz_default_plugins/Select
   Value: true
   Views:
     Current:
