@@ -82,7 +82,7 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
 ### FASE 4: Visualisasi Akhir & Pengambilan Data (Finishing) - **[IN PROGRESS]**
 * **Tujuan:** Mempercantik antarmuka untuk di-*screenshot* ke dalam jurnal/paper dan mengambil data metrik performa.
 * **Modul Pekerjaan:**
-  1. Setup RViz2 untuk memvisualisasikan `Marker` batas Voronoi, garis Bézier, dan titik LiDAR.
+  1. ~~Setup RViz2 untuk memvisualisasikan `Marker` batas Voronoi, garis Bézier, dan titik LiDAR.~~ (Selesai! Tampilan RViz2 sukses mendeteksi 7 bodi quadrotor tetangga dengan akurat melalui penyesuaian Lidar di `Z=0` (menghindari gangguan deteksi baling-baling di Gazebo), kalibrasi RViz Marker Sphere `15 cm`, dan pengaplikasian algoritma *Inflation Radius 25 cm* di dalam *Collision Avoidance Node*).
   2. Jalankan misi penuh (Fase 1 + 2 + 3 secara serentak).
   3. Ekstrak plot log (Kinerja Baterai, Coverage Area, Error ITAE) untuk ditulis di naskah konferensi EPIC.
 
