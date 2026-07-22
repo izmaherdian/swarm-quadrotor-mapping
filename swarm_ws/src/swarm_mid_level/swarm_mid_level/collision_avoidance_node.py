@@ -339,36 +339,58 @@ class CollisionAvoidanceNode(Node):
             speed = min(self.max_speed, dist_to_target * 1.5)
             pref_vel = (rel_target / dist_to_target) * speed
 
-        # 2. Extract neighbor drone states
+        # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
         neighbor_list = list(self.neighbors_state.values())
+        repulsion_vec = np.zeros(2, dtype=np.float32)
 
-        # 3. Extract static Lidar obstacles as a single convex ORCA agent with tangential bias
+        # 2b. Repulsion from neighbor drones (Zone = 2.0m)
+        for nbr in neighbor_list:
+            rel_nbr = self.current_pos[:2] - nbr['pos'] # Pointing AWAY from neighbor
+            dist_nbr = float(np.linalg.norm(rel_nbr))
+            if 1e-3 < dist_nbr < 2.0:
+                # Inverse-Square Law: semakin dekat (< 1.0m), gaya tolak melonjak sangat kuat
+                rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
+                repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
+
+        # 3. Extract static Lidar obstacles and apply Non-Linear Obstacle Repulsion (Zone = 2.0m)
         angles = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
-        obs_mask = self.lidar_ranges < 2.5
+        obs_mask = self.lidar_ranges < 2.0
 
         if np.any(obs_mask):
             min_idx = np.argmin(self.lidar_ranges)
             dist_min = float(self.lidar_ranges[min_idx])
             angle_min = float(angles[min_idx])
 
-            # Position of static obstacle center
-            obs_rel = np.array([dist_min * np.cos(angle_min), dist_min * np.sin(angle_min)], dtype=np.float32)
+            # Single closest obstacle for ORCA half-plane
+            obs_rel_min = np.array([dist_min * np.cos(angle_min), dist_min * np.sin(angle_min)], dtype=np.float32)
             neighbor_list.append({
-                'pos': self.current_pos[:2] + obs_rel,
+                'pos': self.current_pos[:2] + obs_rel_min,
                 'vel': np.zeros(2, dtype=np.float32),
                 'is_static': True
             })
 
-            # Tangential bias: jika rintangan berada tepat di jalur depan, beri geseran bias kecil pada pref_vel
-            # agar ORCA tidak terjebak di tengah (deadlock/local minima)
-            obs_dir = obs_rel / max(dist_min, 0.05)
+            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 2.0m)
+            close_indices = np.where(obs_mask)[0]
+            for idx in close_indices[::4]: # Sample every 4th ray for efficiency & smooth field
+                d_i = float(self.lidar_ranges[idx])
+                ang_i = float(angles[idx])
+                obs_rel_i = np.array([d_i * np.cos(ang_i), d_i * np.sin(ang_i)], dtype=np.float32)
+                push_dir = -obs_rel_i / max(d_i, 0.05)
+                # Inverse Square Law for static obstacles
+                rep_gain_i = ((2.0 / max(d_i, 0.35)) ** 2) * 0.35
+                repulsion_vec += push_dir * rep_gain_i
+
+            # Tangential bias: jika rintangan tepat di depan, beri belokan memutar tangensial
+            obs_dir = obs_rel_min / max(dist_min, 0.05)
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
-            if dot_front > 0.5:
-                # Pilih arah belok memutar (tangensial): jika rintangan agak di kanan, bias ke kiri; vice versa
+            if dot_front > 0.4:
                 tangent = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                 if np.cross(pref_vel, obs_dir) > 0:
                     tangent = -tangent
-                pref_vel += tangent * (self.max_speed * 0.6)
+                repulsion_vec += tangent * (self.max_speed * 0.5)
+
+        # Gabungkan gaya tolak non-linear ke pref_vel
+        pref_vel = pref_vel + repulsion_vec
 
         # 4. Compute ORCA Reciprocal Safe Velocity
         safe_vel = self.orca_solver.compute_orca_velocity(
