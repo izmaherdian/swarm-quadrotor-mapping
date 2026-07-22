@@ -1,0 +1,7 @@
+# Abaikan semua hasil log CSV dari simulasi swarm
+*.csv
+*.png
+*.log
+
+# Tapi tetap track folder ini di git
+!.gitignore
