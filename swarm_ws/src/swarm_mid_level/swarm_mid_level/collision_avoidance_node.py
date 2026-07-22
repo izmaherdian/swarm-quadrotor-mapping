@@ -335,8 +335,8 @@ class CollisionAvoidanceNode(Node):
         if dist_to_target < 0.1:
             pref_vel = np.zeros(2, dtype=np.float32)
         else:
-            # Proportional velocity targeting max_speed
-            speed = min(self.max_speed, dist_to_target * 1.5)
+            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot
+            speed = min(self.max_speed, dist_to_target * 0.8)
             pref_vel = (rel_target / dist_to_target) * speed
 
         # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
@@ -462,15 +462,20 @@ class CollisionAvoidanceNode(Node):
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
 
-        if dist_to_target < 0.3:
+        if dist_to_target < 0.6:
             # Tiba di tujuan: Kunci target_pose tepat pada target_waypoint (cegah overshoot / oscilasi)
             target_pose.pose.position.x = float(self.target_waypoint[0])
             target_pose.pose.position.y = float(self.target_waypoint[1])
             self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
         else:
             lookahead_sec = 0.75
-            target_pose.pose.position.x = float(self.current_pos[0] + out_vx * lookahead_sec)
-            target_pose.pose.position.y = float(self.current_pos[1] + out_vy * lookahead_sec)
+            proj_x = self.current_pos[0] + out_vx * lookahead_sec
+            proj_y = self.current_pos[1] + out_vy * lookahead_sec
+            # Clamp agar proyeksi target_pose tidak melebihi target_waypoint
+            if self.target_waypoint[0] >= 0:
+                proj_x = min(proj_x, float(self.target_waypoint[0]))
+            target_pose.pose.position.x = float(proj_x)
+            target_pose.pose.position.y = float(proj_y)
 
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.x = 0.0
