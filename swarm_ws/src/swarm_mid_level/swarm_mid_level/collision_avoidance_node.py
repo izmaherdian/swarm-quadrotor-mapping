@@ -271,6 +271,11 @@ class CollisionAvoidanceNode(Node):
         ranges = np.nan_to_num(ranges, nan=10.0, posinf=10.0, neginf=0.1)
         self.lidar_ranges = np.clip(ranges, 0.1, 10.0)
 
+    def euler_from_quaternion(self, x, y, z, w):
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        return math.atan2(t3, t4)
+
     def odom_callback(self, msg):
         self.current_pos[0] = msg.pose.pose.position.x
         self.current_pos[1] = msg.pose.pose.position.y
@@ -278,6 +283,15 @@ class CollisionAvoidanceNode(Node):
 
         self.current_vel[0] = msg.twist.twist.linear.x
         self.current_vel[1] = msg.twist.twist.linear.y
+
+        if not hasattr(self, 'spawn_yaw'):
+            qx = msg.pose.pose.orientation.x
+            qy = msg.pose.pose.orientation.y
+            qz = msg.pose.pose.orientation.z
+            qw = msg.pose.pose.orientation.w
+            yaw0 = self.euler_from_quaternion(qx, qy, qz, qw)
+            self.spawn_yaw = yaw0
+            self.yaw_smooth = yaw0
 
     def waypoint_callback(self, msg):
         self.target_waypoint = np.array([msg.point.x, msg.point.y], dtype=np.float32)
@@ -305,7 +319,12 @@ class CollisionAvoidanceNode(Node):
             target_pose.pose.position.x = float(self.target_waypoint[0])
             target_pose.pose.position.y = float(self.target_waypoint[1])
             target_pose.pose.position.z = float(self.target_z_height)
-            target_pose.pose.orientation.w = 1.0
+            init_yaw = getattr(self, 'spawn_yaw', 0.0)
+            half_yaw = init_yaw * 0.5
+            target_pose.pose.orientation.x = 0.0
+            target_pose.pose.orientation.y = 0.0
+            target_pose.pose.orientation.z = float(np.sin(half_yaw))
+            target_pose.pose.orientation.w = float(np.cos(half_yaw))
             self.pose_pub.publish(target_pose)
             return
 
@@ -374,7 +393,7 @@ class CollisionAvoidanceNode(Node):
         # 5b. Safe Heading-Tracking Yaw Control
         # Hanya aktif jika waypoint dari test_waypoints.py SUDAH diterima & drone mengudara (z >= 1.5m)
         if not hasattr(self, 'yaw_smooth'):
-            self.yaw_smooth = 0.0  # Default 0.0 (Utara)
+            self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
         speed_xy = float(np.sqrt(out_vx**2 + out_vy**2))
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover

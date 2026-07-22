@@ -215,6 +215,8 @@ class PIDLQRNode(Node):
             qz0 = msg.pose.pose.orientation.z
             qw0 = msg.pose.pose.orientation.w
             _, _, yaw0 = self.euler_from_quaternion(qx0, qy0, qz0, qw0)
+            self.spawn_yaw = yaw0
+            self.yaw_cmd = yaw0
             self.filt_x = [x, 0.0]
             self.filt_y = [y, 0.0]
             self.filt_z = [z, 0.0]
@@ -225,9 +227,11 @@ class PIDLQRNode(Node):
         dt = current_time - self.last_time
         self.last_time = current_time
         
-        if z < 1.5 and not self.target_pose_received:
+        if z < 1.5:
             self.x_cmd = self.formation_x
             self.y_cmd = self.formation_y
+            if hasattr(self, 'spawn_yaw'):
+                self.yaw_cmd = self.spawn_yaw
         
         reset_derivative = False
         if dt <= 0 or dt >= 0.1:
