@@ -352,44 +352,52 @@ class CollisionAvoidanceNode(Node):
                 rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
-        # 3. Extract static Lidar obstacles and apply Non-Linear Obstacle Repulsion (Zone = 3.5m for early evasion)
+        # 3. Extract static Lidar obstacles as Wall Segment ORCA Constraints (Safety Clearance = 1.2m)
         current_yaw = getattr(self, 'yaw_smooth', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
         obs_mask = self.lidar_ranges < 3.5
+        lidar_lines = []
 
         if np.any(obs_mask):
             min_idx = np.argmin(self.lidar_ranges)
             dist_min = float(self.lidar_ranges[min_idx])
             angle_min_world = float(angles_world[min_idx])
 
-            # Single closest obstacle position in World Frame
+            # Vektor relatif ke permukaan tembok rintangan terdekat
             obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
-            neighbor_list.append({
-                'pos': self.current_pos[:2] + obs_rel_min,
-                'vel': np.zeros(2, dtype=np.float32),
-                'is_static': True
-            })
 
-            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 3.5m) in World Frame
+            # Normal tembok menunjuk dari permukaan tembok ke arah drone
+            obs_dir = obs_rel_min / max(dist_min, 0.05)
+            n_wall = -obs_dir  # Normal keluar dari tembok menuju drone
+            d_wall = np.array([-n_wall[1], n_wall[0]], dtype=np.float32)  # Vektor sejajar permukaan tembok
+
+            # Wall Segment ORCA Constraint dengan Margin Aman 1.2m
+            SAFETY_WALL_MARGIN = 1.2
+            if dist_min < SAFETY_WALL_MARGIN:
+                # Dorong kecepatan keluar dari batas aman tembok
+                u_push = (SAFETY_WALL_MARGIN - dist_min) * (1.0 / self.time_horizon) * n_wall
+                line_point = self.current_vel[:2] + u_push
+            else:
+                line_point = self.current_vel[:2]
+
+            lidar_lines.append({'point': line_point, 'dir': d_wall})
+
+            # Non-Linear Repulsion & Tangential Dodge untuk titik Lidar dekat (< 3.5m)
             close_indices = np.where(obs_mask)[0]
-            for idx in close_indices[::4]: # Sample every 4th ray for efficiency & smooth field
+            for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
-                # Inverse Square Law starting from 3.5m
-                rep_gain_i = ((3.5 / max(d_i, 0.4)) ** 2) * 0.25
+                rep_gain_i = ((3.5 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
-            # Tangential bias: jika rintangan tepat di depan, beri belokan memutar tangensial kuat ke samping
-            obs_dir = obs_rel_min / max(dist_min, 0.05)
+            # Tangential Steering: Tambahkan komponen sejajar tembok jika rintangan tepat di depan
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
             if dot_front > 0.3:
-                tangent = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
-                if np.cross(pref_vel, obs_dir) > 0:
-                    tangent = -tangent
-                repulsion_vec += tangent * (self.max_speed * 0.7)
+                tangent_dir = d_wall if np.cross(pref_vel, obs_dir) <= 0 else -d_wall
+                repulsion_vec += tangent_dir * (self.max_speed * 0.7)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
@@ -397,22 +405,22 @@ class CollisionAvoidanceNode(Node):
         if rep_len > max_rep:
             repulsion_vec = (repulsion_vec / rep_len) * max_rep
 
-        # Anti-Chattering Filter: Smooth repulsion_vec across time so it cannot flip signs abruptly
+        # Anti-Chattering Filter: Smooth repulsion_vec across time
         if not hasattr(self, 'repulsion_smooth'):
             self.repulsion_smooth = repulsion_vec
         else:
             self.repulsion_smooth = 0.7 * self.repulsion_smooth + 0.3 * repulsion_vec
 
-        # Gabungkan gaya tolak non-linear halus ke pref_vel
+        # Gabungkan gaya tolak non-linear ke pref_vel
         pref_vel = pref_vel + self.repulsion_smooth
 
-        # 4. Compute ORCA Reciprocal Safe Velocity
+        # 4. Compute ORCA Reciprocal Safe Velocity with Static Wall Constraints
         safe_vel = self.orca_solver.compute_orca_velocity(
             pos_self=self.current_pos[:2],
             vel_self=self.current_vel,
             pref_vel=pref_vel,
             neighbors=neighbor_list,
-            lidar_lines=None
+            lidar_lines=lidar_lines
         )
 
         # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
