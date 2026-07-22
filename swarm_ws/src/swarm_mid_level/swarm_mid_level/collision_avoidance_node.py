@@ -353,28 +353,30 @@ class CollisionAvoidanceNode(Node):
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles and apply Non-Linear Obstacle Repulsion (Zone = 2.0m)
-        angles = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
+        current_yaw = getattr(self, 'yaw_smooth', 0.0)
+        angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
+        angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
         obs_mask = self.lidar_ranges < 2.0
 
         if np.any(obs_mask):
             min_idx = np.argmin(self.lidar_ranges)
             dist_min = float(self.lidar_ranges[min_idx])
-            angle_min = float(angles[min_idx])
+            angle_min_world = float(angles_world[min_idx])
 
-            # Single closest obstacle for ORCA half-plane
-            obs_rel_min = np.array([dist_min * np.cos(angle_min), dist_min * np.sin(angle_min)], dtype=np.float32)
+            # Single closest obstacle position in World Frame
+            obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
             neighbor_list.append({
                 'pos': self.current_pos[:2] + obs_rel_min,
                 'vel': np.zeros(2, dtype=np.float32),
                 'is_static': True
             })
 
-            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 2.0m)
+            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 2.0m) in World Frame
             close_indices = np.where(obs_mask)[0]
             for idx in close_indices[::4]: # Sample every 4th ray for efficiency & smooth field
                 d_i = float(self.lidar_ranges[idx])
-                ang_i = float(angles[idx])
-                obs_rel_i = np.array([d_i * np.cos(ang_i), d_i * np.sin(ang_i)], dtype=np.float32)
+                ang_i_world = float(angles_world[idx])
+                obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
                 # Inverse Square Law for static obstacles
                 rep_gain_i = ((2.0 / max(d_i, 0.35)) ** 2) * 0.35
