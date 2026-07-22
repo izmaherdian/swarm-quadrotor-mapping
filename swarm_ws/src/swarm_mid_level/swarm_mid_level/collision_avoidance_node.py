@@ -383,7 +383,7 @@ class CollisionAvoidanceNode(Node):
             )
 
         # 6. Integrate ORCA velocity to target position with 1.0s lookahead for full PID-LQR velocity tracking
-        lookahead_sec = 1.0
+        lookahead_sec = 0.75
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
