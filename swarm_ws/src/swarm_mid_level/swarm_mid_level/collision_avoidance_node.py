@@ -321,23 +321,20 @@ class CollisionAvoidanceNode(Node):
         # 2. Extract neighbor drone states
         neighbor_list = list(self.neighbors_state.values())
 
-        # 3. Extract static Lidar obstacle lines
-        lidar_lines = []
-        min_lidar_dist = float(np.min(self.lidar_ranges))
-        if min_lidar_dist < 1.8:
-            angles = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
-            min_idx = np.argmin(self.lidar_ranges)
-            dist_obs = self.lidar_ranges[min_idx]
-            angle_obs = angles[min_idx]
-
-            # Convert to relative obstacle point
-            obs_rel = np.array([dist_obs * np.cos(angle_obs), dist_obs * np.sin(angle_obs)], dtype=np.float32)
-            unit_obs = obs_rel / max(dist_obs, 0.05)
-            tangent_dir = np.array([-unit_obs[1], unit_obs[0]], dtype=np.float32)
-
-            # Static constraint line point at velocity obstacle boundary
-            line_pt = self.current_vel + (dist_obs - 0.5) * unit_obs
-            lidar_lines.append({'point': line_pt, 'dir': tangent_dir})
+        # 3. Extract static Lidar obstacles as static ORCA obstacles (vel = [0, 0])
+        angles = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
+        obs_mask = self.lidar_ranges < 2.2
+        if np.any(obs_mask):
+            obs_indices = np.where(obs_mask)[0]
+            sorted_indices = obs_indices[np.argsort(self.lidar_ranges[obs_indices])][:3]
+            for idx in sorted_indices:
+                dist_obs = float(self.lidar_ranges[idx])
+                angle_obs = float(angles[idx])
+                obs_rel = np.array([dist_obs * np.cos(angle_obs), dist_obs * np.sin(angle_obs)], dtype=np.float32)
+                neighbor_list.append({
+                    'pos': self.current_pos[:2] + obs_rel,
+                    'vel': np.zeros(2, dtype=np.float32)
+                })
 
         # 4. Compute ORCA Reciprocal Safe Velocity
         safe_vel = self.orca_solver.compute_orca_velocity(
@@ -345,7 +342,7 @@ class CollisionAvoidanceNode(Node):
             vel_self=self.current_vel,
             pref_vel=pref_vel,
             neighbors=neighbor_list,
-            lidar_lines=lidar_lines
+            lidar_lines=None
         )
 
         ref_vx, ref_vy = safe_vel[0], safe_vel[1]
