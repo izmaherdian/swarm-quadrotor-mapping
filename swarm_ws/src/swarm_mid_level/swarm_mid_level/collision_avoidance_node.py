@@ -382,13 +382,14 @@ class CollisionAvoidanceNode(Node):
                 f"→ ORCA Vel=({out_vx:.2f},{out_vy:.2f})"
             )
 
-        # 6. Integrate ORCA velocity to position command for low-level controller
+        # 6. Integrate ORCA velocity to target position with 1.0s lookahead for full PID-LQR velocity tracking
+        lookahead_sec = 1.0
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
 
-        target_pose.pose.position.x = float(self.current_pos[0] + out_vx * self.dt)
-        target_pose.pose.position.y = float(self.current_pos[1] + out_vy * self.dt)
+        target_pose.pose.position.x = float(self.current_pos[0] + out_vx * lookahead_sec)
+        target_pose.pose.position.y = float(self.current_pos[1] + out_vy * lookahead_sec)
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.w = 1.0
 
