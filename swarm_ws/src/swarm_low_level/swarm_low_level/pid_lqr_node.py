@@ -340,6 +340,7 @@ class PIDLQRNode(Node):
         self.x_cmd = msg.pose.position.x
         self.y_cmd = msg.pose.position.y
         self.z_cmd = msg.pose.position.z
+        self.target_pose_received = True
 
         # Extract yaw from orientation quaternion sent by mid-level ORCA
         qx = msg.pose.orientation.x
