@@ -15,7 +15,7 @@ class LidarObstacleAvoidanceEnv(gym.Env):
         # Max speeds and ranges
         self.max_speed = 1.5      # m/s
         self.max_lidar_range = 10.0 # meters
-        self.num_lidar_rays = 72
+        self.num_lidar_rays = 360
         self.dt = 0.1             # seconds per step
         self.target_radius = 0.3  # meters to count as reached
         self.collision_radius = 0.25 # drone size

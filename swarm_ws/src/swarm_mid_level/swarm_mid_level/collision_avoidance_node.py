@@ -54,7 +54,7 @@ class CollisionAvoidanceNode(Node):
         self.current_vel = np.array([0.0, 0.0])
         self.target_waypoint = None  # Will set to initial spawn position on first odom
         self.target_z_height = self.get_parameter('target_z_height').value
-        self.lidar_ranges = np.ones(72, dtype=np.float32) * 10.0
+        self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
         self.waypoint_received = False
 
         # Subscriptions
@@ -66,7 +66,7 @@ class CollisionAvoidanceNode(Node):
         )
         self.odom_sub = self.create_subscription(
             Odometry,
-            f'/model/iris_{did}/odometry',
+            f'/iris_{did}/odometry',
             self.odom_callback,
             10
         )
@@ -95,7 +95,7 @@ class CollisionAvoidanceNode(Node):
         self.timer = self.create_timer(self.dt, self.control_loop)
 
     def lidar_callback(self, msg):
-        # Read the 72 ranges and handle inf/nan values
+        # Read the ranges and handle inf/nan values
         ranges = np.array(msg.ranges, dtype=np.float32)
         
         # INFLATION RADIUS: Kurangi 25cm (0.25m) dari pembacaan sensor
@@ -166,8 +166,8 @@ class CollisionAvoidanceNode(Node):
         # Normalize velocity (assume max vel ~5 m/s during training)
         vel_norm = np.clip(self.current_vel / 5.0, -1.0, 1.0)
 
-        # 2. Build observation vector (shape: 1, 76)
-        # Structure: 72 (Lidar, 0.1-10m) + 2 (rel_target normalized) + 2 (vel normalized)
+        # 2. Build observation vector (shape: 1, 364)
+        # Structure: 360 (Lidar, 0.1-10m) + 2 (rel_target normalized) + 2 (vel normalized)
         obs = np.concatenate([
             self.lidar_ranges / max_range,  # normalize lidar to [0, 1]
             rel_target_norm,

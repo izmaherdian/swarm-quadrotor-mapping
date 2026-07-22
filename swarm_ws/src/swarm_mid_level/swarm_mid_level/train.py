@@ -77,8 +77,8 @@ def train():
     actor = SB3PolicyONNXWrapper(model.policy)
     actor.eval()
 
-    # Create dummy input based on observation space shape (72 Lidar + 4 stats)
-    dummy_input = torch.randn(1, 76, dtype=torch.float32)
+    # Create dummy input based on observation space shape (360 Lidar + 4 stats)
+    dummy_input = torch.randn(1, 364, dtype=torch.float32)
     onnx_path = os.path.join(model_dir, "ppo_lidar_avoidance.onnx")
 
     torch.onnx.export(
