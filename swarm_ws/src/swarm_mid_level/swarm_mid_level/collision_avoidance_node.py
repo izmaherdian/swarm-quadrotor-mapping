@@ -352,11 +352,11 @@ class CollisionAvoidanceNode(Node):
                 rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
-        # 3. Extract static Lidar obstacles and apply Non-Linear Obstacle Repulsion (Zone = 2.0m)
+        # 3. Extract static Lidar obstacles and apply Non-Linear Obstacle Repulsion (Zone = 3.5m for early evasion)
         current_yaw = getattr(self, 'yaw_smooth', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
-        obs_mask = self.lidar_ranges < 2.0
+        obs_mask = self.lidar_ranges < 3.5
 
         if np.any(obs_mask):
             min_idx = np.argmin(self.lidar_ranges)
@@ -371,25 +371,25 @@ class CollisionAvoidanceNode(Node):
                 'is_static': True
             })
 
-            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 2.0m) in World Frame
+            # Non-Linear Repulsion & Tangential Dodge for all close Lidar points (< 3.5m) in World Frame
             close_indices = np.where(obs_mask)[0]
             for idx in close_indices[::4]: # Sample every 4th ray for efficiency & smooth field
                 d_i = float(self.lidar_ranges[idx])
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
-                # Inverse Square Law for static obstacles
-                rep_gain_i = ((2.0 / max(d_i, 0.35)) ** 2) * 0.35
+                # Inverse Square Law starting from 3.5m
+                rep_gain_i = ((3.5 / max(d_i, 0.4)) ** 2) * 0.25
                 repulsion_vec += push_dir * rep_gain_i
 
-            # Tangential bias: jika rintangan tepat di depan, beri belokan memutar tangensial
+            # Tangential bias: jika rintangan tepat di depan, beri belokan memutar tangensial kuat ke samping
             obs_dir = obs_rel_min / max(dist_min, 0.05)
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
-            if dot_front > 0.4:
+            if dot_front > 0.3:
                 tangent = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                 if np.cross(pref_vel, obs_dir) > 0:
                     tangent = -tangent
-                repulsion_vec += tangent * (self.max_speed * 0.5)
+                repulsion_vec += tangent * (self.max_speed * 0.7)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
