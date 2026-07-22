@@ -352,54 +352,46 @@ class CollisionAvoidanceNode(Node):
                 rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
-        # 3. Extract static Lidar obstacles as Wall Segment ORCA Constraints (Safety Clearance = 1.2m)
+        # 3. Extract static Lidar obstacles as Bounded ORCA Obstacle Cones (Center-based)
         current_yaw = getattr(self, 'yaw_smooth', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
-        obs_mask = self.lidar_ranges < 3.5
-        lidar_lines = []
+        obs_mask = self.lidar_ranges < 3.0
 
         if np.any(obs_mask):
             min_idx = np.argmin(self.lidar_ranges)
             dist_min = float(self.lidar_ranges[min_idx])
             angle_min_world = float(angles_world[min_idx])
 
-            # Vektor relatif ke permukaan tembok rintangan terdekat
+            # Vektor relatif ke permukaan rintangan terdekat
             obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
-
-            # Vektor relatif & arah rintangan (dari drone ke rintangan)
             obs_dir = obs_rel_min / max(dist_min, 0.05)
 
-            # Konvensi Setengah Bidang ORCASolver2D: cross(line_dir, v - line_point) <= 0 adalah AREA DIIZINKAN.
-            # Agar gerakan MENDEKATI rintangan terlarang (cross > 0), line_dir HARUS diset rotasi 90 deg searah jarum jam dari obs_dir.
-            line_dir = np.array([obs_dir[1], -obs_dir[0]], dtype=np.float32)
+            # Estimasi titik pusat rintangan (0.3m di belakang permukaan terdepan)
+            obs_center_pos = self.current_pos[:2] + obs_rel_min + obs_dir * 0.3
+            neighbor_list.append({
+                'pos': obs_center_pos,
+                'vel': np.zeros(2, dtype=np.float32),
+                'is_static': True
+            })
 
-            # Wall Segment ORCA Constraint dengan Margin Aman 1.2m
-            SAFETY_WALL_MARGIN = 1.2
-            if dist_min < SAFETY_WALL_MARGIN:
-                # Dorong kecepatan keluar dari tembok (arah -obs_dir)
-                u_push = (SAFETY_WALL_MARGIN - dist_min) * (1.0 / self.time_horizon) * (-obs_dir)
-                line_point = self.current_vel[:2] + u_push
-            else:
-                line_point = self.current_vel[:2]
-
-            lidar_lines.append({'point': line_point, 'dir': line_dir})
-
-            # Non-Linear Repulsion & Tangential Dodge untuk titik Lidar dekat (< 3.5m)
+            # Non-Linear Repulsion & Tangential Dodge untuk titik Lidar dekat (< 3.0m)
             close_indices = np.where(obs_mask)[0]
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
-                rep_gain_i = ((3.5 / max(d_i, 0.4)) ** 2) * 0.3
+                rep_gain_i = ((3.0 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
-            # Tangential Steering: Tambahkan komponen sejajar tembok jika rintangan tepat di depan
+            # Tangential Steering: Tambahkan belokan memutar jika rintangan tepat di depan
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
             if dot_front > 0.3:
-                tangent_dir = d_wall if np.cross(pref_vel, obs_dir) <= 0 else -d_wall
-                repulsion_vec += tangent_dir * (self.max_speed * 0.7)
+                tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
+                if np.cross(pref_vel, obs_dir) > 0:
+                    tangent_dir = -tangent_dir
+                repulsion_vec += tangent_dir * (self.max_speed * 0.6)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
