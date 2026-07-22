@@ -389,8 +389,20 @@ class CollisionAvoidanceNode(Node):
                     tangent = -tangent
                 repulsion_vec += tangent * (self.max_speed * 0.5)
 
-        # Gabungkan gaya tolak non-linear ke pref_vel
-        pref_vel = pref_vel + repulsion_vec
+        # Cap total repulsion vector magnitude to prevent extreme force spikes
+        rep_len = float(np.linalg.norm(repulsion_vec))
+        max_rep = self.max_speed * 0.4
+        if rep_len > max_rep:
+            repulsion_vec = (repulsion_vec / rep_len) * max_rep
+
+        # Anti-Chattering Filter: Smooth repulsion_vec across time so it cannot flip signs abruptly
+        if not hasattr(self, 'repulsion_smooth'):
+            self.repulsion_smooth = repulsion_vec
+        else:
+            self.repulsion_smooth = 0.7 * self.repulsion_smooth + 0.3 * repulsion_vec
+
+        # Gabungkan gaya tolak non-linear halus ke pref_vel
+        pref_vel = pref_vel + self.repulsion_smooth
 
         # 4. Compute ORCA Reciprocal Safe Velocity
         safe_vel = self.orca_solver.compute_orca_velocity(
@@ -403,7 +415,7 @@ class CollisionAvoidanceNode(Node):
 
         # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
         ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
-        ref_vy = np.clip(safe_vel[1], -1.0, 1.0) # Cap lateral speed for pitch/roll stability
+        ref_vy = np.clip(safe_vel[1], -0.5, 0.5) # Cap lateral speed to +-0.5m/s for zero roll instability
 
         if not hasattr(self, 'cmd_vel_smooth'):
             self.cmd_vel_smooth = np.array([ref_vx, ref_vy], dtype=np.float32)
