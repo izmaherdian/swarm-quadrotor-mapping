@@ -371,16 +371,40 @@ class CollisionAvoidanceNode(Node):
 
         out_vx, out_vy = self.cmd_vel_smooth[0], self.cmd_vel_smooth[1]
 
+        # 5b. Safe Heading-Tracking Yaw Control
+        # Hanya aktif jika waypoint dari test_waypoints.py SUDAH diterima & drone mengudara (z >= 1.5m)
+        if not hasattr(self, 'yaw_smooth'):
+            self.yaw_smooth = 0.0  # Default 0.0 (Utara)
+
+        speed_xy = float(np.sqrt(out_vx**2 + out_vy**2))
+        YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
+        MAX_YAW_RATE = np.radians(30.0)  # Maksimal 30 derajat per detik (mulus untuk kamera)
+
+        if self.waypoint_received and self.current_pos[2] >= 1.5 and speed_xy > YAW_DEADBAND and dist_to_target > 0.2:
+            yaw_target = float(np.arctan2(out_vy, out_vx))
+            # Normalisasi selisih sudut ke range [-pi, pi]
+            delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+            
+            # Slew-rate limiting: maksimal 30 deg/sec (dt = 0.1s -> max step = 3 deg = ~0.052 rad)
+            max_step = MAX_YAW_RATE * self.dt
+            clamped_delta = np.clip(delta_yaw, -max_step, max_step)
+            self.yaw_smooth += clamped_delta
+            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+
+        # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)
+        half_yaw = self.yaw_smooth * 0.5
+        qw = float(np.cos(half_yaw))
+        qz = float(np.sin(half_yaw))
+
         # Debug log every ~2s
         if self.steps % 20 == 0:
             self.get_logger().info(
                 f"[ORCA] Pos=({self.current_pos[0]:.2f},{self.current_pos[1]:.2f}) "
                 f"Target=({self.target_waypoint[0]:.1f},{self.target_waypoint[1]:.1f}) "
-                f"Dist={dist_to_target:.2f}m | PrefVel=({pref_vel[0]:.2f},{pref_vel[1]:.2f}) "
-                f"→ ORCA Vel=({out_vx:.2f},{out_vy:.2f})"
+                f"Dist={dist_to_target:.2f}m | Vel=({out_vx:.2f},{out_vy:.2f}) | Yaw={np.degrees(self.yaw_smooth):.1f}°"
             )
 
-        # 6. Integrate ORCA velocity to target position with 1.0s lookahead for full PID-LQR velocity tracking
+        # 6. Integrate ORCA velocity to target position with lookahead for full PID-LQR velocity tracking
         lookahead_sec = 0.75
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
@@ -389,7 +413,10 @@ class CollisionAvoidanceNode(Node):
         target_pose.pose.position.x = float(self.current_pos[0] + out_vx * lookahead_sec)
         target_pose.pose.position.y = float(self.current_pos[1] + out_vy * lookahead_sec)
         target_pose.pose.position.z = float(self.target_z_height)
-        target_pose.pose.orientation.w = 1.0
+        target_pose.pose.orientation.x = 0.0
+        target_pose.pose.orientation.y = 0.0
+        target_pose.pose.orientation.z = qz
+        target_pose.pose.orientation.w = qw
 
         self.pose_pub.publish(target_pose)
 

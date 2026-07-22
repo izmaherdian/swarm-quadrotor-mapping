@@ -335,6 +335,15 @@ class PIDHinfNode(Node):
         self.y_cmd = msg.pose.position.y
         self.z_cmd = msg.pose.position.z
 
+        # Extract yaw from orientation quaternion sent by mid-level ORCA
+        qx = msg.pose.orientation.x
+        qy = msg.pose.orientation.y
+        qz = msg.pose.orientation.z
+        qw = msg.pose.orientation.w
+        if abs(qw) < 0.9999 or abs(qz) > 1e-6:
+            _, _, yaw_target = self.euler_from_quaternion(qx, qy, qz, qw)
+            self.yaw_cmd = yaw_target
+
     def destroy_node(self):
         self.csv_file.close()
         super().destroy_node()
