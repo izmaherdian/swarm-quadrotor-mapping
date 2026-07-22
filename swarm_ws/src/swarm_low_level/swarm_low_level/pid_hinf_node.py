@@ -225,7 +225,7 @@ class PIDHinfNode(Node):
         dt = current_time - self.last_time
         self.last_time = current_time
         
-        if z < 1.5:
+        if not self.target_pose_received:
             self.x_cmd = self.formation_x
             self.y_cmd = self.formation_y
             if hasattr(self, 'spawn_yaw'):

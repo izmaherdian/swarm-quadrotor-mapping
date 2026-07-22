@@ -311,8 +311,8 @@ class CollisionAvoidanceNode(Node):
         if self.target_waypoint is None:
             return
 
-        # 0. Takeoff phase & Hover until Waypoint is received
-        if not self.waypoint_received or self.current_pos[2] < 1.5:
+        # 0. Hover at spawn position until Waypoint is received
+        if not self.waypoint_received:
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()
             target_pose.header.frame_id = 'world'
@@ -399,7 +399,7 @@ class CollisionAvoidanceNode(Node):
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
         MAX_YAW_RATE = np.radians(30.0)  # Maksimal 30 derajat per detik (mulus untuk kamera)
 
-        if self.waypoint_received and self.current_pos[2] >= 1.5 and speed_xy > YAW_DEADBAND and dist_to_target > 0.2:
+        if self.waypoint_received and speed_xy > YAW_DEADBAND and dist_to_target > 0.2:
             yaw_target = float(np.arctan2(out_vy, out_vx))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
