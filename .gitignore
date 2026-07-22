@@ -22,3 +22,4 @@ Thumbs.db
 
 # Temporary images or debug artifacts (optional, keep commented if you want to push the graphics)
 # *.png
+swarm_ws/src/swarm_sim/results/swarm/*.csv

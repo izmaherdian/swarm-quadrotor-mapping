@@ -139,6 +139,7 @@ class PIDHinfNode(Node):
         
         self.start_time = None
         self.last_time = None
+        self.last_csv_log_time = 0.0
 
     def publish_drone_marker(self, x, y, z, roll, pitch, yaw, q_msg):
         color_map = {
@@ -319,13 +320,13 @@ class PIDHinfNode(Node):
                 f"  RPM → [{int(w_cmd[0])}, {int(w_cmd[1])}, {int(w_cmd[2])}, {int(w_cmd[3])}]\n"
                 f"───────────────────────────────────────────────────────────────────"
             )
-            
-        self.csv_writer.writerow([t, x, y, z, roll_deg, pitch_deg, yaw_deg,
-                                  self.filt_x[0], self.filt_y[0], self.filt_z[0], self.filt_yaw[0],
-                                  vx, vy, vz, p, q_ang, r_ang,
-                                  uz_pid, ux_pid, uy_pid, uyaw_pid,
-                                  w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
-        self.csv_file.flush()
+        if t - self.last_csv_log_time >= 0.05:  # 20 Hz
+            self.csv_writer.writerow([t, x, y, z, roll_deg, pitch_deg, yaw_deg,
+                                      self.filt_x[0], self.filt_y[0], self.filt_z[0], self.filt_yaw[0],
+                                      vx, vy, vz, p, q_ang, r_ang,
+                                      uz_pid, ux_pid, uy_pid, uyaw_pid,
+                                      w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
+            self.last_csv_log_time = t
         
         self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation)
 

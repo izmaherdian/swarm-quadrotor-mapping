@@ -49,9 +49,10 @@ class CollisionAvoidanceNode(Node):
             self.get_logger().error(f"Failed to load ONNX model: {str(e)}")
             self.ort_session = None
 
-        # State Variables
+        # AI State & Config
         self.current_pos = np.array([0.0, 0.0, 0.0])
         self.current_vel = np.array([0.0, 0.0])
+        self.current_orientation = None # to store quaternion
         self.target_waypoint = None  # Will set to initial spawn position on first odom
         self.target_z_height = self.get_parameter('target_z_height').value
         self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
@@ -98,6 +99,39 @@ class CollisionAvoidanceNode(Node):
         # Read the ranges and handle inf/nan values
         ranges = np.array(msg.ranges, dtype=np.float32)
         
+        # Ground filtering: if drone is pitched, the 2D lidar hits the ground.
+        # We calculate the distance to ground for each ray and ignore it if it matches.
+        if self.current_orientation is not None and self.current_pos[2] > 0.5:
+            # Simple quaternion to pitch approximation (since we only care about forward pitch mostly)
+            # Roll and pitch from quaternion
+            q = self.current_orientation
+            sinp = 2.0 * (q.w * q.y - q.z * q.x)
+            pitch = np.arcsin(np.clip(sinp, -1.0, 1.0))
+            sinr = 2.0 * (q.w * q.x + q.y * q.z)
+            cosr = 1.0 - 2.0 * (q.x**2 + q.y**2)
+            roll = np.arctan2(sinr, cosr)
+            
+            # The lidar rays are 360 degrees from -pi to pi
+            angles = np.linspace(msg.angle_min, msg.angle_max, len(ranges))
+            
+            # Vector in body frame: [cos(theta), sin(theta), 0]
+            # When rotated by pitch (y-axis) and roll (x-axis), the Z component in world is:
+            # z_world = -sin(pitch)*cos(theta) + sin(roll)*cos(pitch)*sin(theta)
+            ray_z_world = -np.sin(pitch) * np.cos(angles) + np.sin(roll) * np.cos(pitch) * np.sin(angles)
+            
+            # If the ray is pointing downwards
+            down_mask = ray_z_world < -0.05
+            
+            # Expected distance to hit the ground
+            expected_ground_dist = np.zeros_like(ranges)
+            expected_ground_dist[down_mask] = self.current_pos[2] / (-ray_z_world[down_mask])
+            
+            # If the lidar reading is close to the expected ground hit (within 0.8 meters)
+            ground_hit_mask = down_mask & (ranges > (expected_ground_dist - 0.8)) & (ranges < (expected_ground_dist + 0.8))
+            
+            # Replace ground hits with max range
+            ranges[ground_hit_mask] = 10.0
+
         # INFLATION RADIUS: Kurangi 25cm (0.25m) dari pembacaan sensor
         # agar drone menganggap halangan lebih dekat, menghindari benturan baling-baling.
         ranges = ranges - 0.25
@@ -111,6 +145,9 @@ class CollisionAvoidanceNode(Node):
         self.current_pos[0] = msg.pose.pose.position.x
         self.current_pos[1] = msg.pose.pose.position.y
         self.current_pos[2] = msg.pose.pose.position.z
+        
+        # Store orientation for ground filtering
+        self.current_orientation = msg.pose.pose.orientation
 
         # Set default initial target waypoint to initial spawn location if no external waypoint received
         if self.target_waypoint is None:
