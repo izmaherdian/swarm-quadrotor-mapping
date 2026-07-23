@@ -1,4 +1,4 @@
-# FIXXXXX
+# FIXXXXX yaw control
 #!/usr/bin/env python3
 import os
 import math
