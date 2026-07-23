@@ -530,7 +530,23 @@ class CollisionAvoidanceNode(Node):
 
         # Bekukan yaw saat lambat/hover atau sudah sangat dekat target
         if self.waypoint_received and smooth_speed > YAW_DEADBAND and dist_to_target > 0.8:
-            yaw_target = float(np.arctan2(self.cmd_vel_smooth[1], self.cmd_vel_smooth[0]))
+            # Arah heading ke target akhir
+            dx_goal = self.target_waypoint[0] - self.current_pos[0]
+            dy_goal = self.target_waypoint[1] - self.current_pos[1]
+            theta_goal = float(np.arctan2(dy_goal, dx_goal))
+
+            # Arah heading dari velocity
+            yaw_vel = float(np.arctan2(self.cmd_vel_smooth[1], self.cmd_vel_smooth[0]))
+            
+            # Selisih sudut antara arah kecepatan dengan arah ke target
+            diff = (yaw_vel - theta_goal + np.pi) % (2 * np.pi) - np.pi
+            
+            # Hanya ikuti arah kecepatan jika sudutnya dalam sektor depan (+/- 80 derajat)
+            if abs(diff) < math.radians(80.0):
+                yaw_target = yaw_vel
+            else:
+                yaw_target = theta_goal
+
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
