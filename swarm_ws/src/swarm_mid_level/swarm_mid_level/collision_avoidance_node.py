@@ -76,7 +76,7 @@ class ORCASolver2D:
                     # Legs projection
                     leg_unit_x = (pos_rel[0] * leg_len - pos_rel[1] * combined_radius) / dist_sq
                     leg_unit_y = (pos_rel[1] * leg_len + pos_rel[0] * combined_radius) / dist_sq
-                    if np.cross(pos_rel, w) > 0:
+                    if (pos_rel[0] * w[1] - pos_rel[1] * w[0]) > 0:
                         direction = np.array([leg_unit_x, leg_unit_y])
                     else:
                         direction = np.array([-leg_unit_x, -leg_unit_y])
@@ -107,8 +107,9 @@ class ORCASolver2D:
         t_right = -dot_product + sqrt_disc
 
         for i in range(line_no):
-            denominator = np.cross(lines[line_no]['dir'], lines[i]['dir'])
-            numerator = np.cross(lines[i]['dir'], lines[line_no]['point'] - lines[i]['point'])
+            denominator = lines[line_no]['dir'][0] * lines[i]['dir'][1] - lines[line_no]['dir'][1] * lines[i]['dir'][0]
+            diff_pt = lines[line_no]['point'] - lines[i]['point']
+            numerator = lines[i]['dir'][0] * diff_pt[1] - lines[i]['dir'][1] * diff_pt[0]
 
             if abs(denominator) < 1e-7:
                 if numerator < 0:
@@ -143,7 +144,8 @@ class ORCASolver2D:
             result_vel = opt_vel.copy()
 
         for i in range(len(lines)):
-            if np.cross(lines[i]['dir'], lines[i]['point'] - result_vel) > 0:
+            diff_vel = lines[i]['point'] - result_vel
+            if (lines[i]['dir'][0] * diff_vel[1] - lines[i]['dir'][1] * diff_vel[0]) > 0:
                 success, new_vel = self._linear_program_1d(lines, i, radius, opt_vel, False)
                 if success:
                     result_vel = new_vel
@@ -399,7 +401,7 @@ class CollisionAvoidanceNode(Node):
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
             if dot_front > 0.3:
                 tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
-                if np.cross(pref_vel, obs_dir) > 0:
+                if (pref_vel[0] * obs_dir[1] - pref_vel[1] * obs_dir[0]) > 0:
                     tangent_dir = -tangent_dir
                 repulsion_vec += tangent_dir * (self.max_speed * 0.6)
 
