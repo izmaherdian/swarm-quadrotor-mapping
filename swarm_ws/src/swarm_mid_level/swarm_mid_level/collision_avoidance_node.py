@@ -526,7 +526,9 @@ class CollisionAvoidanceNode(Node):
 
         # Hitung yaw_target dari cmd_vel_smooth (kecepatan makroskopis)
         smooth_speed = float(np.sqrt(self.cmd_vel_smooth[0]**2 + self.cmd_vel_smooth[1]**2))
-        YAW_DEADBAND = 0.4  # m/s — freeze yaw jika kecepatan sangat kecil / hover
+        YAW_DEADBAND = 0.4     # m/s — freeze yaw jika kecepatan sangat kecil / hover
+        MAX_YAW_RATE = math.radians(45.0)  # rad/s — slew rate max untuk RefYaw
+        dt_mid = 0.1           # period mid-level loop (10 Hz)
 
         # Bekukan yaw saat lambat/hover atau sudah sangat dekat target
         if self.waypoint_received and smooth_speed > YAW_DEADBAND and dist_to_target > 0.8:
@@ -549,10 +551,13 @@ class CollisionAvoidanceNode(Node):
 
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+
+            # === SLEW-RATE LIMITER: Batasi perubahan RefYaw maksimum 45°/s ===
+            # Ini mencegah RefYaw loncat 300°/s yang langsung saturasi tau_z
+            max_delta = MAX_YAW_RATE * dt_mid
+            delta_yaw = float(np.clip(delta_yaw, -max_delta, max_delta))
             
-            # Responsif: alpha mendekati 1.0 di kecepatan penuh
-            alpha_yaw = min(0.6 * (smooth_speed / self.max_speed) + 0.4, 1.0)
-            self.yaw_smooth += alpha_yaw * delta_yaw
+            self.yaw_smooth += delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
         # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)
