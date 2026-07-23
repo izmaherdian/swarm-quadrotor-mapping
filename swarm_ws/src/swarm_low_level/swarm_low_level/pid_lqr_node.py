@@ -110,7 +110,7 @@ class PIDLQRNode(Node):
         # Velocity feedforward dari mid-level ORCA (default nol)
         self.vx_cmd = 0.0
         self.vy_cmd = 0.0
-        self.k_ff = 0.2  # Feedforward gain: 1 m/s → 0.2 rad (~11°) tambahan pitch/roll
+        self.k_ff = 0.07  # Feedforward gain: 1 m/s → 0.07 rad (~4°) tambahan pitch/roll
 
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
         self.filt_x = [0.0, 0.0]
