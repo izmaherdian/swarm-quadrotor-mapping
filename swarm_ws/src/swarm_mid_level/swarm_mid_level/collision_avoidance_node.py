@@ -34,7 +34,7 @@ class ORCASolver2D:
         for neighbor in neighbors:
             is_static = neighbor.get('is_static', False)
             weight = 1.0 if is_static else 0.5
-            rad_obs = 0.8 if is_static else self.radius # 0.8m obstacle safety radius
+            rad_obs = neighbor.get('radius', 0.8 if is_static else self.radius)
             combined_radius = self.radius + rad_obs
             combined_radius_sq = combined_radius ** 2
 
@@ -352,31 +352,31 @@ class CollisionAvoidanceNode(Node):
                 rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
-        # 3. Extract static Lidar obstacles as Bounded ORCA Obstacle Cones (Center-based)
+        # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
         current_yaw = getattr(self, 'yaw_smooth', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
         obs_mask = self.lidar_ranges < 3.0
 
         if np.any(obs_mask):
-            min_idx = np.argmin(self.lidar_ranges)
-            dist_min = float(self.lidar_ranges[min_idx])
-            angle_min_world = float(angles_world[min_idx])
-
-            # Vektor relatif ke permukaan rintangan terdekat
-            obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
-            obs_dir = obs_rel_min / max(dist_min, 0.05)
-
-            # Estimasi titik pusat rintangan (0.3m di belakang permukaan terdepan)
-            obs_center_pos = self.current_pos[:2] + obs_rel_min + obs_dir * 0.3
-            neighbor_list.append({
-                'pos': obs_center_pos,
-                'vel': np.zeros(2, dtype=np.float32),
-                'is_static': True
-            })
-
-            # Non-Linear Repulsion & Tangential Dodge untuk titik Lidar dekat (< 3.0m)
             close_indices = np.where(obs_mask)[0]
+            
+            # 3a. Represent Lidar points directly as static ORCA obstacle spheres
+            # Downsample to every 6th ray to prevent solver lag
+            for idx in close_indices[::6]:
+                d_i = float(self.lidar_ranges[idx])
+                ang_i_world = float(angles_world[idx])
+                obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
+                
+                # Each point is a small static circle to form a clean boundary buffer
+                neighbor_list.append({
+                    'pos': obs_pos_i,
+                    'vel': np.zeros(2, dtype=np.float32),
+                    'is_static': True,
+                    'radius': 0.35  # combined radius = 0.8 + 0.35 = 1.15m from ray point
+                })
+
+            # 3b. Non-Linear Repulsion for smooth steering
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
                 ang_i_world = float(angles_world[idx])
@@ -385,7 +385,13 @@ class CollisionAvoidanceNode(Node):
                 rep_gain_i = ((3.0 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
-            # Tangential Steering: Tambahkan belokan memutar jika rintangan tepat di depan
+            # 3c. Tangential Steering: Curve around closest obstacle face
+            min_idx = np.argmin(self.lidar_ranges)
+            dist_min = float(self.lidar_ranges[min_idx])
+            angle_min_world = float(angles_world[min_idx])
+            obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
+            obs_dir = obs_rel_min / max(dist_min, 0.05)
+            
             dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
             if dot_front > 0.3:
                 tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
@@ -395,7 +401,7 @@ class CollisionAvoidanceNode(Node):
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
-        max_rep = self.max_speed * 0.4
+        max_rep = self.max_speed * 0.75  # Increased from 0.4 to 0.75 to handle tight corridor squeezing
         if rep_len > max_rep:
             repulsion_vec = (repulsion_vec / rep_len) * max_rep
 
