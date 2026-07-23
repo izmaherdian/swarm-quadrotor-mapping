@@ -55,14 +55,15 @@ class SwarmSimulator2D:
         # Log perjalanan untuk plotting
         self.history = {i: [] for i in range(self.num_drones)}
 
-    def simulate_lidar(self, drone_pos):
-        """Simulasikan pembacaan Lidar 2D (360 ray) terhadap 4 rintangan lingkaran"""
+    def simulate_lidar(self, drone_pos, yaw):
+        """Simulasikan pembacaan Lidar 2D (360 ray) terhadap 4 rintangan lingkaran dengan arah Yaw drone"""
         num_rays = 360
-        angles = np.linspace(-np.pi, np.pi, num_rays)
+        angles_body = np.linspace(-np.pi, np.pi, num_rays)
         ranges = np.ones(num_rays, dtype=np.float32) * 10.0  # Default max range 10m
 
-        for idx, angle in enumerate(angles):
-            ray_dir = np.array([np.cos(angle), np.sin(angle)], dtype=np.float32)
+        for idx, angle_body in enumerate(angles_body):
+            angle_world = yaw + angle_body
+            ray_dir = np.array([np.cos(angle_world), np.sin(angle_world)], dtype=np.float32)
             # Hitung perpotongan sinar dengan masing-masing rintangan berbentuk lingkaran
             for obs in self.obstacles:
                 pos_rel = obs['pos'] - drone_pos
@@ -79,13 +80,49 @@ class SwarmSimulator2D:
                         ranges[idx] = dist
         return ranges
 
-    def run(self):
-        print("🤖 Memulai Simulasi Swarm ORCA 2D...")
+    def run(self, realtime=False):
+        print(f"🤖 Memulai Simulasi Swarm ORCA 2D (Real-Time={realtime})...")
         collisions = 0
         min_dist_to_obs = 999.0
 
+        if realtime:
+            plt.ion()
+            fig, ax = plt.subplots(figsize=(10, 8))
+            # Plot Rintangan Statis
+            for idx, obs in enumerate(self.obstacles):
+                circle = plt.Circle(obs['pos'], obs['radius'], color='red', alpha=0.6)
+                ax.add_patch(circle)
+                ax.text(obs['pos'][0], obs['pos'][1], f"Obs {chr(65+idx)}", color='white', ha='center', va='center', weight='bold')
+
+            # Setup visualisasi drone dan lintasan
+            colors = ['blue', 'green', 'orange', 'purple', 'brown', 'cyan', 'magenta']
+            traj_lines = []
+            drone_markers = []
+            safety_circles = []
+            for i in range(self.num_drones):
+                line, = ax.plot([], [], color=colors[i], linewidth=2, label=f"Drone {i+1}")
+                traj_lines.append(line)
+                marker, = ax.plot([], [], color=colors[i], marker='o', markersize=8)
+                drone_markers.append(marker)
+                # Lingkaran fisik drone (radius 0.4m)
+                circle = plt.Circle((0,0), 0.4, color=colors[i], fill=False, linestyle='--', alpha=0.4)
+                ax.add_patch(circle)
+                safety_circles.append(circle)
+
+            lidar_scatter = ax.scatter([], [], color='red', s=12, alpha=0.6, marker='x', label="Point Cloud Lidar")
+
+            ax.set_title("Real-Time Simulasi Swarm Drone 2D (ORCA + Repulsion)", fontsize=14, weight='bold')
+            ax.set_xlabel("X Position (m)")
+            ax.set_ylabel("Y Position (m)")
+            ax.grid(True)
+            ax.legend(loc='upper left')
+            ax.set_xlim(-1.0, 11.0)
+            ax.set_ylim(-7.0, 7.0)
+
         for step in range(self.steps):
             new_positions = []
+            all_lidar_points_x = []
+            all_lidar_points_y = []
             
             for i in range(self.num_drones):
                 pos_self = self.positions[i]
@@ -128,7 +165,7 @@ class SwarmSimulator2D:
                         repulsion_vec += (rel_nbr / max(dist_nbr, 0.05)) * rep_gain
 
                 # 3. Lidar Obstacles (Point-Cloud Spheres)
-                lidar_ranges = self.simulate_lidar(pos_self)
+                lidar_ranges = self.simulate_lidar(pos_self, self.yaw_smooth[i])
                 angles_world = self.yaw_smooth[i] + np.linspace(-np.pi, np.pi, len(lidar_ranges))
                 obs_mask = lidar_ranges < 4.5
 
@@ -150,6 +187,10 @@ class SwarmSimulator2D:
                         if d_i < min_dist_to_obs:
                             min_dist_to_obs = d_i
 
+                        if realtime:
+                            all_lidar_points_x.append(obs_pos_i[0])
+                            all_lidar_points_y.append(obs_pos_i[1])
+
                     # Gaya Tolak Rintangan
                     for idx in close_indices[::4]:
                         d_i = float(lidar_ranges[idx])
@@ -167,7 +208,12 @@ class SwarmSimulator2D:
 
                 # Saring chattering
                 self.repulsion_smooth[i] = 0.7 * self.repulsion_smooth[i] + 0.3 * repulsion_vec
-                pref_vel += self.repulsion_smooth[i]
+                
+                # Tambahkan gaya tolak hanya jika belum dekat target untuk menghindari drifting saat melayang diam
+                if dist_target > 0.3:
+                    pref_vel += self.repulsion_smooth[i]
+                else:
+                    self.repulsion_smooth[i] = np.zeros(2, dtype=np.float32)
 
                 # 4. ORCA safe velocity
                 safe_vel = self.orca_solver.compute_orca_velocity(
@@ -178,9 +224,9 @@ class SwarmSimulator2D:
                     lidar_lines=None
                 )
 
-                # Cap speed
+                # Cap speed (samakan dengan limit node ROS 2 sebenarnya)
                 ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
-                ref_vy = np.clip(safe_vel[1], -0.5, 0.5)
+                ref_vy = np.clip(safe_vel[1], -self.max_speed, self.max_speed)
 
                 self.velocities[i] = np.array([ref_vx, ref_vy], dtype=np.float32)
                 
@@ -205,9 +251,32 @@ class SwarmSimulator2D:
                     if dist < 0.5:  # Tabrakan fisik ujung baling-baling
                         collisions += 1
 
+            if realtime:
+                # Update visualisasi plot
+                for i in range(self.num_drones):
+                    hist = np.array(self.history[i])
+                    if len(hist) > 0:
+                        traj_lines[i].set_data(hist[:, 0], hist[:, 1])
+                    drone_markers[i].set_data([self.positions[i][0]], [self.positions[i][1]])
+                    safety_circles[i].set_center((self.positions[i][0], self.positions[i][1]))
+                
+                if all_lidar_points_x:
+                    lidar_scatter.set_offsets(np.column_stack((all_lidar_points_x, all_lidar_points_y)))
+                else:
+                    lidar_scatter.set_offsets(np.empty((0, 2)))
+                
+                fig.canvas.draw()
+                fig.canvas.flush_events()
+                plt.pause(0.01)
+
         print("✅ Simulasi Selesai!")
         print(f"📊 Total Tabrakan Antar Drone: {collisions}")
         print(f"📊 Jarak Terdekat ke Rintangan Statis: {min_dist_to_obs:.2f}m")
+        
+        if realtime:
+            plt.ioff()
+            plt.show()
+            
         return collisions, min_dist_to_obs
 
     def plot_results(self, output_path):
@@ -240,8 +309,9 @@ class SwarmSimulator2D:
         print(f"📈 Grafik trajectory disimpan ke: {output_path}")
 
 if __name__ == '__main__':
+    realtime_mode = '--realtime' in sys.argv or '-r' in sys.argv
     sim = SwarmSimulator2D()
-    sim.run()
+    sim.run(realtime=realtime_mode)
     
     # Simpan plot di workspace root agar user bisa langsung lihat & buka
     workspace_plot_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../trajectory_simulation.png'))
