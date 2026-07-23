@@ -523,7 +523,8 @@ class CollisionAvoidanceNode(Node):
         # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
-            # Seed heading IIR ke arah waypoint (atau 0° jika belum ada)
+        # Init heading IIR state (terpisah agar selalu tersedia sebelum control loop)
+        if not hasattr(self, '_vx_head'):
             self._vx_head = 1.0
             self._vy_head = 0.0
 
