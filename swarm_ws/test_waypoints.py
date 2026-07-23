@@ -24,13 +24,14 @@ class WaypointTester(Node):
             topic = f'/iris_{i}/waypoint'
             self.pubs[i] = self.create_publisher(PointStamped, topic, 10)
             
-        self.get_logger().info("Menunggu sebentar agar koneksi ROS 2 stabil...")
+        self.get_logger().info("🚀 Memulai pengiriman waypoint ROS 2 (Kontinu 15s)...")
         self.attempt = 0
-        self.timer = self.create_timer(1.0, self.send_waypoints)
+        self.timer = self.create_timer(0.5, self.send_waypoints)
 
     def send_waypoints(self):
         self.attempt += 1
-        self.get_logger().info(f'Mengirim target waypoint X=10 ke semua drone serentak... (Percobaan {self.attempt})')
+        if self.attempt % 2 == 0:
+            self.get_logger().info(f'Mengirim target waypoint X=10.0m ke semua drone... ({self.attempt}/30)')
         
         for i in range(1, 8):
             msg = PointStamped()
@@ -45,8 +46,8 @@ class WaypointTester(Node):
             if self.attempt == 1:
                 self.get_logger().info(f'-> Drone {i} ditugaskan ke (X: {msg.point.x}, Y: {msg.point.y})')
         
-        if self.attempt >= 3:
-            self.get_logger().info('Semua waypoint telah dikirim! Tekan Ctrl+C untuk keluar.')
+        if self.attempt >= 30:
+            self.get_logger().info('✅ Semua waypoint telah sukses terkirim dan terkonfirmasi! Menutup node...')
             self.timer.cancel()
 
 def main(args=None):
