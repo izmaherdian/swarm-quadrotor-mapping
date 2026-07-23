@@ -182,6 +182,7 @@ class CollisionAvoidanceNode(Node):
         self.num_drones = self.get_parameter('num_drones').value
         self.safety_radius = self.get_parameter('safety_radius').value
         self.time_horizon = self.get_parameter('time_horizon').value
+        self.lookahead_damping = 0.15
 
         node_name = self.get_name()
         if '_' in node_name and node_name.split('_')[-1].isdigit():
@@ -602,8 +603,8 @@ class CollisionAvoidanceNode(Node):
         if self.target_waypoint[1] > self.current_pos[1]:
             self.pos_ref[1] = min(self.pos_ref[1], float(self.target_waypoint[1]))
 
-        target_pose.pose.position.x = float(self.pos_ref[0])
-        target_pose.pose.position.y = float(self.pos_ref[1])
+        target_pose.pose.position.x = float(self.pos_ref[0] + out_vx * self.lookahead_damping)
+        target_pose.pose.position.y = float(self.pos_ref[1] + out_vy * self.lookahead_damping)
 
         # Kunci presisi mutlak saat sangat dekat (< 0.15m)
         if dist_to_target < 0.15:
