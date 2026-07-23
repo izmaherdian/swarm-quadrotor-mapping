@@ -25,18 +25,27 @@ class PID:
     def compute(self, error, dt=None, reset_derivative=False):
         if dt is not None:
             self.dt = dt
+            
         proportional = self.Kp * error
         if reset_derivative:
             self.prev_error = error
         derivative = self.Kd * (error - self.prev_error) / self.dt
         self.prev_error = error
         
-        output_no_i = proportional + derivative
-        if not ((output_no_i > self.out_max and error > 0) or (output_no_i < self.out_min and error < 0)):
-            self.integral += error * self.dt
-            
+        self.integral += error * self.dt
         output = proportional + self.Ki * self.integral + derivative
-        return np.clip(output, self.out_min, self.out_max)
+        
+        # Anti-windup (Dynamic Back-Calculation / Clamping)
+        if output > self.out_max:
+            output = self.out_max
+            if abs(self.Ki) > 1e-6:
+                self.integral = (output - proportional - derivative) / self.Ki
+        elif output < self.out_min:
+            output = self.out_min
+            if abs(self.Ki) > 1e-6:
+                self.integral = (output - proportional - derivative) / self.Ki
+                
+        return output
 
 class PIDHinfNode(Node):
     def __init__(self):
