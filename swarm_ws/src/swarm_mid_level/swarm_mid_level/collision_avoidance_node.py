@@ -523,12 +523,14 @@ class CollisionAvoidanceNode(Node):
         # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
+            # Seed heading IIR ke arah waypoint (atau 0° jika belum ada)
+            self._vx_head = 1.0
+            self._vy_head = 0.0
 
         # Hitung yaw_target dari cmd_vel_smooth (kecepatan makroskopis)
         smooth_speed = float(np.sqrt(self.cmd_vel_smooth[0]**2 + self.cmd_vel_smooth[1]**2))
         YAW_DEADBAND = 0.4     # m/s — freeze yaw jika kecepatan sangat kecil / hover
-        MAX_YAW_RATE = math.radians(45.0)  # rad/s — slew rate max untuk RefYaw
-        dt_mid = 0.1           # period mid-level loop (10 Hz)
+        MAX_YAW_RATE = math.radians(30.0)  # rad/s — slew rate max (30 deg/s = aman)
 
         # Bekukan yaw saat lambat/hover atau sudah sangat dekat target
         if self.waypoint_received and smooth_speed > YAW_DEADBAND and dist_to_target > 0.8:
@@ -537,9 +539,13 @@ class CollisionAvoidanceNode(Node):
             dy_goal = self.target_waypoint[1] - self.current_pos[1]
             theta_goal = float(np.arctan2(dy_goal, dx_goal))
 
-            # Arah heading dari velocity
-            yaw_vel = float(np.arctan2(self.cmd_vel_smooth[1], self.cmd_vel_smooth[0]))
-            
+            # === Smooth velocity heading vector sebelum arctan2 ===
+            # Gunakan IIR pada komponen vx/vy, bukan pada sudut (menghindari wrap-around flip)
+            ALPHA_VEL_HEAD = 0.15   # semakin kecil = semakin halus, ~7 step lag
+            self._vx_head = ALPHA_VEL_HEAD * self.cmd_vel_smooth[0] + (1 - ALPHA_VEL_HEAD) * self._vx_head
+            self._vy_head = ALPHA_VEL_HEAD * self.cmd_vel_smooth[1] + (1 - ALPHA_VEL_HEAD) * self._vy_head
+            yaw_vel = float(np.arctan2(self._vy_head, self._vx_head))
+
             # Selisih sudut antara arah kecepatan dengan arah ke target
             diff = (yaw_vel - theta_goal + np.pi) % (2 * np.pi) - np.pi
             
@@ -552,9 +558,9 @@ class CollisionAvoidanceNode(Node):
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
-            # === SLEW-RATE LIMITER: Batasi perubahan RefYaw maksimum 45°/s ===
-            # Ini mencegah RefYaw loncat 300°/s yang langsung saturasi tau_z
-            max_delta = MAX_YAW_RATE * dt_mid
+            # === SLEW-RATE LIMITER: Batasi perubahan RefYaw ≤ 30°/s ===
+            # Gunakan self.dt (bukan hardcode) agar benar saat dt berubah
+            max_delta = MAX_YAW_RATE * self.dt
             delta_yaw = float(np.clip(delta_yaw, -max_delta, max_delta))
             
             self.yaw_smooth += delta_yaw
