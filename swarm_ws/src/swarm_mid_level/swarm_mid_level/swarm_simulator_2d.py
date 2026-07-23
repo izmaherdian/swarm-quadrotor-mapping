@@ -446,15 +446,15 @@ if __name__ == '__main__':
     sim = SwarmSimulator2D()
     sim.run(realtime=realtime_mode)
     
-    # Simpan plot di workspace root agar user bisa langsung lihat & buka
-    workspace_plot_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../trajectory_simulation.png'))
-    sim.plot_results(workspace_plot_path)
+    # Simpan plot di dalam folder swarm_mid_level agar rapi
+    mid_level_plot_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../trajectory_simulation.png'))
+    sim.plot_results(mid_level_plot_path)
     
     # Salin juga ke folder artifact agar ter-render di chat
     artifact_plot_path = '/home/izmaherdian/.gemini/antigravity-cli/brain/5957a601-2c4a-4ba8-a185-b5636c8ffa5c/trajectory_simulation.png'
     try:
         import shutil
-        shutil.copy(workspace_plot_path, artifact_plot_path)
+        shutil.copy(mid_level_plot_path, artifact_plot_path)
         print(f"📈 Grafik trajectory disalin ke artifact chat: {artifact_plot_path}")
     except Exception as e:
         print(f"Error copying plot: {e}")
