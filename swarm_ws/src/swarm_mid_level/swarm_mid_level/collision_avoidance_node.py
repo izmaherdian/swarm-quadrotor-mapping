@@ -382,13 +382,15 @@ class CollisionAvoidanceNode(Node):
                     'radius': 0.35  # combined radius = 0.8 + 0.35 = 1.15m from ray point
                 })
 
-            # 3b. Non-Linear Repulsion for smooth steering
+            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 2.2m untuk mencegah dorong belakang)
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
+                if d_i > 2.2:
+                    continue
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
-                rep_gain_i = ((4.5 / max(d_i, 0.4)) ** 2) * 0.3
+                rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
             # 3c. Tangential Steering: Curve around closest obstacle face
@@ -411,14 +413,21 @@ class CollisionAvoidanceNode(Node):
         if rep_len > max_rep:
             repulsion_vec = (repulsion_vec / rep_len) * max_rep
 
+        # Skala gaya tolak mengecil saat mendekati target untuk mencegah deadlock hover di akhir
+        repulsion_scale = min(1.0, dist_to_target / 1.5)
+        repulsion_vec *= repulsion_scale
+
         # Anti-Chattering Filter: Smooth repulsion_vec across time
         if not hasattr(self, 'repulsion_smooth'):
             self.repulsion_smooth = repulsion_vec
         else:
             self.repulsion_smooth = 0.7 * self.repulsion_smooth + 0.3 * repulsion_vec
 
-        # Gabungkan gaya tolak non-linear ke pref_vel
-        pref_vel = pref_vel + self.repulsion_smooth
+        # Gabungkan gaya tolak hanya jika belum dekat target untuk menghindari drifting saat melayang diam
+        if dist_to_target > 0.3:
+            pref_vel = pref_vel + self.repulsion_smooth
+        else:
+            self.repulsion_smooth = np.zeros(2, dtype=np.float32)
 
         # 4. Compute ORCA Reciprocal Safe Velocity with Static Wall Constraints
         safe_vel = self.orca_solver.compute_orca_velocity(

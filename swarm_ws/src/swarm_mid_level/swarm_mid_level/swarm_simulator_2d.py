@@ -191,13 +191,15 @@ class SwarmSimulator2D:
                             all_lidar_points_x.append(obs_pos_i[0])
                             all_lidar_points_y.append(obs_pos_i[1])
 
-                    # Gaya Tolak Rintangan
+                    # Gaya Tolak Rintangan (Hanya aktif untuk jarak dekat < 2.2m untuk mencegah dorongan rintangan belakang)
                     for idx in close_indices[::4]:
                         d_i = float(lidar_ranges[idx])
+                        if d_i > 2.2:
+                            continue
                         ang_i_world = float(angles_world[idx])
                         obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                         push_dir = -obs_rel_i / max(d_i, 0.05)
-                        rep_gain_i = ((4.5 / max(d_i, 0.4)) ** 2) * 0.3
+                        rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
                         repulsion_vec += push_dir * rep_gain_i
 
                 # Capping gaya tolak
@@ -205,6 +207,10 @@ class SwarmSimulator2D:
                 max_rep = self.max_speed * 0.75
                 if rep_len > max_rep:
                     repulsion_vec = (repulsion_vec / rep_len) * max_rep
+
+                # Skala gaya tolak mengecil saat mendekati target untuk mencegah deadlock hover di akhir
+                repulsion_scale = min(1.0, dist_target / 1.5)
+                repulsion_vec *= repulsion_scale
 
                 # Saring chattering
                 self.repulsion_smooth[i] = 0.7 * self.repulsion_smooth[i] + 0.3 * repulsion_vec
