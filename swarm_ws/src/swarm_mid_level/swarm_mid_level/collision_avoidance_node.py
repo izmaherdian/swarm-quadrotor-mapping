@@ -414,7 +414,7 @@ class CollisionAvoidanceNode(Node):
             vel_self=self.current_vel,
             pref_vel=pref_vel,
             neighbors=neighbor_list,
-            lidar_lines=lidar_lines
+            lidar_lines=None
         )
 
         # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
