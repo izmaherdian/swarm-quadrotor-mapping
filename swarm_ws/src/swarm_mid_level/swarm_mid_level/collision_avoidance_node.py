@@ -201,11 +201,13 @@ class CollisionAvoidanceNode(Node):
         # State Variables
         self.current_pos = np.zeros(3, dtype=np.float32) # [x, y, z]
         self.current_vel = np.zeros(2, dtype=np.float32) # [vx, vy]
+        self.current_yaw = 0.0
+        self.yaw_smooth = 0.0
         
         # Target awal waypoint = lokasi formation spawn persis
         spacing = 2.0
-        spawn_y = float((did - 4.0) * spacing)
-        self.target_waypoint = np.array([0.0, spawn_y], dtype=np.float32)
+        self.spawn_y = float((did - 4.0) * spacing)
+        self.target_waypoint = np.array([0.0, self.spawn_y], dtype=np.float32)
         self.waypoint_received = False
         self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
         self.steps = 0
@@ -352,6 +354,14 @@ class CollisionAvoidanceNode(Node):
             # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 0.8)
             speed = min(self.max_speed, dist_to_target * 0.8)
             pref_vel = (rel_target / dist_to_target) * speed
+            
+            # Lane-keeping restoring force to pull the drone back to Y_spawn lane
+            # Only apply if we are actively flying (dist_to_target > 0.5m)
+            if dist_to_target > 0.5:
+                y_err = self.current_pos[1] - self.spawn_y
+                y_restore = -0.35 * y_err  # restoring proportional gain
+                y_restore = np.clip(y_restore, -0.6, 0.6) # clip to prevent excessive lateral commands
+                pref_vel[1] += y_restore
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
         # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
@@ -413,7 +423,7 @@ class CollisionAvoidanceNode(Node):
                     'pos': obs_pos_i,
                     'vel': np.zeros(2, dtype=np.float32),
                     'is_static': True,
-                    'radius': 0.35  # combined radius = 0.8 + 0.35 = 1.15m from ray point
+                    'radius': 0.50  # combined radius = 0.8 + 0.50 = 1.30m from ray point
                 })
 
             # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 2.2m untuk mencegah dorong belakang)
@@ -521,51 +531,22 @@ class CollisionAvoidanceNode(Node):
         self.cmd_vel_smooth += dv
         out_vx, out_vy = float(self.cmd_vel_smooth[0]), float(self.cmd_vel_smooth[1])
 
-        # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
-        if not hasattr(self, 'yaw_smooth'):
-            self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
-        # Init heading IIR state (terpisah agar selalu tersedia sebelum control loop)
-        if not hasattr(self, '_vx_head'):
-            self._vx_head = 1.0
-            self._vy_head = 0.0
+        # Hitung yaw_target langsung dari safe_vel ORCA
+        safe_speed = float(np.sqrt(safe_vel[0]**2 + safe_vel[1]**2))
+        YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
 
-        # Hitung yaw_target dari cmd_vel_smooth (kecepatan makroskopis)
-        smooth_speed = float(np.sqrt(self.cmd_vel_smooth[0]**2 + self.cmd_vel_smooth[1]**2))
-        YAW_DEADBAND = 0.4     # m/s — freeze yaw jika kecepatan sangat kecil / hover
-        MAX_YAW_RATE = math.radians(30.0)  # rad/s — slew rate max (30 deg/s = aman)
-
-        # Bekukan yaw saat lambat/hover atau sudah sangat dekat target
-        if self.waypoint_received and smooth_speed > YAW_DEADBAND and dist_to_target > 0.8:
-            # Arah heading ke target akhir
-            dx_goal = self.target_waypoint[0] - self.current_pos[0]
-            dy_goal = self.target_waypoint[1] - self.current_pos[1]
-            theta_goal = float(np.arctan2(dy_goal, dx_goal))
-
-            # === Smooth velocity heading vector sebelum arctan2 ===
-            # Gunakan IIR pada komponen vx/vy, bukan pada sudut (menghindari wrap-around flip)
-            ALPHA_VEL_HEAD = 0.15   # semakin kecil = semakin halus, ~7 step lag
-            self._vx_head = ALPHA_VEL_HEAD * self.cmd_vel_smooth[0] + (1 - ALPHA_VEL_HEAD) * self._vx_head
-            self._vy_head = ALPHA_VEL_HEAD * self.cmd_vel_smooth[1] + (1 - ALPHA_VEL_HEAD) * self._vy_head
-            yaw_vel = float(np.arctan2(self._vy_head, self._vx_head))
-
-            # Selisih sudut antara arah kecepatan dengan arah ke target
-            diff = (yaw_vel - theta_goal + np.pi) % (2 * np.pi) - np.pi
-            
-            # Hanya ikuti arah kecepatan jika sudutnya dalam sektor depan (+/- 80 derajat)
-            if abs(diff) < math.radians(80.0):
-                yaw_target = yaw_vel
-            else:
-                yaw_target = theta_goal
-
+        # Bekukan yaw lebih awal (dist > 0.8m) agar drone stabil dan tidak berputar saat mendarat/mendekat
+        if self.waypoint_received and dist_to_target > 0.8:
+            dx_target = self.target_waypoint[0] - self.current_pos[0]
+            dy_target = self.target_waypoint[1] - self.current_pos[1]
+            yaw_target = float(np.arctan2(dy_target, dx_target))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-
-            # === SLEW-RATE LIMITER: Batasi perubahan RefYaw ≤ 30°/s ===
-            # Gunakan self.dt (bukan hardcode) agar benar saat dt berubah
-            max_delta = MAX_YAW_RATE * self.dt
-            delta_yaw = float(np.clip(delta_yaw, -max_delta, max_delta))
             
-            self.yaw_smooth += delta_yaw
+            # Responsif: alpha mendekati 1.0 di kecepatan penuh → hampir tidak ada lag heading
+            # Minimal 0.4 agar tetap ada sedikit smoothing untuk menghindari yaw hunting dari noise
+            alpha_yaw = min(0.6 * (safe_speed / self.max_speed) + 0.4, 1.0)
+            self.yaw_smooth += alpha_yaw * delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
         # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)

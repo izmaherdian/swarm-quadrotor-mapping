@@ -14,7 +14,7 @@ actuator_limits:
   thrust_max: 10.19   # N (berdasarkan TWR 2:1, max 20 N)
   tau_rp_max: 1.0     # Nm (Batas Torsi Roll/Pitch)
   tau_y_max: 0.2      # Nm (Batas Torsi Yaw)
-  angle_max: 0.785    # rad (Batas kemiringan Roll/Pitch, 45 derajat)
+  angle_max: 0.436    # rad (Batas kemiringan Roll/Pitch, 25 derajat)
 
 actuator_physics:
   kf: 8.54858e-06     # N / (rad/s)^2 (Thrust coefficient)
