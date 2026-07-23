@@ -132,13 +132,13 @@ class SwarmSimulator2D:
                 # Simpan histori posisi
                 self.history[i].append(pos_self.copy())
 
-                # 1. Preferred Velocity
+                # 1. Preferred Velocity (Tuning deselerasi lebih agresif agar tidak overshoot)
                 rel_target = target - pos_self
                 dist_target = np.linalg.norm(rel_target)
-                if dist_target < 0.15:
+                if dist_target < 0.05:
                     pref_vel = np.zeros(2, dtype=np.float32)
                 else:
-                    speed = min(self.max_speed, dist_target * 0.8)
+                    speed = min(self.max_speed, dist_target * 1.5)
                     pref_vel = (rel_target / dist_target) * speed
 
                 # 2. Tetangga (Drone Lain)
@@ -232,12 +232,14 @@ class SwarmSimulator2D:
 
                 # Cap speed (samakan dengan limit node ROS 2 sebenarnya)
                 ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
-                ref_vy = np.clip(safe_vel[1], -self.max_speed, self.max_speed)
+                ref_vy = np.clip(safe_vel[1], -1.2, 1.2)  # Cap lateral speed ke +-1.2m/s sesuai ROS 2
 
                 self.velocities[i] = np.array([ref_vx, ref_vy], dtype=np.float32)
                 
                 # Update posisi (Euler Integration)
                 new_pos = pos_self + self.velocities[i] * self.dt
+                # Batasi agar X tidak melampaui target akhir (persis seperti clip proj_x di ROS 2)
+                new_pos[0] = min(new_pos[0], target[0])
                 new_positions.append(new_pos)
 
                 # Update heading (Yaw)

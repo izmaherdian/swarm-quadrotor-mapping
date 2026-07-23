@@ -440,7 +440,7 @@ class CollisionAvoidanceNode(Node):
 
         # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
         ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
-        ref_vy = np.clip(safe_vel[1], -0.5, 0.5) # Cap lateral speed to +-0.5m/s for zero roll instability
+        ref_vy = np.clip(safe_vel[1], -1.2, 1.2) # Cap lateral speed to +-1.2m/s for fast stable avoidance
 
         if not hasattr(self, 'cmd_vel_smooth'):
             self.cmd_vel_smooth = np.array([ref_vx, ref_vy], dtype=np.float32)
