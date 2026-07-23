@@ -296,14 +296,15 @@ class CollisionAvoidanceNode(Node):
         self.current_vel[0] = msg.twist.twist.linear.x
         self.current_vel[1] = msg.twist.twist.linear.y
 
+        qx = msg.pose.pose.orientation.x
+        qy = msg.pose.pose.orientation.y
+        qz = msg.pose.pose.orientation.z
+        qw = msg.pose.pose.orientation.w
+        self.current_yaw = self.euler_from_quaternion(qx, qy, qz, qw)
+
         if not hasattr(self, 'spawn_yaw'):
-            qx = msg.pose.pose.orientation.x
-            qy = msg.pose.pose.orientation.y
-            qz = msg.pose.pose.orientation.z
-            qw = msg.pose.pose.orientation.w
-            yaw0 = self.euler_from_quaternion(qx, qy, qz, qw)
-            self.spawn_yaw = yaw0
-            self.yaw_smooth = yaw0
+            self.spawn_yaw = self.current_yaw
+            self.yaw_smooth = self.current_yaw
 
     def waypoint_callback(self, msg):
         self.target_waypoint = np.array([msg.point.x, msg.point.y], dtype=np.float32)
@@ -382,7 +383,7 @@ class CollisionAvoidanceNode(Node):
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
-        current_yaw = getattr(self, 'yaw_smooth', 0.0)
+        current_yaw = getattr(self, 'current_yaw', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
         obs_mask = self.lidar_ranges < 4.5
