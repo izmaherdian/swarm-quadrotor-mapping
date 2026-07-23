@@ -32,18 +32,23 @@ class PID:
         derivative = self.Kd * (error - self.prev_error) / self.dt
         self.prev_error = error
         
-        self.integral += error * self.dt
+        # 1. Hitung output tanpa kontribusi integral baru terlebih dahulu
+        output_no_i = proportional + self.Ki * self.integral + derivative
+        
+        # 2. Hanya integrasikan error jika output tidak jenuh, atau jika integrasi mengurangi kejenuhan
+        integrate = True
+        if output_no_i > self.out_max and error > 0:
+            integrate = False
+        elif output_no_i < self.out_min and error < 0:
+            integrate = False
+            
+        if integrate:
+            self.integral += error * self.dt
+            
         output = proportional + self.Ki * self.integral + derivative
         
-        # Anti-windup (Dynamic Back-Calculation / Clamping)
-        if output > self.out_max:
-            output = self.out_max
-            if abs(self.Ki) > 1e-6:
-                self.integral = (output - proportional - derivative) / self.Ki
-        elif output < self.out_min:
-            output = self.out_min
-            if abs(self.Ki) > 1e-6:
-                self.integral = (output - proportional - derivative) / self.Ki
+        # 3. Batasi output ke range [out_min, out_max]
+        output = np.clip(output, self.out_min, self.out_max)
                 
         return output
 
