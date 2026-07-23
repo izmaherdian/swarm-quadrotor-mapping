@@ -205,6 +205,25 @@ class SwarmSimulator2D:
                         speed = min(self.max_speed, dist_target * 1.5)
                         pref_vel = (rel_target / dist_target) * speed
 
+                    # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
+                    # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
+                    for j in range(self.active_drones):
+                        if i == j:
+                            continue
+                        rel_nbr = self.positions[j] - pos_self
+                        dist_nbr = np.linalg.norm(rel_nbr)
+                        if dist_nbr < 3.5:
+                            pref_speed = np.linalg.norm(pref_vel)
+                            if pref_speed > 0.1:
+                                unit_pref = pref_vel / pref_speed
+                                unit_nbr = rel_nbr / max(dist_nbr, 0.05)
+                                dot_front = np.dot(unit_pref, unit_nbr)
+                                if dot_front > 0.85:  # Head-on tepat di depan (sudut < 30 derajat)
+                                    # Vektor tegak lurus ke kanan: (dy, -dx)
+                                    right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
+                                    bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
+                                    pref_vel += right_vec * (self.max_speed * bias_gain)
+
                     # 2. Tetangga (Drone Lain)
                     neighbors = []
                     repulsion_vec = np.zeros(2, dtype=np.float32)

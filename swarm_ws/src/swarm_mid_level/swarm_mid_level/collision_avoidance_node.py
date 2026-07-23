@@ -341,9 +341,26 @@ class CollisionAvoidanceNode(Node):
         if dist_to_target < 0.1:
             pref_vel = np.zeros(2, dtype=np.float32)
         else:
-            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot
-            speed = min(self.max_speed, dist_to_target * 0.8)
+            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 1.5x)
+            speed = min(self.max_speed, dist_to_target * 1.5)
             pref_vel = (rel_target / dist_to_target) * speed
+
+        # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
+        # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
+        for nbr in self.neighbors_state.values():
+            rel_nbr = nbr['pos'] - self.current_pos[:2]
+            dist_nbr = float(np.linalg.norm(rel_nbr))
+            if dist_nbr < 3.5:
+                pref_speed = np.linalg.norm(pref_vel)
+                if pref_speed > 0.1:
+                    unit_pref = pref_vel / pref_speed
+                    unit_nbr = rel_nbr / max(dist_nbr, 0.05)
+                    dot_front = np.dot(unit_pref, unit_nbr)
+                    if dot_front > 0.85:  # Head-on tepat di depan (sudut < 30 derajat)
+                        # Hitung vektor tegak lurus ke kanan: (dy, -dx)
+                        right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
+                        bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
+                        pref_vel += right_vec * (self.max_speed * bias_gain)
 
         # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
         neighbor_list = list(self.neighbors_state.values())
