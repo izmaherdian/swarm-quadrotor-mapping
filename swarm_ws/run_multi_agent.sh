@@ -11,15 +11,16 @@ export LD_LIBRARY_PATH="$WS_DIR/install/swarm_sim/lib:$LD_LIBRARY_PATH"
 export GZ_SIM_RESOURCE_PATH="$WS_DIR/src/swarm_sim/models"
 
 echo "=== Kill leftover gz/ros2 ==="
-for pid in $(ps aux | grep -E "gz sim|ros2 launch" | grep -v grep | awk '{print $2}'); do
+for pid in $(ps aux | grep -E "gz.sim|ros2 launch|ros_gz|spawn|controller|ai_iris|bridge|tf_prefix|static_transform" | grep -v grep | awk '{print $2}'); do
     kill -9 "$pid" 2>/dev/null || true
 done
 sleep 2
+rm -f /tmp/sim_multi.log
 
 echo "=== Build swarm_mid_level, swarm_low_level & swarm_sim ==="
 colcon build --packages-select swarm_mid_level swarm_low_level 2>&1 | tail -3
 colcon build --packages-select swarm_sim 2>&1 | tail -3
-for node in collision_avoidance_node pid_lqr_node; do
+for node in collision_avoidance_node pid_lqr_node tf_prefix_node; do
     chmod +x "$WS_DIR/install/swarm_mid_level/lib/swarm_mid_level/$node" 2>/dev/null || true
     chmod +x "$WS_DIR/install/swarm_low_level/lib/swarm_low_level/$node" 2>/dev/null || true
     sed -i '1s|^#!".*|#!/usr/bin/env python3|' "$WS_DIR/install/swarm_mid_level/lib/swarm_mid_level/$node" 2>/dev/null || true

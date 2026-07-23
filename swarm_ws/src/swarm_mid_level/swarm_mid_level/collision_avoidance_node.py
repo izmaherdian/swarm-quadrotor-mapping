@@ -168,12 +168,12 @@ class CollisionAvoidanceNode(Node):
         super().__init__('collision_avoidance_node')
 
         # Parameters
-        self.declare_parameter('max_speed', 2.5)
+        self.declare_parameter('max_speed', 1.5)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
         self.declare_parameter('num_drones', 7)
-        self.declare_parameter('safety_radius', 0.8) # 0.8m radius -> 1.6m center-to-center = 80cm prop clearance
+        self.declare_parameter('safety_radius', 0.8) # 0.8m radius -> 1.6m center-to-center
         self.declare_parameter('time_horizon', 5.0)
 
         self.max_speed = self.get_parameter('max_speed').value
@@ -182,7 +182,7 @@ class CollisionAvoidanceNode(Node):
         self.num_drones = self.get_parameter('num_drones').value
         self.safety_radius = self.get_parameter('safety_radius').value
         self.time_horizon = self.get_parameter('time_horizon').value
-        self.lookahead_damping = 0.15
+        self.lookahead_damping = 0.0
 
         node_name = self.get_name()
         if '_' in node_name and node_name.split('_')[-1].isdigit():
@@ -204,8 +204,8 @@ class CollisionAvoidanceNode(Node):
         
         # Target awal waypoint = lokasi formation spawn persis
         spacing = 2.0
-        spawn_y = float((did - 4.0) * spacing)
-        self.target_waypoint = np.array([0.0, spawn_y], dtype=np.float32)
+        self.spawn_y = float((did - 4.0) * spacing)
+        self.target_waypoint = np.array([0.0, self.spawn_y], dtype=np.float32)
         self.waypoint_received = False
         self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
         self.steps = 0
@@ -352,22 +352,29 @@ class CollisionAvoidanceNode(Node):
             # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 0.8)
             speed = min(self.max_speed, dist_to_target * 0.8)
             pref_vel = (rel_target / dist_to_target) * speed
+            
+            # Lane-keeping restoring force to pull the drone back to Y_spawn lane
+            # Only apply if we are actively flying (dist_to_target > 0.5m)
+            if dist_to_target > 0.5:
+                y_err = self.current_pos[1] - self.spawn_y
+                y_restore = -0.35 * y_err  # restoring proportional gain
+                y_restore = np.clip(y_restore, -0.6, 0.6) # clip to prevent excessive lateral commands
+                pref_vel[1] += y_restore
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
         # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
         for nbr in self.neighbors_state.values():
             rel_nbr = nbr['pos'] - self.current_pos[:2]
             dist_nbr = float(np.linalg.norm(rel_nbr))
-            if dist_nbr < 3.5:
+            if dist_nbr < 2.5:
                 pref_speed = np.linalg.norm(pref_vel)
                 if pref_speed > 0.1:
                     unit_pref = pref_vel / pref_speed
                     unit_nbr = rel_nbr / max(dist_nbr, 0.05)
                     dot_front = np.dot(unit_pref, unit_nbr)
-                    if dot_front > 0.85:  # Head-on tepat di depan (sudut < 30 derajat)
-                        # Hitung vektor tegak lurus ke kanan: (dy, -dx)
+                    if dot_front > 0.85:
                         right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
-                        bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
+                        bias_gain = 0.1 * (1.0 - (dist_nbr / 2.5))
                         pref_vel += right_vec * (self.max_speed * bias_gain)
 
         # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
@@ -384,17 +391,24 @@ class CollisionAvoidanceNode(Node):
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
-        # LiDAR obstacle processing always active (no phantom obstacle gate).
-        # GPU LiDAR noise in single-drone headless mode is handled by
-        # the run_single_agent.sh obstacle-processing wrapper.
+        # LiDAR only enabled above 1.5m altitude. Below that (takeoff/landing),
+        # the 2D LiDAR beam hits the ground and creates 360° phantom obstacles,
+        # corrupting ORCA velocity and yaw computation.
         current_yaw = getattr(self, 'current_yaw', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
 
-        obs_mask = self.lidar_ranges < 4.5
+        if self.current_pos[2] > 1.5:
+            obs_mask = self.lidar_ranges < 4.5
+        else:
+            obs_mask = np.zeros(len(self.lidar_ranges), dtype=bool)
 
         if np.any(obs_mask):
             close_indices = np.where(obs_mask)[0]
+            if self.steps % 20 == 0:
+                self.get_logger().info(
+                    f"[LIDAR] Obstacle points: {len(close_indices)} Z={self.current_pos[2]:.2f}m"
+                )
             
             # 3a. Represent Lidar points directly as static ORCA obstacle spheres
             # Downsample to every 6th ray to prevent solver lag
@@ -408,7 +422,7 @@ class CollisionAvoidanceNode(Node):
                 # Filter out teammate drones (already handled in ORCA neighbors)
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.8:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < self.safety_radius:
                         is_neighbor = True
                         break
                 if is_neighbor:
@@ -419,7 +433,7 @@ class CollisionAvoidanceNode(Node):
                     'pos': obs_pos_i,
                     'vel': np.zeros(2, dtype=np.float32),
                     'is_static': True,
-                    'radius': 0.35  # combined radius = 0.8 + 0.35 = 1.15m from ray point
+                    'radius': 0.50  # combined radius = 0.8 + 0.50 = 1.30m from ray point
                 })
 
             # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 2.2m untuk mencegah dorong belakang)
@@ -433,7 +447,7 @@ class CollisionAvoidanceNode(Node):
                 # Filter out teammate drones
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.8:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < self.safety_radius:
                         is_neighbor = True
                         break
                 if is_neighbor:
@@ -463,7 +477,7 @@ class CollisionAvoidanceNode(Node):
             obs_pos_min = self.current_pos[:2] + obs_rel_min
             is_neighbor_min = False
             for nbr in self.neighbors_state.values():
-                if np.linalg.norm(obs_pos_min - nbr['pos']) < 0.8:
+                if np.linalg.norm(obs_pos_min - nbr['pos']) < self.safety_radius:
                     is_neighbor_min = True
                     break
 
@@ -477,7 +491,7 @@ class CollisionAvoidanceNode(Node):
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
-        max_rep = self.max_speed * 0.75  # Increased from 0.4 to 0.75 to handle tight corridor squeezing
+        max_rep = self.max_speed * 0.4
         if rep_len > max_rep:
             repulsion_vec = (repulsion_vec / rep_len) * max_rep
 
@@ -527,43 +541,44 @@ class CollisionAvoidanceNode(Node):
         self.cmd_vel_smooth += dv
         out_vx, out_vy = float(self.cmd_vel_smooth[0]), float(self.cmd_vel_smooth[1])
 
-        # 5b. Responsive Heading-Tracking Yaw Control (World-Frame Velocity)
+        # 5b. Yaw Control — Hybrid Waypoint + Velocity Blend
+        #   Default: waypoint direction (forward-pointing, stabil)
+        #   Saat vel arah > 90° beda dari waypoint (aggressive avoidance), blend ke velocity
+        #   Ini prevents yaw error besar tanpa bikin drone kehilangan arah.
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
-        YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
-        MAX_DELTA_YAW = np.radians(15)  # max 15°/step @ 10Hz = 150°/s
+        YAW_SPEED_DEADBAND = 0.15
+        YAW_DIST_DEADBAND = 0.8
+        YAW_FILTER_ALPHA = 0.25
 
-        # Kecepatan dari command (intended velocity) — langsung, tanpa lag fisik odometry
         cmd_speed = float(np.sqrt(out_vx**2 + out_vy**2))
+        dx_target = self.target_waypoint[0] - self.current_pos[0]
+        dy_target = self.target_waypoint[1] - self.current_pos[1]
+        wp_angle = float(np.arctan2(dy_target, dx_target))
 
-        if self.waypoint_received and dist_to_target > 0.8:
-            # Arah dari waypoint (stabil di low speed / hover)
-            dx_target = self.target_waypoint[0] - self.current_pos[0]
-            dy_target = self.target_waypoint[1] - self.current_pos[1]
-            yaw_waypoint = float(np.arctan2(dy_target, dx_target))
-
-            # Arah dari intended velocity (command, bukan odometry) — anticipate langsung
-            if cmd_speed > YAW_DEADBAND:
-                yaw_intended = float(np.arctan2(out_vy, out_vx))
+        if self.waypoint_received and cmd_speed > YAW_SPEED_DEADBAND and dist_to_target > YAW_DIST_DEADBAND:
+            vel_angle = float(np.arctan2(out_vy, out_vx))
+            diff = vel_angle - wp_angle
+            diff = (diff + np.pi) % (2 * np.pi) - np.pi
+            diff_abs = float(np.abs(diff))
+            # Blend toward velocity direction when > 90° from waypoint (aggressive avoidance)
+            if diff_abs > np.pi / 2:
+                blend = min(1.0, (diff_abs - np.pi / 2) / (np.pi / 2))
+                yaw_target = (1.0 - blend) * wp_angle + blend * vel_angle
             else:
-                yaw_intended = yaw_waypoint
-
-            # Blend: speed > 1.5 → pure intended, speed < 0.5 → pure waypoint
-            blend = np.clip((cmd_speed - 0.5) / 1.0, 0.0, 1.0)
-            yaw_diff = (yaw_intended - yaw_waypoint + np.pi) % (2 * np.pi) - np.pi
-            yaw_target = yaw_waypoint + blend * yaw_diff
-
-            delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-            delta_yaw = np.clip(delta_yaw, -MAX_DELTA_YAW, MAX_DELTA_YAW)
-
-            self.yaw_smooth += delta_yaw
-            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-
-            # Simpan yaw_rate untuk feedforward ke low-level PID
-            yaw_rate = delta_yaw / self.dt
+                yaw_target = wp_angle
         else:
-            yaw_rate = 0.0
+            yaw_target = wp_angle
+
+        delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+        yaw_step = YAW_FILTER_ALPHA * delta_yaw
+        MAX_YAW_STEP = 0.262
+        yaw_step = np.clip(yaw_step, -MAX_YAW_STEP, MAX_YAW_STEP)
+        self.yaw_smooth += yaw_step
+        self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+
+        yaw_rate = yaw_step / self.dt
 
         # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)
         half_yaw = self.yaw_smooth * 0.5
@@ -589,6 +604,13 @@ class CollisionAvoidanceNode(Node):
 
         self.pos_ref[0] += out_vx * self.dt
         self.pos_ref[1] += out_vy * self.dt
+
+        # Synchronize pos_ref to current_pos if tracking error is too large (> 0.2m)
+        # This keeps the reference trajectory tethered to the actual drone position,
+        # preventing the reference from running away and violating ORCA distance constraints.
+        tracking_err = np.linalg.norm(self.pos_ref - self.current_pos[:2])
+        if tracking_err > 0.2:
+            self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.2 / tracking_err)
 
         # Clamp: jangan melampaui waypoint (anti-overshoot)
         if self.target_waypoint[0] <= self.current_pos[0]:

@@ -320,11 +320,17 @@ class PIDHinfNode(Node):
         err_z = self.filt_z[0] - z
         uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
         
+        # Angle-Thrust Compensation (compensates for vertical force loss due to tilt)
+        cos_phi = math.cos(phi)
+        cos_theta = math.cos(theta)
+        tilt_comp = 1.0 / max(cos_phi * cos_theta, 0.7)
+        u_thrust = (uz_pid + (self.m * self.g)) * tilt_comp
+        
         # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
         uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
         
-        U_cmd = np.array([uz_pid + (self.m * self.g), ux_pid, uy_pid, uyaw_pid])
+        U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
         w_sq_cmd = self.M_inv @ U_cmd
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
