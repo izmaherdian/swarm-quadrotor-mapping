@@ -524,21 +524,18 @@ class CollisionAvoidanceNode(Node):
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
-        # Hitung yaw_target langsung dari safe_vel ORCA
-        safe_speed = float(np.sqrt(safe_vel[0]**2 + safe_vel[1]**2))
-        YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
+        # Hitung yaw_target dari cmd_vel_smooth (kecepatan makroskopis)
+        smooth_speed = float(np.sqrt(self.cmd_vel_smooth[0]**2 + self.cmd_vel_smooth[1]**2))
+        YAW_DEADBAND = 0.4  # m/s — freeze yaw jika kecepatan sangat kecil / hover
 
-        # Bekukan yaw lebih awal (dist > 0.8m) agar drone stabil dan tidak berputar saat mendarat/mendekat
-        if self.waypoint_received and dist_to_target > 0.8:
-            dx_target = self.target_waypoint[0] - self.current_pos[0]
-            dy_target = self.target_waypoint[1] - self.current_pos[1]
-            yaw_target = float(np.arctan2(dy_target, dx_target))
+        # Bekukan yaw saat lambat/hover atau sudah sangat dekat target
+        if self.waypoint_received and smooth_speed > YAW_DEADBAND and dist_to_target > 0.8:
+            yaw_target = float(np.arctan2(self.cmd_vel_smooth[1], self.cmd_vel_smooth[0]))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
-            # Responsif: alpha mendekati 1.0 di kecepatan penuh → hampir tidak ada lag heading
-            # Minimal 0.4 agar tetap ada sedikit smoothing untuk menghindari yaw hunting dari noise
-            alpha_yaw = min(0.6 * (safe_speed / self.max_speed) + 0.4, 1.0)
+            # Responsif: alpha mendekati 1.0 di kecepatan penuh
+            alpha_yaw = min(0.6 * (smooth_speed / self.max_speed) + 0.4, 1.0)
             self.yaw_smooth += alpha_yaw * delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
