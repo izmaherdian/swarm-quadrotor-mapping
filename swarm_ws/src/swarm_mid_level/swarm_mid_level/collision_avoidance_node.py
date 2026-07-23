@@ -384,17 +384,14 @@ class CollisionAvoidanceNode(Node):
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
-        # TODO: Only enable LiDAR obstacle processing when neighbor drones exist
-        #       (GPU LiDAR in headless empty world returns noisy 0.0-4.5m readings
-        #        that create phantom ORCA obstacle lines, blocking movement)
+        # LiDAR obstacle processing always active (no phantom obstacle gate).
+        # GPU LiDAR noise in single-drone headless mode is handled by
+        # the run_single_agent.sh obstacle-processing wrapper.
         current_yaw = getattr(self, 'current_yaw', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
 
-        if len(self.neighbors_state) > 0:
-            obs_mask = self.lidar_ranges < 4.5
-        else:
-            obs_mask = np.zeros(len(self.lidar_ranges), dtype=bool)
+        obs_mask = self.lidar_ranges < 4.5
 
         if np.any(obs_mask):
             close_indices = np.where(obs_mask)[0]
