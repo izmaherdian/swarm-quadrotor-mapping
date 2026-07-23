@@ -357,6 +357,7 @@ class PIDHinfNode(Node):
                                       vx, vy, vz, p, q_ang, r_ang,
                                       uz_pid, ux_pid, uy_pid, uyaw_pid,
                                       w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
+            self.csv_file.flush()
             self.last_csv_log_time = t
         
         self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation)
