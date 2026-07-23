@@ -97,7 +97,7 @@ class PIDLQRNode(Node):
             [kf, kf, kf, kf],
             [-kf*d, kf*d, kf*d, -kf*d],
             [-kf*d, kf*d, -kf*d, kf*d],
-            [km, km, -km, -km]  # Motor 0,1: CCW (+km), Motor 2,3: CW (-km) per Gazebo MulticopterMotorModel
+            [-km, -km, km, km]
         ])
         self.M_inv = np.linalg.inv(M)
         
