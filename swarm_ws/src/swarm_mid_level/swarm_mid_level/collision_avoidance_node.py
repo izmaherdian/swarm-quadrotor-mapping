@@ -520,25 +520,42 @@ class CollisionAvoidanceNode(Node):
         self.cmd_vel_smooth += dv
         out_vx, out_vy = float(self.cmd_vel_smooth[0]), float(self.cmd_vel_smooth[1])
 
-        # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
+        # 5b. Responsive Heading-Tracking Yaw Control (World-Frame Velocity)
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
-        # Hitung yaw_target langsung dari safe_vel ORCA
-        safe_speed = float(np.sqrt(safe_vel[0]**2 + safe_vel[1]**2))
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
+        MAX_DELTA_YAW = np.radians(5)  # max 5°/step @ 10Hz = 50°/s
 
-        # Bekukan yaw lebih awal (dist > 0.8m) agar drone stabil dan tidak berputar saat mendarat/mendekat
+        # World-frame velocity dari odometry (body → world)
+        yaw = getattr(self, 'current_yaw', 0.0)
+        vx_body = self.current_vel[0]
+        vy_body = self.current_vel[1]
+        vx_world = vx_body * math.cos(yaw) - vy_body * math.sin(yaw)
+        vy_world = vx_body * math.sin(yaw) + vy_body * math.cos(yaw)
+        actual_speed = float(np.sqrt(vx_world**2 + vy_world**2))
+
         if self.waypoint_received and dist_to_target > 0.8:
+            # Arah dari waypoint (stabil di low speed / hover)
             dx_target = self.target_waypoint[0] - self.current_pos[0]
             dy_target = self.target_waypoint[1] - self.current_pos[1]
-            yaw_target = float(np.arctan2(dy_target, dx_target))
-            # Normalisasi selisih sudut ke range [-pi, pi]
+            yaw_waypoint = float(np.arctan2(dy_target, dx_target))
+
+            # Arah dari world-frame velocity (gerak aktual drone)
+            if actual_speed > YAW_DEADBAND:
+                yaw_velocity = float(np.arctan2(vy_world, vx_world))
+            else:
+                yaw_velocity = yaw_waypoint
+
+            # Blend: speed > 1.5 → pure velocity, speed < 0.5 → pure waypoint
+            blend = np.clip((actual_speed - 0.5) / 1.0, 0.0, 1.0)
+            yaw_diff = (yaw_velocity - yaw_waypoint + np.pi) % (2 * np.pi) - np.pi
+            yaw_target = yaw_waypoint + blend * yaw_diff
+
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-            
-            # Responsif: alpha mendekati 1.0 di kecepatan penuh → hampir tidak ada lag heading
-            # Minimal 0.4 agar tetap ada sedikit smoothing untuk menghindari yaw hunting dari noise
-            alpha_yaw = min(0.6 * (safe_speed / self.max_speed) + 0.4, 1.0)
+            delta_yaw = np.clip(delta_yaw, -MAX_DELTA_YAW, MAX_DELTA_YAW)
+
+            alpha_yaw = min(0.6 * (actual_speed / self.max_speed) + 0.4, 1.0)
             self.yaw_smooth += alpha_yaw * delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
