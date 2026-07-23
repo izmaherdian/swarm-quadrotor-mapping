@@ -29,3 +29,6 @@ swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.log
 swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.csv
 swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.png
 swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.log
+swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.csv
+swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.png
+swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.log
