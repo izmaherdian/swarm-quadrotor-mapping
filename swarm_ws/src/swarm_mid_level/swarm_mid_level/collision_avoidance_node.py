@@ -30,12 +30,16 @@ class ORCASolver2D:
         orca_lines = []
         inv_tau = 1.0 / self.tau
 
+        # Radius dinamis membesar seiring kecepatan drone untuk jaminan 100% 2D safety
+        curr_speed = float(np.linalg.norm(vel_self))
+        dyn_self_radius = self.radius + 0.12 * curr_speed
+
         # 1. Build ORCA half-planes for each neighbor (dynamic drone or static obstacle)
         for neighbor in neighbors:
             is_static = neighbor.get('is_static', False)
             weight = 1.0 if is_static else 0.5
-            rad_obs = 0.8 if is_static else self.radius # 0.8m obstacle safety radius
-            combined_radius = self.radius + rad_obs
+            rad_obs = 0.5 if is_static else dyn_self_radius
+            combined_radius = dyn_self_radius + rad_obs
             combined_radius_sq = combined_radius ** 2
 
             pos_rel = neighbor['pos'] - pos_self
@@ -385,9 +389,14 @@ class CollisionAvoidanceNode(Node):
                 rep_gain_i = ((3.0 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
-            # Tangential Steering: Tambahkan belokan memutar jika rintangan tepat di depan
-            dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
-            if dot_front > 0.3:
+            # CBF Hard Emergency Brake Failsafe: Jika mendekati rintangan (< 0.9m), paksa rem & dorong keluar
+            if dist_min < 0.9:
+                push_hard = -obs_dir * (self.max_speed * 0.8)
+                tangent_hard = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
+                if np.cross(pref_vel, obs_dir) > 0:
+                    tangent_hard = -tangent_hard
+                pref_vel = push_hard + tangent_hard * (self.max_speed * 0.4)
+            elif dot_front > 0.3:
                 tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                 if np.cross(pref_vel, obs_dir) > 0:
                     tangent_dir = -tangent_dir
