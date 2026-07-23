@@ -38,15 +38,19 @@ class ORCASolver2D:
             combined_radius = self.radius + rad_obs
             combined_radius_sq = combined_radius ** 2
 
+            # Gunakan time horizon yang jauh lebih kecil (0.8s) untuk rintangan statis agar respon tolakan instan
+            curr_tau = 0.8 if is_static else self.tau
+            curr_inv_tau = 1.0 / curr_tau
+
             pos_rel = neighbor['pos'] - pos_self
             vel_rel = vel_self - neighbor['vel']
             dist_sq = np.dot(pos_rel, pos_rel)
 
-            if dist_sq > (self.max_speed * self.tau + combined_radius) ** 2:
+            if dist_sq > (self.max_speed * curr_tau + combined_radius) ** 2:
                 continue
 
             dist = np.sqrt(max(dist_sq, 1e-6))
-            w = vel_rel - inv_tau * pos_rel
+            w = vel_rel - curr_inv_tau * pos_rel
             w_len_sq = np.dot(w, w)
 
             if dist < combined_radius:
@@ -54,7 +58,7 @@ class ORCASolver2D:
                 dist_inv = 1.0 / max(dist, 1e-4)
                 unit_pos = pos_rel * dist_inv
                 direction = np.array([-unit_pos[1], unit_pos[0]])
-                u = (combined_radius - dist) * inv_tau * unit_pos
+                u = (combined_radius - dist) * curr_inv_tau * unit_pos
                 line_point = vel_self + weight * u
                 line_dir = direction
             else:
@@ -65,7 +69,7 @@ class ORCASolver2D:
                     w_len = np.sqrt(max(w_len_sq, 1e-6))
                     unit_w = w / w_len
                     direction = np.array([unit_w[1], -unit_w[0]])
-                    u = (combined_radius * inv_tau - w_len) * unit_w
+                    u = (combined_radius * curr_inv_tau - w_len) * unit_w
                     line_point = vel_self + weight * u
                     line_dir = direction
                 else:
@@ -356,7 +360,7 @@ class CollisionAvoidanceNode(Node):
         current_yaw = getattr(self, 'yaw_smooth', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
-        obs_mask = self.lidar_ranges < 3.0
+        obs_mask = self.lidar_ranges < 4.5
 
         if np.any(obs_mask):
             close_indices = np.where(obs_mask)[0]
@@ -382,7 +386,7 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 push_dir = -obs_rel_i / max(d_i, 0.05)
-                rep_gain_i = ((3.0 / max(d_i, 0.4)) ** 2) * 0.3
+                rep_gain_i = ((4.5 / max(d_i, 0.4)) ** 2) * 0.3
                 repulsion_vec += push_dir * rep_gain_i
 
             # 3c. Tangential Steering: Curve around closest obstacle face
