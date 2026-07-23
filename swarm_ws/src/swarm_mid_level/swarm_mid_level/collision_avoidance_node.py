@@ -397,6 +397,15 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 
+                # Filter out teammate drones (already handled in ORCA neighbors)
+                is_neighbor = False
+                for nbr in self.neighbors_state.values():
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.8:
+                        is_neighbor = True
+                        break
+                if is_neighbor:
+                    continue
+
                 # Each point is a small static circle to form a clean boundary buffer
                 neighbor_list.append({
                     'pos': obs_pos_i,
@@ -411,6 +420,17 @@ class CollisionAvoidanceNode(Node):
                 if d_i > 2.2:
                     continue
                 ang_i_world = float(angles_world[idx])
+                obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
+
+                # Filter out teammate drones
+                is_neighbor = False
+                for nbr in self.neighbors_state.values():
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.8:
+                        is_neighbor = True
+                        break
+                if is_neighbor:
+                    continue
+
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 
                 # Hanya terapkan gaya tolak jika titik rintangan berada di hemisfer depan pergerakan drone
@@ -431,12 +451,21 @@ class CollisionAvoidanceNode(Node):
             obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
             obs_dir = obs_rel_min / max(dist_min, 0.05)
             
-            dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
-            if dot_front > 0.3:
-                tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
-                if (pref_vel[0] * obs_dir[1] - pref_vel[1] * obs_dir[0]) > 0:
-                    tangent_dir = -tangent_dir
-                repulsion_vec += tangent_dir * (self.max_speed * 0.6)
+            # Check if closest lidar point is a teammate drone
+            obs_pos_min = self.current_pos[:2] + obs_rel_min
+            is_neighbor_min = False
+            for nbr in self.neighbors_state.values():
+                if np.linalg.norm(obs_pos_min - nbr['pos']) < 0.8:
+                    is_neighbor_min = True
+                    break
+
+            if not is_neighbor_min:
+                dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
+                if dot_front > 0.3:
+                    tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
+                    if (pref_vel[0] * obs_dir[1] - pref_vel[1] * obs_dir[0]) > 0:
+                        tangent_dir = -tangent_dir
+                    repulsion_vec += tangent_dir * (self.max_speed * 0.6)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
