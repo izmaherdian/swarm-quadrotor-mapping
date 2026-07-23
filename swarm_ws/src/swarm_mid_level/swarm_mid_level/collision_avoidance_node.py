@@ -4,7 +4,7 @@ import math
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PointStamped, PoseStamped
+from geometry_msgs.msg import PointStamped, PoseStamped, TwistStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 
@@ -253,6 +253,12 @@ class CollisionAvoidanceNode(Node):
         self.pose_pub = self.create_publisher(
             PoseStamped,
             f'/iris_{did}/target_pose',
+            10
+        )
+        # Publisher kecepatan ORCA untuk velocity feedforward di low-level
+        self.vel_pub = self.create_publisher(
+            TwistStamped,
+            f'/iris_{did}/target_velocity',
             10
         )
 
@@ -538,6 +544,15 @@ class CollisionAvoidanceNode(Node):
         target_pose.pose.orientation.w = qw
 
         self.pose_pub.publish(target_pose)
+
+        # Publish ORCA velocity sebagai feedforward untuk low-level
+        vel_msg = TwistStamped()
+        vel_msg.header.stamp = target_pose.header.stamp
+        vel_msg.header.frame_id = 'world'
+        vel_msg.twist.linear.x = float(out_vx)
+        vel_msg.twist.linear.y = float(out_vy)
+        vel_msg.twist.linear.z = 0.0
+        self.vel_pub.publish(vel_msg)
 
 
 def main(args=None):

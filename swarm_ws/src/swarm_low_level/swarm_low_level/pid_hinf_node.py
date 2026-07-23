@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from actuator_msgs.msg import Actuators
-from geometry_msgs.msg import PoseStamped, Point as GeometryPoint
+from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped
 from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
@@ -105,6 +105,10 @@ class PIDHinfNode(Node):
         self.x_cmd, self.y_cmd, self.z_cmd = self.formation_x, self.formation_y, self.formation_z
         self.yaw_cmd = np.radians(0.0)
         self.target_pose_received = False
+        # Velocity feedforward dari mid-level ORCA (default nol)
+        self.vx_cmd = 0.0
+        self.vy_cmd = 0.0
+        self.k_ff = 0.2  # Feedforward gain: 1 m/s → 0.2 rad (~11°) tambahan pitch/roll
 
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
         self.filt_x = [0.0, 0.0]
@@ -121,6 +125,7 @@ class PIDHinfNode(Node):
         
         self.subscription = self.create_subscription(Odometry, 'odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, 'target_pose', self.target_pose_callback, 10)
+        self.vel_sub = self.create_subscription(TwistStamped, 'target_velocity', self.target_velocity_callback, 10)
         self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
         self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
             
@@ -282,12 +287,14 @@ class PIDHinfNode(Node):
         max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
         
         err_x = self.filt_x[0] - x
-        theta_ref = np.clip(self.pid_x_out.compute(err_x, reset_derivative=reset_derivative), -max_angle_takeoff, max_angle_takeoff)
+        # Velocity feedforward: tambahkan komponen kecepatan ORCA sebagai feedforward pitch
+        theta_ref = np.clip(self.pid_x_out.compute(err_x, reset_derivative=reset_derivative) + self.k_ff * self.vx_cmd, -max_angle_takeoff, max_angle_takeoff)
         err_theta = theta_ref - theta
         uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
         err_y = self.filt_y[0] - y
-        phi_ref = np.clip(self.pid_y_out.compute(err_y, reset_derivative=reset_derivative), -max_angle_takeoff, max_angle_takeoff)
+        # Velocity feedforward: tambahkan komponen kecepatan ORCA sebagai feedforward roll
+        phi_ref = np.clip(self.pid_y_out.compute(err_y, reset_derivative=reset_derivative) + self.k_ff * self.vy_cmd, -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
         ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
         
@@ -348,6 +355,11 @@ class PIDHinfNode(Node):
         if abs(qw) < 0.9999 or abs(qz) > 1e-6:
             _, _, yaw_target = self.euler_from_quaternion(qx, qy, qz, qw)
             self.yaw_cmd = yaw_target
+
+    def target_velocity_callback(self, msg):
+        """Terima kecepatan ORCA dari mid-level sebagai velocity feedforward."""
+        self.vx_cmd = float(msg.twist.linear.x)
+        self.vy_cmd = float(msg.twist.linear.y)
 
     def destroy_node(self):
         self.csv_file.close()
