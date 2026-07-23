@@ -473,12 +473,22 @@ class CollisionAvoidanceNode(Node):
         ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
         ref_vy = np.clip(safe_vel[1], -1.2, 1.2) # Cap lateral speed to +-1.2m/s for fast stable avoidance
 
-        if not hasattr(self, 'cmd_vel_smooth'):
-            self.cmd_vel_smooth = np.array([ref_vx, ref_vy], dtype=np.float32)
-        else:
-            self.cmd_vel_smooth = 0.75 * self.cmd_vel_smooth + 0.25 * np.array([ref_vx, ref_vy], dtype=np.float32)
+        # 5. Smooth Acceleration / Slew-Rate Limiter (Max 1.5 m/s^2 acceleration untuk gerak mulus tanpa kaget)
+        MAX_ACCEL = 1.5  # m/s^2
+        dt_mid = 0.1     # 10 Hz control loop
+        max_dv = MAX_ACCEL * dt_mid  # max 0.15 m/s per step
 
-        out_vx, out_vy = self.cmd_vel_smooth[0], self.cmd_vel_smooth[1]
+        target_vel_raw = np.array([ref_vx, ref_vy], dtype=np.float32)
+        if not hasattr(self, 'cmd_vel_smooth'):
+            self.cmd_vel_smooth = np.array([0.0, 0.0], dtype=np.float32)
+        
+        dv = target_vel_raw - self.cmd_vel_smooth
+        dv_mag = float(np.linalg.norm(dv))
+        if dv_mag > max_dv:
+            dv = (dv / dv_mag) * max_dv
+        
+        self.cmd_vel_smooth += dv
+        out_vx, out_vy = float(self.cmd_vel_smooth[0]), float(self.cmd_vel_smooth[1])
 
         # 5b. Responsive Heading-Tracking Yaw Control (Tanpa Double Phase Lag)
         if not hasattr(self, 'yaw_smooth'):
