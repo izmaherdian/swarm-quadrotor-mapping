@@ -529,8 +529,10 @@ class CollisionAvoidanceNode(Node):
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
 
         # Bekukan yaw lebih awal (dist > 0.8m) agar drone stabil dan tidak berputar saat mendarat/mendekat
-        if self.waypoint_received and safe_speed > YAW_DEADBAND and dist_to_target > 0.8:
-            yaw_target = float(np.arctan2(safe_vel[1], safe_vel[0]))
+        if self.waypoint_received and dist_to_target > 0.8:
+            dx_target = self.target_waypoint[0] - self.current_pos[0]
+            dy_target = self.target_waypoint[1] - self.current_pos[1]
+            yaw_target = float(np.arctan2(dy_target, dx_target))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
