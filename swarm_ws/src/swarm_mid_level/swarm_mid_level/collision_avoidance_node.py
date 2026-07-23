@@ -494,8 +494,9 @@ class CollisionAvoidanceNode(Node):
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
             
-            # Responsif tanpa lag drift: ikuti arah safe_vel secara langsung dengan smoothing ringan
-            alpha_yaw = min(0.35 * (safe_speed / self.max_speed) + 0.1, 0.5)
+            # Responsif: alpha mendekati 1.0 di kecepatan penuh → hampir tidak ada lag heading
+            # Minimal 0.4 agar tetap ada sedikit smoothing untuk menghindari yaw hunting dari noise
+            alpha_yaw = min(0.6 * (safe_speed / self.max_speed) + 0.4, 1.0)
             self.yaw_smooth += alpha_yaw * delta_yaw
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 

@@ -283,8 +283,9 @@ class PIDLQRNode(Node):
         self.filt_z[1] += (self.w_n_sq * (self.z_cmd - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
         self.filt_z[0] += self.filt_z[1] * dt_control
         
-        self.filt_yaw[1] += (self.w_n_sq * (self.yaw_cmd - self.filt_yaw[0]) - self.two_zeta_wn * self.filt_yaw[1]) * dt_control
-        self.filt_yaw[0] += self.filt_yaw[1] * dt_control
+        # Yaw: bypass filter second-order — gunakan yaw_cmd langsung agar tidak ada lag ganda
+        # (mid-level sudah melakukan smoothing via alpha_yaw)
+        yaw_cmd_norm = (self.yaw_cmd + np.pi) % (2 * np.pi) - np.pi
         
         err_x = self.filt_x[0] - x
         # Velocity feedforward: tambahkan komponen kecepatan ORCA sebagai feedforward pitch
@@ -304,7 +305,8 @@ class PIDLQRNode(Node):
         err_z = self.filt_z[0] - z
         uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
         
-        err_yaw = self.filt_yaw[0] - yaw
+        # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
+        err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
         uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
         
         U_cmd = np.array([uz_pid + (self.m * self.g), ux_pid, uy_pid, uyaw_pid])
