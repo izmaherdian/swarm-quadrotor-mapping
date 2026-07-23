@@ -417,25 +417,35 @@ class SwarmSimulator2D:
 
     def plot_results(self, output_path):
         plt.figure(figsize=(10, 8))
-        for idx, obs in enumerate(self.obstacles):
-            circle = plt.Circle(obs['pos'], obs['radius'], color='red', alpha=0.6, label='Rintangan' if idx==0 else "")
-            plt.gca().add_patch(circle)
-            plt.text(obs['pos'][0], obs['pos'][1], f"Obs {chr(65+idx)}", color='white', ha='center', va='center', weight='bold')
+        
+        # Plot Rintangan Statis (Hanya untuk Skema 1)
+        if self.scheme == 1:
+            for idx, obs in enumerate(self.obstacles):
+                circle = plt.Circle(obs['pos'], obs['radius'], color='red', alpha=0.6, label='Rintangan' if idx==0 else "")
+                plt.gca().add_patch(circle)
+                plt.text(obs['pos'][0], obs['pos'][1], f"Obs {chr(65+idx)}", color='white', ha='center', va='center', weight='bold')
 
         colors = ['blue', 'green', 'orange', 'purple', 'brown', 'cyan', 'magenta']
         for i in range(self.active_drones):
             hist = np.array(self.history[i])
-            plt.plot(hist[:, 0], hist[:, 1], color=colors[i], label=f"Drone {i+1}", linewidth=2)
-            plt.scatter(hist[0, 0], hist[0, 1], color=colors[i], marker='o') # Spawn
-            plt.scatter(hist[-1, 0], hist[-1, 1], color=colors[i], marker='X') # Akhir
+            if len(hist) > 0:
+                plt.plot(hist[:, 0], hist[:, 1], color=colors[i], label=f"Drone {i+1}", linewidth=2)
+                plt.scatter(hist[0, 0], hist[0, 1], color=colors[i], marker='o') # Spawn
+                plt.scatter(hist[-1, 0], hist[-1, 1], color=colors[i], marker='X') # Akhir
 
-        plt.title("Simulasi Penerbangan Swarm Drone 2D (ORCA + Repulsion)", fontsize=14, weight='bold')
+        title_str = "Simulasi Penerbangan Swarm Drone 2D (ORCA + Repulsion)" if self.scheme == 1 else "Simulasi Head-On Collision Avoidance 2D"
+        plt.title(title_str, fontsize=14, weight='bold')
         plt.xlabel("X Position (m)")
         plt.ylabel("Y Position (m)")
         plt.grid(True)
         plt.legend(loc='upper left')
-        plt.xlim(-1.0, 11.0)
-        plt.ylim(-7.0, 7.0)
+        
+        if self.scheme == 1:
+            plt.xlim(-1.0, 11.0)
+            plt.ylim(-7.0, 7.0)
+        else:
+            plt.xlim(-3.0, 11.0)
+            plt.ylim(-3.0, 3.0)
         
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         plt.close()
@@ -446,15 +456,18 @@ if __name__ == '__main__':
     sim = SwarmSimulator2D()
     sim.run(realtime=realtime_mode)
     
-    # Simpan plot di dalam folder swarm_mid_level agar rapi
-    mid_level_plot_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../trajectory_simulation.png'))
-    sim.plot_results(mid_level_plot_path)
+    # Tentukan nama file output berdasarkan skema aktif
+    scheme_suffix = "" if sim.scheme == 1 else "_scheme2"
+    inner_dir = os.path.dirname(os.path.abspath(__file__))
+    output_plot_path = os.path.join(inner_dir, f"trajectory_simulation{scheme_suffix}.png")
+    sim.plot_results(output_plot_path)
     
     # Salin juga ke folder artifact agar ter-render di chat
-    artifact_plot_path = '/home/izmaherdian/.gemini/antigravity-cli/brain/5957a601-2c4a-4ba8-a185-b5636c8ffa5c/trajectory_simulation.png'
+    artifact_plot_name = f"trajectory_simulation{scheme_suffix}.png"
+    artifact_plot_path = os.path.join('/home/izmaherdian/.gemini/antigravity-cli/brain/5957a601-2c4a-4ba8-a185-b5636c8ffa5c', artifact_plot_name)
     try:
         import shutil
-        shutil.copy(mid_level_plot_path, artifact_plot_path)
+        shutil.copy(output_plot_path, artifact_plot_path)
         print(f"📈 Grafik trajectory disalin ke artifact chat: {artifact_plot_path}")
     except Exception as e:
         print(f"Error copying plot: {e}")
