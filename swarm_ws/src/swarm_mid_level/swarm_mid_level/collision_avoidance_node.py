@@ -341,8 +341,8 @@ class CollisionAvoidanceNode(Node):
         if dist_to_target < 0.1:
             pref_vel = np.zeros(2, dtype=np.float32)
         else:
-            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 1.5x)
-            speed = min(self.max_speed, dist_to_target * 1.5)
+            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 0.8)
+            speed = min(self.max_speed, dist_to_target * 0.8)
             pref_vel = (rel_target / dist_to_target) * speed
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)

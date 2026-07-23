@@ -212,7 +212,7 @@ class SwarmSimulator2D:
                     if dist_target < 0.05:
                         pref_vel = np.zeros(2, dtype=np.float32)
                     else:
-                        speed = min(self.max_speed, dist_target * 1.5)
+                        speed = min(self.max_speed, dist_target * 0.8)
                         pref_vel = (rel_target / dist_target) * speed
 
                     # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
@@ -377,7 +377,7 @@ class SwarmSimulator2D:
                 if dist_target < 0.05:
                     pref_vel = np.zeros(2, dtype=np.float32)
                 else:
-                    speed = min(self.max_speed, dist_target * 1.5)
+                    speed = min(self.max_speed, dist_target * 0.8)
                     pref_vel = (rel_target / dist_target) * speed
 
                 # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
