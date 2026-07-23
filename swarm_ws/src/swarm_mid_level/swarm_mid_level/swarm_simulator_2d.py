@@ -2,12 +2,20 @@
 import sys
 import os
 import math
+import signal
 import numpy as np
 import matplotlib.pyplot as plt
 
 # Tambahkan path ke folder swarm_mid_level agar bisa mengimpor ORCASolver2D
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from collision_avoidance_node import ORCASolver2D
+
+# Setup global SIGINT handler agar Ctrl+C langsung menutup jendela dan keluar
+def sigint_handler(sig, frame):
+    print("\n👋 Simulasi dihentikan oleh pengguna (Ctrl+C). Keluar...")
+    plt.close('all')
+    sys.exit(0)
+signal.signal(signal.SIGINT, sigint_handler)
 
 class SwarmSimulator2D:
     def __init__(self):
@@ -88,6 +96,13 @@ class SwarmSimulator2D:
         if realtime:
             plt.ion()
             fig, ax = plt.subplots(figsize=(10, 8))
+            
+            # Callback untuk keluar bersih ketika jendela ditutup menggunakan tombol [X]
+            def on_close(event):
+                print("\n👋 Jendela simulator ditutup oleh pengguna. Keluar...")
+                sys.exit(0)
+            fig.canvas.mpl_connect('close_event', on_close)
+
             # Plot Rintangan Statis
             for idx, obs in enumerate(self.obstacles):
                 circle = plt.Circle(obs['pos'], obs['radius'], color='red', alpha=0.6)
