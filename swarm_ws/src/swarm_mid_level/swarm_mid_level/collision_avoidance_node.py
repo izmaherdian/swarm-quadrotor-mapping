@@ -432,11 +432,12 @@ class CollisionAvoidanceNode(Node):
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
-        # Hitung yaw_target langsung dari safe_vel ORCA (bukan dari cmd_vel_smooth) untuk menghilangkan lag drift
+        # Hitung yaw_target langsung dari safe_vel ORCA
         safe_speed = float(np.sqrt(safe_vel[0]**2 + safe_vel[1]**2))
         YAW_DEADBAND = 0.15  # m/s — freeze yaw jika kecepatan sangat kecil / hover
 
-        if self.waypoint_received and safe_speed > YAW_DEADBAND and dist_to_target > 0.3:
+        # Bekukan yaw lebih awal (dist > 0.8m) agar drone stabil dan tidak berputar saat mendarat/mendekat
+        if self.waypoint_received and safe_speed > YAW_DEADBAND and dist_to_target > 0.8:
             yaw_target = float(np.arctan2(safe_vel[1], safe_vel[0]))
             # Normalisasi selisih sudut ke range [-pi, pi]
             delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
@@ -459,25 +460,30 @@ class CollisionAvoidanceNode(Node):
                 f"Dist={dist_to_target:.2f}m | Vel=({out_vx:.2f},{out_vy:.2f}) | Yaw={np.degrees(self.yaw_smooth):.1f}°"
             )
 
-        # 6. Integrate ORCA velocity to target position with lookahead for full PID-LQR velocity tracking
+        # 6. Integrate ORCA velocity to target position with smooth blending lookahead
         target_pose = PoseStamped()
         target_pose.header.stamp = self.get_clock().now().to_msg()
         target_pose.header.frame_id = 'world'
 
-        if dist_to_target < 0.6:
-            # Tiba di tujuan: Kunci target_pose tepat pada target_waypoint (cegah overshoot / oscilasi)
+        # Blending halus: kurangi jarak proyeksi lookahead seiring mendekati target (menghilangkan loncatan target_pose)
+        blend_factor = min(1.0, dist_to_target / 1.5)
+        lookahead_sec = 0.75 * blend_factor
+        
+        proj_x = self.current_pos[0] + out_vx * lookahead_sec
+        proj_y = self.current_pos[1] + out_vy * lookahead_sec
+        
+        # Batasi agar proyeksi target tidak melampaui waypoint akhir
+        if self.target_waypoint[0] >= 0:
+            proj_x = min(proj_x, float(self.target_waypoint[0]))
+            
+        target_pose.pose.position.x = float(proj_x)
+        target_pose.pose.position.y = float(proj_y)
+
+        # Kunci presisi mutlak saat sangat dekat (< 0.15m)
+        if dist_to_target < 0.15:
             target_pose.pose.position.x = float(self.target_waypoint[0])
             target_pose.pose.position.y = float(self.target_waypoint[1])
             self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
-        else:
-            lookahead_sec = 0.75
-            proj_x = self.current_pos[0] + out_vx * lookahead_sec
-            proj_y = self.current_pos[1] + out_vy * lookahead_sec
-            # Clamp agar proyeksi target_pose tidak melebihi target_waypoint
-            if self.target_waypoint[0] >= 0:
-                proj_x = min(proj_x, float(self.target_waypoint[0]))
-            target_pose.pose.position.x = float(proj_x)
-            target_pose.pose.position.y = float(proj_y)
 
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.x = 0.0
