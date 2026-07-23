@@ -406,9 +406,17 @@ class CollisionAvoidanceNode(Node):
                     continue
                 ang_i_world = float(angles_world[idx])
                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
-                push_dir = -obs_rel_i / max(d_i, 0.05)
-                rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
-                repulsion_vec += push_dir * rep_gain_i
+                
+                # Hanya terapkan gaya tolak jika titik rintangan berada di hemisfer depan pergerakan drone
+                is_front = True
+                pref_speed = np.linalg.norm(pref_vel)
+                if pref_speed > 0.1:
+                    is_front = np.dot(obs_rel_i, pref_vel) > 0
+                
+                if is_front:
+                    push_dir = -obs_rel_i / max(d_i, 0.05)
+                    rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
+                    repulsion_vec += push_dir * rep_gain_i
 
             # 3c. Tangential Steering: Curve around closest obstacle face
             min_idx = np.argmin(self.lidar_ranges)

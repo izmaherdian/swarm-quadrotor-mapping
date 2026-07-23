@@ -269,9 +269,17 @@ class SwarmSimulator2D:
                                     continue
                                 ang_i_world = float(angles_world[idx])
                                 obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
-                                push_dir = -obs_rel_i / max(d_i, 0.05)
-                                rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
-                                repulsion_vec += push_dir * rep_gain_i
+                                
+                                # Hanya terapkan gaya tolak jika rintangan berada di hemisfer depan pergerakan drone
+                                is_front = True
+                                pref_speed = np.linalg.norm(pref_vel)
+                                if pref_speed > 0.1:
+                                    is_front = np.dot(obs_rel_i, pref_vel) > 0
+                                
+                                if is_front:
+                                    push_dir = -obs_rel_i / max(d_i, 0.05)
+                                    rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
+                                    repulsion_vec += push_dir * rep_gain_i
 
                     # Capping gaya tolak
                     rep_len = np.linalg.norm(repulsion_vec)
@@ -296,13 +304,6 @@ class SwarmSimulator2D:
 
                     self.velocities[i] = np.array([ref_vx, ref_vy], dtype=np.float32)
                     new_pos = pos_self + self.velocities[i] * self.dt
-                    
-                    # Batasi X agar tidak overshoot melampaui target
-                    if target[0] >= pos_self[0]:
-                        new_pos[0] = min(new_pos[0], target[0])
-                    else:
-                        new_pos[0] = max(new_pos[0], target[0])
-                        
                     new_positions.append(new_pos)
 
                     safe_speed = np.linalg.norm(safe_vel)
@@ -424,12 +425,21 @@ class SwarmSimulator2D:
                                 min_dist_to_obs = d_i
                         for idx in close_indices[::4]:
                             d_i = float(lidar_ranges[idx])
-                            if d_i > 2.2: continue
+                            if d_i > 2.2:
+                                continue
                             ang_i_world = float(angles_world[idx])
                             obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
-                            push_dir = -obs_rel_i / max(d_i, 0.05)
-                            rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
-                            repulsion_vec += push_dir * rep_gain_i
+                            
+                            # Hanya terapkan gaya tolak jika rintangan berada di hemisfer depan pergerakan drone
+                            is_front = True
+                            pref_speed = np.linalg.norm(pref_vel)
+                            if pref_speed > 0.1:
+                                is_front = np.dot(obs_rel_i, pref_vel) > 0
+                            
+                            if is_front:
+                                push_dir = -obs_rel_i / max(d_i, 0.05)
+                                rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
+                                repulsion_vec += push_dir * rep_gain_i
 
                 rep_len = np.linalg.norm(repulsion_vec)
                 max_rep = self.max_speed * 0.75
@@ -449,10 +459,6 @@ class SwarmSimulator2D:
 
                 self.velocities[i] = np.array([ref_vx, ref_vy], dtype=np.float32)
                 new_pos = pos_self + self.velocities[i] * self.dt
-                if target[0] >= pos_self[0]:
-                    new_pos[0] = min(new_pos[0], target[0])
-                else:
-                    new_pos[0] = max(new_pos[0], target[0])
                 new_positions.append(new_pos)
 
                 safe_speed = np.linalg.norm(safe_vel)
