@@ -320,7 +320,7 @@ class PIDLQRNode(Node):
         err_theta = theta_ref - theta
         uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
-        phi_ref_raw = self.pid_y_out.compute(err_y_body, reset_derivative=reset_derivative) + self.k_ff * vy_body
+        phi_ref_raw = self.pid_y_out.compute(err_y_body, reset_derivative=reset_derivative) - self.k_ff * vy_body
         phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
         ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
