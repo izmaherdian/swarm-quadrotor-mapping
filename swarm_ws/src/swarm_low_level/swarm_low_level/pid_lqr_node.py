@@ -295,18 +295,27 @@ class PIDLQRNode(Node):
         # Yaw: bypass filter second-order — gunakan yaw_cmd langsung agar tidak ada lag ganda
         # (mid-level sudah melakukan smoothing via alpha_yaw)
         yaw_cmd_norm = (self.yaw_cmd + np.pi) % (2 * np.pi) - np.pi
-        
-        err_x = self.filt_x[0] - x
-        # Velocity feedforward: tambahkan komponen kecepatan ORCA sebagai feedforward pitch
-        theta_ref_raw = self.pid_x_out.compute(err_x, reset_derivative=reset_derivative) + self.k_ff * self.vx_cmd
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+
+        # Transformasi Error Posisi dari World Frame ke Body Frame
+        err_x_world = self.filt_x[0] - x
+        err_y_world = self.filt_y[0] - y
+        err_x_body =  err_x_world * cos_yaw + err_y_world * sin_yaw
+        err_y_body = -err_x_world * sin_yaw + err_y_world * cos_yaw
+
+        # Transformasi Velocity Feedforward dari World Frame ke Body Frame
+        vx_body =  self.vx_cmd * cos_yaw + self.vy_cmd * sin_yaw
+        vy_body = -self.vx_cmd * sin_yaw + self.vy_cmd * cos_yaw
+
+        # Pitch (theta) mengontrol gerakan Body X, Roll (phi) mengontrol gerakan Body Y
+        theta_ref_raw = self.pid_x_out.compute(err_x_body, reset_derivative=reset_derivative) + self.k_ff * vx_body
         max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
         theta_ref = np.clip(theta_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_theta = theta_ref - theta
         uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
         
-        err_y = self.filt_y[0] - y
-        # Velocity feedforward: tambahkan komponen kecepatan ORCA sebagai feedforward roll
-        phi_ref_raw = self.pid_y_out.compute(err_y, reset_derivative=reset_derivative) + self.k_ff * self.vy_cmd
+        phi_ref_raw = self.pid_y_out.compute(err_y_body, reset_derivative=reset_derivative) + self.k_ff * vy_body
         phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
         ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
@@ -347,7 +356,7 @@ class PIDLQRNode(Node):
             )
         if t - self.last_csv_log_time >= 0.05:  # 20 Hz
             self.csv_writer.writerow([t, x, y, z, roll_deg, pitch_deg, yaw_deg,
-                                      self.filt_x[0], self.filt_y[0], self.filt_z[0], self.filt_yaw[0],
+                                      self.filt_x[0], self.filt_y[0], self.filt_z[0], math.degrees(yaw_cmd_norm),
                                       vx, vy, vz, p, q_ang, r_ang,
                                       uz_pid, ux_pid, uy_pid, uyaw_pid,
                                       w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
