@@ -108,10 +108,20 @@ class SwarmSimulator2D:
 
     def run(self, realtime=False):
         if not realtime:
-            # Jalankan simulasi numerik murni sekali lalu keluar (untuk autotest/plotting offline)
+            # Jalankan Skema 1 offline dan simpan plotnya
+            print("🤖 Menjalankan simulasi numerik offline untuk Skema 1...")
             self.scheme = 1
             self.reset_simulation()
             self.run_numerical_offline()
+            inner_dir = os.path.dirname(os.path.abspath(__file__))
+            self.plot_results(os.path.join(inner_dir, "trajectory_simulation.png"))
+
+            # Jalankan Skema 2 offline dan simpan plotnya
+            print("🤖 Menjalankan simulasi numerik offline untuk Skema 2...")
+            self.scheme = 2
+            self.reset_simulation()
+            self.run_numerical_offline()
+            self.plot_results(os.path.join(inner_dir, "trajectory_simulation_scheme2.png"))
             return
 
         self.reset_requested = False
@@ -328,14 +338,30 @@ class SwarmSimulator2D:
                 plt.pause(0.01)
                 self.step_idx += 1
 
+            # Selesai satu putaran skema, simpan grafik saat ini
+            scheme_suffix = "" if self.scheme == 1 else "_scheme2"
+            inner_dir = os.path.dirname(os.path.abspath(__file__))
+            output_plot_path = os.path.join(inner_dir, f"trajectory_simulation{scheme_suffix}.png")
+            self.plot_results(output_plot_path)
+
+            # Salin juga ke folder artifact agar ter-render di chat
+            artifact_plot_name = f"trajectory_simulation{scheme_suffix}.png"
+            artifact_plot_path = os.path.join('/home/izmaherdian/.gemini/antigravity-cli/brain/5957a601-2c4a-4ba8-a185-b5636c8ffa5c', artifact_plot_name)
+            try:
+                import shutil
+                shutil.copy(output_plot_path, artifact_plot_path)
+                print(f"📈 Grafik trajectory disalin ke artifact chat: {artifact_plot_path}")
+            except Exception as e:
+                pass
+
             # Tunggu pergantian skema setelah simulasi selesai
             print(f"✅ Skema {self.scheme} selesai! Tabrakan: {collisions}. Menunggu tombol 'B' untuk berpindah skema...")
             while not self.reset_requested:
                 plt.pause(0.1)
 
     def run_numerical_offline(self):
-        """Simulasi numerik murni offline untuk Scheme 1"""
-        print("🤖 Menjalankan simulasi numerik offline (Scheme 1)...")
+        """Simulasi numerik murni offline untuk skema aktif"""
+        print(f"🤖 Menjalankan simulasi numerik offline (Skema {self.scheme})...")
         min_dist_to_obs = 999.0
         for step in range(self.steps):
             new_positions = []
@@ -353,6 +379,23 @@ class SwarmSimulator2D:
                     speed = min(self.max_speed, dist_target * 1.5)
                     pref_vel = (rel_target / dist_target) * speed
 
+                # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
+                for j in range(self.active_drones):
+                    if i == j:
+                        continue
+                    rel_nbr = self.positions[j] - pos_self
+                    dist_nbr = np.linalg.norm(rel_nbr)
+                    if dist_nbr < 3.5:
+                        pref_speed = np.linalg.norm(pref_vel)
+                        if pref_speed > 0.1:
+                            unit_pref = pref_vel / pref_speed
+                            unit_nbr = rel_nbr / max(dist_nbr, 0.05)
+                            dot_front = np.dot(unit_pref, unit_nbr)
+                            if dot_front > 0.85:  # Head-on tepat di depan
+                                right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
+                                bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
+                                pref_vel += right_vec * (self.max_speed * bias_gain)
+
                 neighbors = []
                 repulsion_vec = np.zeros(2, dtype=np.float32)
                 for j in range(self.active_drones):
@@ -364,27 +407,29 @@ class SwarmSimulator2D:
                         rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
                         repulsion_vec += (rel_nbr / max(dist_nbr, 0.05)) * rep_gain
 
-                lidar_ranges = self.simulate_lidar(pos_self, self.yaw_smooth[i])
-                angles_world = self.yaw_smooth[i] + np.linspace(-np.pi, np.pi, len(lidar_ranges))
-                obs_mask = lidar_ranges < 4.5
+                # Lidar (Hanya Skema 1)
+                if self.scheme == 1:
+                    lidar_ranges = self.simulate_lidar(pos_self, self.yaw_smooth[i])
+                    angles_world = self.yaw_smooth[i] + np.linspace(-np.pi, np.pi, len(lidar_ranges))
+                    obs_mask = lidar_ranges < 4.5
 
-                if np.any(obs_mask):
-                    close_indices = np.where(obs_mask)[0]
-                    for idx in close_indices[::6]:
-                        d_i = float(lidar_ranges[idx])
-                        ang_i_world = float(angles_world[idx])
-                        obs_pos_i = pos_self + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
-                        neighbors.append({'pos': obs_pos_i, 'vel': np.zeros(2, dtype=np.float32), 'is_static': True, 'radius': 0.35})
-                        if d_i < min_dist_to_obs:
-                            min_dist_to_obs = d_i
-                    for idx in close_indices[::4]:
-                        d_i = float(lidar_ranges[idx])
-                        if d_i > 2.2: continue
-                        ang_i_world = float(angles_world[idx])
-                        obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
-                        push_dir = -obs_rel_i / max(d_i, 0.05)
-                        rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
-                        repulsion_vec += push_dir * rep_gain_i
+                    if np.any(obs_mask):
+                        close_indices = np.where(obs_mask)[0]
+                        for idx in close_indices[::6]:
+                            d_i = float(lidar_ranges[idx])
+                            ang_i_world = float(angles_world[idx])
+                            obs_pos_i = pos_self + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
+                            neighbors.append({'pos': obs_pos_i, 'vel': np.zeros(2, dtype=np.float32), 'is_static': True, 'radius': 0.35})
+                            if d_i < min_dist_to_obs:
+                                min_dist_to_obs = d_i
+                        for idx in close_indices[::4]:
+                            d_i = float(lidar_ranges[idx])
+                            if d_i > 2.2: continue
+                            ang_i_world = float(angles_world[idx])
+                            obs_rel_i = np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
+                            push_dir = -obs_rel_i / max(d_i, 0.05)
+                            rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
+                            repulsion_vec += push_dir * rep_gain_i
 
                 rep_len = np.linalg.norm(repulsion_vec)
                 max_rep = self.max_speed * 0.75
@@ -404,7 +449,10 @@ class SwarmSimulator2D:
 
                 self.velocities[i] = np.array([ref_vx, ref_vy], dtype=np.float32)
                 new_pos = pos_self + self.velocities[i] * self.dt
-                new_pos[0] = min(new_pos[0], target[0])
+                if target[0] >= pos_self[0]:
+                    new_pos[0] = min(new_pos[0], target[0])
+                else:
+                    new_pos[0] = max(new_pos[0], target[0])
                 new_positions.append(new_pos)
 
                 safe_speed = np.linalg.norm(safe_vel)
