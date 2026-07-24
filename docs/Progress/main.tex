@@ -1,22 +1,313 @@
-\documentclass[12pt,a4paper]{report}
-\usepackage[utf8]{inputenc}
-\usepackage{graphicx}
-\usepackage{biblatex}
-\addbibresource{references.bib}
+\synctex=1
+\documentclass[12pt,a4paper]{article}
 
-\title{Progress Report}
-\author{}
-\date{\today}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage[scale=0.9]{geometry}
+\usepackage{graphicx}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{subcaption}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+\usepackage{enumitem}
+\usepackage{float}
+
+\definecolor{high}{HTML}{2E86AB}
+\definecolor{mid}{HTML}{A23B72}
+\definecolor{low}{HTML}{F18F01}
+\definecolor{sim}{HTML}{1B998B}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
 
 \begin{document}
-\maketitle
-\tableofcontents
 
-\chapter{Introduction}
+\begin{center}
+    {\LARGE \textbf{Laporan Progress}}\\[4pt]
+    {\Large Swarm Quadrotor Geodesy Cerdas \& Resilien}\\[4pt]
+    {\small Izma Alhazmi Herdian --- Institut Teknologi Bandung}\\[2pt]
+    {\small \today}
+\end{center}
 
+\hrule
+\vspace{12pt}
 
-\chapter{Progress}
+\section{Pendahuluan}
 
-\printbibliography
+Proyek ini mengembangkan sistem simulasi swarm quadrotor untuk pemetaan geodesi area non-konveks secara otonom. Sistem menggunakan arsitektur tiga lapis kecerdasan --- \textbf{High-Level} (koordinasi geometris), \textbf{Mid-Level} (collision avoidance), dan \textbf{Low-Level} (robust control) --- di atas ROS 2 Lyrical Luth dan Gazebo Harmonic.
+
+Tujuan akhir adalah publikasi di Engineering Physics International Conference (EPIC). Hingga saat ini seluruh fase dasar (0--3) telah selesai. Laporan ini menjelaskan metodologi setiap layer secara sistematis.
+
+\section{Metodologi}
+
+\subsection{Arsitektur Sistem Keseluruhan}
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        box/.style={rectangle, draw, thick, minimum width=3.8cm, minimum height=0.9cm, rounded corners, font=\bfseries\small, text=white, align=center},
+        rvizbox/.style={rectangle, draw, thick, minimum width=2.8cm, minimum height=0.9cm, rounded corners, font=\bfseries\small, text=black, align=center, dashed},
+        arr/.style={-{Latex[scale=1.2]}, thick},
+        darr/.style={-{Latex[scale=1.2]}, thick, dashed},
+        label/.style={font=\footnotesize\itshape}
+        ]
+
+        \node[box, fill=high] (high) {High-Level Layer};
+        \node[box, fill=mid, below=0.9cm of high] (mid) {Mid-Level Layer};
+        \node[box, fill=low, below=0.9cm of mid] (low) {Low-Level Layer};
+        \node[box, fill=sim, below=0.9cm of low] (gazebo) {Gazebo Harmonic};
+
+        \node[rvizbox, right=2cm of mid] (rviz) {RViz2\\Visualization};
+
+        \draw[arr] (high) -- node[label,right] {waypoint $(x,y,z)$} (mid);
+        \draw[arr] (mid) -- node[label,right] {target pose $(x,y,z,\text{yaw})$} (low);
+        \draw[arr] (low) -- node[label,right] {motor RPM} (gazebo);
+
+        \draw[arr] (gazebo.east) -- ++(0.6,0) |- node[label,pos=0.25,right] {odometry} (low.east);
+        \draw[arr] (gazebo.east) -- ++(0.6,0) |- node[label,pos=0.25,right] {LiDAR} (mid.east);
+
+        \draw[darr] (mid.east) -- ++(0.4,0) -- node[label,above] {markers} (rviz.west);
+        \draw[darr] (gazebo.east) -| node[label,below,pos=0.75] {odom/scan} (rviz.south);
+
+    \end{tikzpicture}
+    \caption{Arsitektur tiga lapis dengan alur data. High-Level mengirim waypoint ke Mid-Level, Mid-Level mengirim target pose ke Low-Level, Low-Level mengirim RPM ke Gazebo. RViz2 menerima data visualisasi dari Mid-Level dan Gazebo.}
+    \label{fig:arsitektur}
+\end{figure}
+
+\textbf{Poin-poin:}
+\begin{itemize}[nosep]
+    \item \textbf{High-Level:} Membagi area, merencanakan jalur, menangani kegagalan drone.
+    \item \textbf{Mid-Level:} Menghindari tabrakan antar-drone dan rintangan secara reaktif via ORCA.
+    \item \textbf{Low-Level:} Mengendalikan dinamika terbang dengan PID-LQR / PID-Hinf.
+    \item \textbf{Gazebo:} Simulator fisika dengan model tabrakan, aerodinamika, wind disturbance.
+    \item \textbf{RViz2:} Visualisasi real-time posisi drone, LiDAR, marker Voronoi, dan jejak terbang.
+    \item Komunikasi via ROS 2 DDS (data terdistribusi, P2P heartbeat).
+\end{itemize}
+
+\newpage
+\subsection{Low-Level: Robust Control}
+
+Lapisan ini mengendalikan dinamika quadrotor 6-DOF. Parameter fisik: $m=1.0$ kg, $I_x=I_y=8.1\times10^{-3}$, $I_z=14.2\times10^{-3}$ kg$\cdot$m$^2$, $l=0.24$ m. Sistem didekomposisi jadi 4 subsistem terdekopel: Longitudinal ($X\leftrightarrow\theta$), Lateral ($Y\leftrightarrow\phi$), Altitude ($Z$), dan Yaw ($\psi$). Masing-masing menggunakan PID kaskade (outer loop posisi $\to$ sudut, inner loop sudut $\to$ torsi).
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        b/.style={rectangle, draw, thick, minimum width=1.8cm, minimum height=0.7cm, align=center, font=\small},
+        arr/.style={-{Latex[scale=1.1]}, thick}
+        ]
+
+        \node[b] (pref) {Pre-filter};
+        \node[circle, draw, thick, minimum size=0.4cm, right=0.7cm of pref] (sum1) {$+$};
+        \node[b, right=0.7cm of sum1] (outer) {Outer PID};
+        \node[circle, draw, thick, minimum size=0.4cm, right=0.7cm of outer] (sum2) {$+$};
+        \node[b, right=0.7cm of sum2] (inner) {Inner PID};
+        \node[b, right=0.7cm of inner] (mix) {Mixing};
+        \node[b, right=0.7cm of mix, fill=blue!10] (plant) {Quadrotor};
+
+        \draw[arr] (pref) -- (sum1);
+        \draw[arr] (sum1) -- (outer);
+        \draw[arr] (outer) -- (sum2);
+        \draw[arr] (sum2) -- (inner);
+        \draw[arr] (inner) -- (mix);
+        \draw[arr] (mix) -- (plant);
+
+        \draw[arr] ([xshift=0.3cm]plant.east) -- ++(0.2,0) |- ++(0,-1) -| ([xshift=-0.15cm]sum2.south);
+        \draw[arr] ([xshift=0.3cm]plant.east) -- ++(0.2,0) |- ++(0,-1.6) -| ([xshift=-0.15cm]sum1.south);
+
+        \node[above=0.1cm of pref, font=\bfseries\small\color{low}] {PID Kaskade (setiap subsistem)};
+    \end{tikzpicture}
+    \caption{Arsitektur kontrol PID kaskade. Struktur identik untuk subsistem X, Y, Z, dan Yaw.}
+    \label{fig:lowlevel}
+\end{figure}
+
+\textbf{Poin-poin:}
+\begin{itemize}[nosep]
+    \item \textbf{PID-LQR:} Gain PID diturunkan dari LQR optimal control. Sistem diperluas (\textit{augmented}) dengan integrator, lalu diselesaikan via \textit{Continuous Algebraic Riccati Equation} (CARE):
+          \begin{equation}
+              A_{\text{aug}}^T P + P A_{\text{aug}} + Q_{\text{aug}} - P B_{\text{aug}} R_{\text{aug}}^{-1} B_{\text{aug}}^T P = 0
+          \end{equation}
+          Gain state-feedback $K_a = R_{\text{aug}}^{-1} B_{\text{aug}}^T P$ dipetakan ke $(K_p, K_i, K_d)$ melalui matriks $\Gamma$ dan pseudoinverse: $\hat{K} = \Gamma^{\dagger} K_a^T$.
+
+    \item \textbf{PID-Hinf:} Menggunakan kontrol robust dengan jalur disturbance $B_w$. Matriks Riccati dimodifikasi:
+          \begin{equation}
+              A_{\text{aug}}^T P + P A_{\text{aug}} + Q_{\text{aug}} - P \tilde{B} \tilde{R}^{-1} \tilde{B}^T P = 0,
+              \quad \tilde{R} = \begin{bmatrix} R & 0 \\ 0 & -\gamma^2 I \end{bmatrix}
+          \end{equation}
+          Parameter $\gamma$ mengontrol robustness ($\gamma_{\text{outer}}=80$, $\gamma_{\text{inner}}=64$).
+
+    \item Implementasi ROS 2 node (\texttt{pid\_lqr\_node.py}, \texttt{pid\_hinf\_node.py}) membaca odometri Gazebo, mengirim RPM ke motor.
+    \item Model wind turbulence Dryden (Gauss-Markov orde-1) untuk pengujian ketahanan angin.
+\end{itemize}
+
+\newpage
+\subsection{Mid-Level: Collision Avoidance}
+
+Lapisan tengah menerima waypoint $(x,y,z)$ dari High-Level dan menghitung target pose $(x,y,z,\text{yaw})$ bebas tabrakan secara real-time menggunakan ORCA (Optimal Reciprocal Collision Avoidance). Target pose dikirim ke Low-Level sebagai referensi kontrol.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        b/.style={rectangle, draw, thick, minimum width=2cm, minimum height=0.7cm, align=center, font=\small},
+        arr/.style={-{Latex[scale=1.1]}, thick}
+        ]
+
+        \node[b] (wp) {Waypoint $(x,y,z)$};
+        \node[b, right=1.2cm of wp, fill=mid!20] (orca) {ORCA Solver};
+        \node[b, right=1.2cm of orca] (out) {Target Pose};
+
+        \draw[arr] (wp) -- (orca);
+        \draw[arr] (orca) -- (out);
+
+        \node[b, minimum width=1.6cm, below=0.8cm of orca, xshift=-1.5cm] (lidar) {LiDAR 360$^\circ$};
+        \node[b, minimum width=1.6cm, below=0.4cm of lidar] (odom) {Odometry};
+        \node[b, minimum width=1.6cm, below=0.8cm of orca, xshift=1.5cm] (colregs) {COLREGs};
+        \node[b, minimum width=1.6cm, below=0.4cm of colregs] (tang) {Tangential};
+
+        \draw[arr] ([xshift=-0.2cm]orca.south) |- (lidar.north);
+        \draw[arr] ([xshift=-0.2cm]orca.south) |- (odom.east);
+        \draw[arr] ([xshift=0.2cm]orca.south) |- (colregs.north);
+        \draw[arr] ([xshift=0.2cm]orca.south) |- (tang.west);
+
+        \node[above=0.1cm of wp, font=\bfseries\small\color{mid}] {ORCA Collision Avoidance};
+    \end{tikzpicture}
+    \caption{ORCA menerima masukan waypoint, LiDAR, odometri, COLREGs, dan tangential gliding. Output berupa target pose bebas tabrakan.}
+    \label{fig:midlevel}
+\end{figure}
+
+\textbf{Poin-poin:}
+\begin{itemize}[nosep]
+    \item \textbf{ORCA core:} Untuk setiap pasangan drone $(i,j)$, hitung \textit{Velocity Obstacle} (VO) dalam time horizon $\tau$, konversi ke ORCA half-plane $n_{ij} \cdot v' \geq b_{ij}$, lalu selesaikan \textit{Linear Programming} 2D:
+          \begin{equation}
+              \min_{v'} \|v' - v_{\text{pref}}\|^2 \quad \text{s.t.} \quad n_{ij} \cdot v' \geq b_{ij},\; \|v'\| \leq v_{\max}
+          \end{equation}
+
+    \item \textbf{Resiprokal:} Weight 0.5 antar drone (saling menghindar), weight 1.0 rintangan statis.
+    \item \textbf{Mekanisme bantu:} repulsion field (inverse-square $<2$m), tangential gliding, COLREGs bias (turn-right), lane-keeping, slew-rate limiter (1.5 m/s$^2$), lookahead projection (0.75 detik).
+    \item \textbf{DRL sempat dicoba:} PPO dilatih untuk obstacle avoidance, berhasil untuk \textbf{satu drone}. Untuk swarm multi-agent belum konvergen, sehingga beralih ke ORCA deterministik.
+    \item Implementasi: \texttt{collision\_avoidance\_node.py} (623 baris).
+\end{itemize}
+
+\newpage
+\subsection{High-Level: Coverage Path Planning}
+
+Lapisan tertinggi mengoordinasikan pembagian wilayah, perencanaan jalur, dan pemulihan kegagalan.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        b/.style={rectangle, draw, thick, minimum width=2.2cm, minimum height=0.65cm, align=center, font=\small, fill=white},
+        arr/.style={-{Latex[scale=1.1]}, thick}
+        ]
+
+        \node[b] (area) {Area Geodesi};
+        \node[b, right=1.2cm of area] (vor) {Voronoi};
+        \node[b, right=1.2cm of vor] (lloyd) {Lloyd};
+        \node[b, right=1.2cm of lloyd] (bous) {Boustrophedon};
+        \node[b, right=1.2cm of bous] (wp) {Waypoints};
+
+        \draw[arr] (area) -- (vor);
+        \draw[arr] (vor) -- (lloyd);
+        \draw[arr] (lloyd) -- (bous);
+        \draw[arr] (bous) -- (wp);
+
+        \node[b, minimum width=1.8cm, below=1.2cm of vor] (hb) {Heartbeat};
+        \node[b, minimum width=1.8cm, right=1.8cm of hb] (ftcc) {FT-CC};
+        \node[b, minimum width=1.8cm, below=1cm of ftcc] (merge) {Merge+Redist};
+
+        \draw[arr] (hb) -- (ftcc);
+        \draw[arr] (ftcc) -- node[right,font=\tiny] {failed} (merge);
+        \draw[arr] (merge.east) -| ([xshift=-0.8cm]bous.south) node[pos=0.75,above,font=\tiny] {regen};
+
+        \node[above=0.1cm of area, font=\bfseries\small\color{high}] {Coverage Planning + FT-CC};
+    \end{tikzpicture}
+    \caption{Alur high-level: partisi Voronoi $\to$ Lloyd relaxation $\to$ Boustrophedon $\to$ waypoints. Loop bawah: FT-CC recovery saat heartbeat timeout.}
+    \label{fig:highlevel}
+\end{figure}
+
+\textbf{Poin-poin:}
+\begin{itemize}[nosep]
+    \item \textbf{Voronoi Partition:} Membagi area $\Omega$ menjadi sel-sel $V_i$ untuk setiap drone menggunakan Sutherland-Hodgman polygon clipping dengan bisector tegak lurus:
+          \begin{equation}
+              V_i = \{ \mathbf{p} \in \Omega \mid \|\mathbf{p} - \mathbf{p}_i\| \leq \|\mathbf{p} - \mathbf{p}_j\|,\; \forall j \neq i \}
+          \end{equation}
+
+    \item \textbf{Lloyd Relaxation:} 12 iterasi memindahkan titik seed drone ke centroid geometris selnya untuk menghasilkan \textit{Centroidal Voronoi Tessellation} (CVT) area proporsional:
+          \begin{equation}
+              \mathbf{c}_i^{(k+1)} = \frac{1}{|V_i^{(k)}|} \iint_{V_i^{(k)}} \mathbf{p} \; dA
+          \end{equation}
+
+    \item \textbf{Boustrophedon Path:} Jalur zigzag horizontal (sweep spacing 0.65m, margin 0.35m). Scanline intersection dengan poligon pada interval tetap, segmen dihubungkan bolak-balik:
+          \begin{equation}
+              \mathcal{W}_i = \bigcup_{y \in \mathcal{Y}_i} \text{scanline}(V_i, y)
+          \end{equation}
+
+    \item \textbf{FT-CC (Fault-Tolerant Cooperative Coverage):}
+          \begin{itemize}[nosep]
+              \item Deteksi kegagalan via heartbeat P2P (timeout ROS 2 DDS).
+              \item Sel drone mati $k \in \mathcal{D}$ dilelehkan: $V_{\text{merged}} = \bigcup_{k \in \mathcal{D}} V_k$.
+              \item Jalur Boustrophedon baru untuk area gabungan, redistribusi ke maksimal 3 drone helper.
+              \item \textit{Parallel Spatial Alignment} (nol path crossing) dan \textit{Orthogonal Boundary Entry}.
+          \end{itemize}
+    \item Implementasi \texttt{simulator\_kinematics.py} (1.127 baris) dengan GUI keyboard interaktif (1-7: toggle drone, L: layout, B: boundary).
+    \item Integrasi penuh dengan Mid+Low Level masih dalam pengerjaan (Fase 4).
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/Gabung_Voronoi_AI.png}
+    \caption{Visualisasi high-level: partisi Voronoi 7 sel, jalur Boustrophedon, dan coverage grid 100$\times$100.}
+    \label{fig:voronoi_ai}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/Gazebo dan Rviz.png}
+    \caption{Simulasi multi-drone: Gazebo (kiri) dan RViz2 (kanan) dengan LiDAR scan dan marker drone.}
+    \label{fig:gazebo_rviz}
+\end{figure}
+
+\newpage
+\section{Progress \& Rencana}
+
+\subsection{Progress Tercapai}
+
+\begin{center}
+    \begin{tabular}{ll}
+        \hline
+        \textbf{Komponen}                                                 & \textbf{Status} \\
+        \hline
+        \cellcolor{green!20} Translasi MATLAB $\to$ Python (LQR, Hinf)    & Selesai         \\
+        \cellcolor{green!20} PID-LQR \& PID-Hinf ROS 2 node + Gazebo      & Selesai         \\
+        \cellcolor{green!20} Wind turbulence simulator (Dryden)           & Selesai         \\
+        \cellcolor{green!20} ORCA collision avoidance node                & Selesai         \\
+        \cellcolor{green!20} PPO training (berhasil 1 drone, gagal swarm) & Selesai         \\
+        \cellcolor{green!20} Voronoi + Boustrophedon + FT-CC simulator    & Selesai         \\
+        \cellcolor{green!20} Launch file multi-drone + RViz2 config       & Selesai         \\
+        \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Rencana Selanjutnya}
+
+\begin{center}
+    \begin{tabular}{lll}
+        \hline
+        \textbf{No} & \textbf{Pekerjaan}                             & \textbf{Prioritas}           \\
+        \hline
+        1           & Integrasi High + Mid + Low Level di Gazebo     & \cellcolor{orange!20} Tinggi \\
+        2           & Uji coba end-to-end + validasi FT-CC real-time & \cellcolor{orange!20} Tinggi \\
+        3           & Dashboard monitoring swarm                     & \cellcolor{yellow!20} Sedang \\
+        4           & Penulisan paper EPIC                           & \cellcolor{yellow!20} Sedang \\
+        \hline
+    \end{tabular}
+\end{center}
+
+\subsection{Catatan DRL}
+
+Pendekatan Deep Reinforcement Learning (PPO) sempat diimplementasikan dan dilatih untuk obstacle avoidance. Model berhasil konvergen untuk \textbf{single agent} (1 drone dapat menavigasi ke target sambil menghindari rintangan). Namun untuk \textbf{multi-agent swarm}, pelatihan membutuhkan waktu sangat lama dan belum menunjukkan konvergensi yang memadai. Oleh karena itu, mid-level collision avoidance menggunakan ORCA deterministik yang sudah teruji untuk agen jamak. Model PPO yang sudah dilatih (format .zip dan .onnx) tetap tersimpan dan dapat digunakan kembali jika pendekatan pelatihan ditingkatkan (misalnya dengan \textit{curriculum learning} atau \textit{centralized training decentralized execution}).
 
 \end{document}
