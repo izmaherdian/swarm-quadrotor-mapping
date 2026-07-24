@@ -40,9 +40,11 @@ swarm_ws/src/swarm_sim/**/*.log
 # Folder Debug & MatlabtoPython
 Debug/
 MatlabtoPython/
+docs/References-paper/
 
 # LaTeX build artifacts
 *.aux
+*.bcf
 *.log
 *.toc
 *.out
