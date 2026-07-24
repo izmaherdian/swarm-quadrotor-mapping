@@ -129,3 +129,6 @@ Karena riset ini sangat kompleks, pengerjaan difokuskan dari level "Paling Fisik
   3. Gazebo Harmonic memutar rotor drone berdasarkan dinamika fisika → Drone terbang bergerak 
   secara nyata.
   4. RViz2 menampilkan pergerakan 3D drone dan garis jejak penerbangan secara real-time.      
+
+
+SAYA AKAN BAGI HIGH LEVEL MENJADI 2 BRANCH DI MANA v1-pendekatan-multi-agent SEBAGAI PENDEKATAN DARI MULTI AGENT (LANGSUNG COBA 7 DRONES) DAN v2-pendekatan-single-agent SEBAGAI PENDEKATAN DARI SINGLE AGENT (COBA 1 DRONE) UNTUK WAYPOINT DULU DAN BERTAHAP KE MULTI AGENT (HINGGA 7 DRONE)
