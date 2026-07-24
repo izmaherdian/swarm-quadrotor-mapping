@@ -40,3 +40,14 @@ swarm_ws/src/swarm_sim/**/*.log
 # Folder Debug & MatlabtoPython
 Debug/
 MatlabtoPython/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.toc
+*.out
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
