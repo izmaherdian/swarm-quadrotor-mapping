@@ -57,3 +57,13 @@ PRD_Swarm_Quadrotor_Geodesy.md
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.bak
+*.run.xml
+
+# docs/Progress — only track .tex, .bib, .pdf
+docs/Progress/*
+!docs/Progress/*.tex
+!docs/Progress/*.bib
+!docs/Progress/*.pdf
+!docs/Progress/figures/
+!docs/Progress/figures/**
