@@ -40,7 +40,11 @@ swarm_ws/src/swarm_sim/**/*.log
 # Folder Debug & MatlabtoPython
 Debug/
 MatlabtoPython/
-docs/References-paper/
+docs/References-Paper/
+
+# Dokumentasi proyek (dikelola di luar git)
+Roadmap_Swarm_Quadrotor.md
+PRD_Swarm_Quadrotor_Geodesy.md
 
 # LaTeX build artifacts
 *.aux
