@@ -2,7 +2,7 @@
 <sdf version="1.8">
   <world name="swarm_world">
     <!-- SPEEDUP SIMULATION: max_step_size=0.001 (1000Hz stable physics) & real_time_factor=0.0 unthrottled -->
-    <physics name="fast_physics" type="ignored">
+    <physics name="fast_physics" type="ode">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>0.0</real_time_factor>
     </physics>
@@ -102,7 +102,6 @@
       </link>
     </model>
 
-    <!-- OBSTACLE A - X=2, sisi kanan (Y=-1.5) → drone harus belok kiri -->
     <model name="obstacle_a">
       <static>true</static>
       <pose>2 -1.5 2 0 0 0</pose>
@@ -112,7 +111,6 @@
       </link>
     </model>
 
-    <!-- OBSTACLE B - X=3.5, sisi kiri (Y=+1.5) → drone harus belok kanan -->
     <model name="obstacle_b">
       <static>true</static>
       <pose>3.5 1.5 2 0 0 0</pose>
@@ -122,7 +120,6 @@
       </link>
     </model>
 
-    <!-- OBSTACLE C - X=5, sisi kanan (Y=-1.5) → drone harus belok kiri -->
     <model name="obstacle_c">
       <static>true</static>
       <pose>5 -1.5 2 0 0 0</pose>
@@ -132,7 +129,6 @@
       </link>
     </model>
 
-    <!-- OBSTACLE D - X=6.5, sisi kiri (Y=+2.5) → drone harus belok kanan -->
     <model name="obstacle_d">
       <static>true</static>
       <pose>6.5 2.5 2 0 0 0</pose>

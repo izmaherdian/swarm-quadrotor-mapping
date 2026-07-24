@@ -47,6 +47,11 @@ def generate_launch_description():
         default_value='true',
         description='Jalankan node mid-level collision avoidance (ONNX)'
     )
+    results_base_arg = DeclareLaunchArgument(
+        'results_base',
+        default_value='multi_agent',
+        description='Subfolder di results/ untuk menyimpan CSV (e.g. multi_agent, single_agent)'
+    )
 
     # 3. Launch Gazebo Server & Client (GUI/Headless)
     gz_args_headless = f'-r -s "{world_file}"'
@@ -79,7 +84,13 @@ def generate_launch_description():
     # 5. Bangun Arsitektur Kontrol Swarm Secara Dinamis (1 sampai 7 drone)
     pkg_share = get_package_share_directory('swarm_sim')
     ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
-    base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', 'multi_agent')
+    import sys
+    _results_base = 'multi_agent'
+    for arg in sys.argv:
+        if arg.startswith('results_base:='):
+            _results_base = arg.split(':=', 1)[1]
+            break
+    base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', _results_base)
     config_dir = os.path.join(ws_root, 'src', 'swarm_low_level', 'config')
 
     # Buat kedua subfolder hasil simulasi sekaligus
@@ -89,7 +100,6 @@ def generate_launch_description():
     os.makedirs(results_hinf, exist_ok=True)
 
     # Pilih subfolder berdasarkan controller yang dipakai
-    import sys
     _ctrl = None
     for arg in sys.argv:
         if arg.startswith('controller:='):
@@ -213,6 +223,7 @@ def generate_launch_description():
         num_drones_arg,
         controller_arg,
         use_mid_level_arg,
+        results_base_arg,
         gz_sim_headless,
         gz_sim_gui,
         rviz_node,

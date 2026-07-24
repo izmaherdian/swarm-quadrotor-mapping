@@ -89,7 +89,7 @@ class PIDLQRNode(Node):
         self.pid_y_in  = PID(gains['y_inner']['Kp'], gains['y_inner']['Ki'], gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'])
-        self.pid_yaw = PID(gains['yaw']['Kp'], gains['yaw']['Ki'], gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
+        self.pid_yaw = PID(gains['yaw']['Kp'] * 1.0, gains['yaw']['Ki'] * 1.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         # Konstanta Fisika dan Matriks Mixer
         self.g = self.params['g']
@@ -125,6 +125,8 @@ class PIDLQRNode(Node):
         self.vx_cmd = 0.0
         self.vy_cmd = 0.0
         self.k_ff = 0.07  # Feedforward gain: 1 m/s → 0.07 rad (~4°) tambahan pitch/roll
+        self.yaw_rate_cmd = 0.0
+        self.k_ff_yaw = 0.5 * self.params['iz']  # Feedforward gain: yaw_rate → torque (Nm/(rad/s))
 
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
         self.filt_x = [0.0, 0.0]
@@ -336,7 +338,7 @@ class PIDLQRNode(Node):
         
         # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
-        uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative)
+        uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative) + self.k_ff_yaw * self.yaw_rate_cmd
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
@@ -394,6 +396,7 @@ class PIDLQRNode(Node):
         """Terima kecepatan ORCA dari mid-level sebagai velocity feedforward."""
         self.vx_cmd = float(msg.twist.linear.x)
         self.vy_cmd = float(msg.twist.linear.y)
+        self.yaw_rate_cmd = float(msg.twist.angular.z)
 
     def destroy_node(self):
         self.csv_file.close()
