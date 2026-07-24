@@ -20,18 +20,23 @@ log/
 .DS_Store
 Thumbs.db
 
-# Temporary images or debug artifacts (optional, keep commented if you want to push the graphics)
-# *.png
-# Hasil log simulasi (tidak perlu di-commit)
-swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.csv
-swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.png
-swarm_ws/src/swarm_sim/results/multi_agent/pid_lqr/*.log
-swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.csv
-swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.png
-swarm_ws/src/swarm_sim/results/multi_agent/pid_hinf/*.log
-swarm_ws/src/swarm_sim/results/single_agent/*.csv
-swarm_ws/src/swarm_sim/results/single_agent/*.png
-swarm_ws/src/swarm_sim/results/single_agent/*.log
-swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.csv
-swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.png
-swarm_ws/src/swarm_sim/results/single_agent/pid_lqr/*.log
+# Data / hasil simulasi
+swarm_ws/src/swarm_high_level/**/*.csv
+swarm_ws/src/swarm_high_level/**/*.png
+swarm_ws/src/swarm_high_level/**/*.log
+
+swarm_ws/src/swarm_low_level/**/*.csv
+swarm_ws/src/swarm_low_level/**/*.png
+swarm_ws/src/swarm_low_level/**/*.log
+
+swarm_ws/src/swarm_mid_level/**/*.csv
+swarm_ws/src/swarm_mid_level/**/*.png
+swarm_ws/src/swarm_mid_level/**/*.log
+
+swarm_ws/src/swarm_sim/**/*.csv
+swarm_ws/src/swarm_sim/**/*.png
+swarm_ws/src/swarm_sim/**/*.log
+
+# Folder Debug & MatlabtoPython
+Debug/
+MatlabtoPython/
