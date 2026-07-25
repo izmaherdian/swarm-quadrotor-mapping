@@ -9,7 +9,7 @@
 % Author Guidelines: EPIC2026_Author_Guidelines.pdf
 %
 % Compile: pdflatex -> pdflatex
-
+\synctex=1
 \documentclass[11pt]{article}
 
 % ---------- Packages ----------
@@ -33,10 +33,16 @@
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{2pt}
 
+% Float parameters to prevent unnecessary page breaks
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.9}
+
 \newcommand{\heading}[1]{%
-  \vspace{1.8ex}%
+  \vspace{1.3ex}%
   {\fontsize{10}{12}\bfseries #1}%
-  \vspace{0.6ex}%
+  \vspace{0.4ex}%
 }
 
 \newcommand{\pbody}{\fontsize{9}{11}\selectfont}
@@ -47,41 +53,41 @@
 % TITLE
 % =====================================================================
 \begin{center}
-  {\fontsize{18}{22}\bfseries
-   Multi-Layer Swarm Quadrotor Architecture for Autonomous Non-Convex
-   Geodesic Mapping with Fault-Tolerant Cooperative Coverage
-  }
+      {\fontsize{18}{22}\bfseries
+            Multi-Layer Swarm Quadrotor Architecture for Autonomous Non-Convex
+            Geodesic Mapping with Fault-Tolerant Cooperative Coverage
+      }
 
-  \vspace{1.5ex}
+      \vspace{1.5ex}
 
-% ---------------------------------------------------------------------
-% AUTHORS
-% ---------------------------------------------------------------------
-  {\fontsize{14}{17}\selectfont
-   Izma Alhazmi Herdian\textsuperscript{1,*,\textdagger},
-   Sulthan Naufal Affan\textsuperscript{1,\textdagger},
-   Estiyanti Ekawati\textsuperscript{1}
-  }
+      % ---------------------------------------------------------------------
+      % AUTHORS
+      % ---------------------------------------------------------------------
+      {\fontsize{14}{17}\selectfont
+            Izma Alhazmi Herdian\textsuperscript{1,*,\textdagger},
+            Sulthan Naufal Affan\textsuperscript{1,\textdagger},
+            Estiyanti Ekawati\textsuperscript{1}
+      }
 
-  \vspace{1ex}
+      \vspace{1ex}
 
-% ---------------------------------------------------------------------
-% AFFILIATIONS
-% ---------------------------------------------------------------------
-  {\fontsize{10}{12}\itshape
-   \textsuperscript{1}Engineering Physics Department,\\
-   Institut Teknologi Bandung, Bandung 40132, Indonesia
-  }
+      % ---------------------------------------------------------------------
+      % AFFILIATIONS
+      % ---------------------------------------------------------------------
+      {\fontsize{10}{12}\itshape
+            \textsuperscript{1}Engineering Physics Department,\\
+            Institut Teknologi Bandung, Bandung 40132, Indonesia
+      }
 
-  \vspace{0.5ex}
+      \vspace{0.5ex}
 
-% ---------------------------------------------------------------------
-% EMAIL
-% ---------------------------------------------------------------------
-  {\fontsize{10}{12}\itshape
-   *Corresponding author: izmaherdian@gmail.com\\
-   \textdagger These authors contributed equally.
-  }
+      % ---------------------------------------------------------------------
+      % EMAIL
+      % ---------------------------------------------------------------------
+      {\fontsize{10}{12}\itshape
+            *Corresponding author: izmaherdian@gmail.com\\
+            \textdagger These authors contributed equally.
+      }
 \end{center}
 
 % =====================================================================
@@ -90,22 +96,22 @@
 \vspace{1.2ex}
 
 \begin{adjustwidth}{0.2in}{0.2in}
-\pbody
-\textbf{Abstract,} Autonomous swarm quadrotor systems have emerged as a
-promising solution for large-scale geodetic mapping in complex environments.
-This paper proposes a three-layer control architecture for resilient non-convex
-geodesic mapping using a quadrotor swarm. The high-level layer employs
-Voronoi-based non-convex region partitioning integrated with Boustrophedon
-path planning and Fault-Tolerant Cooperative Coverage (FT-CC) for adaptive
-task redistribution under failures. The mid-level layer utilizes Optimal
-Reciprocal Collision Avoidance (ORCA) for decentralized collision-free
-navigation. The low-level layer combines PID-LQR attitude control with
-PID-Hinf position control for robust trajectory tracking under external
-disturbances. The framework is validated through high-fidelity simulation
-in ROS2 Lyrical, Gazebo Harmonic, and PX4 SITL. Expected results indicate
-90--95\% coverage of non-convex regions with zero inter-robot collisions,
-demonstrating the potential of the proposed architecture for real-world
-geodetic applications.
+      \pbody
+      \textbf{Abstract,} Autonomous swarm quadrotor systems have emerged as a
+      promising solution for large-scale geodetic mapping in complex environments.
+      This paper proposes a three-layer control architecture for resilient non-convex
+      geodesic mapping using a quadrotor swarm. The high-level layer employs
+      Voronoi-based non-convex region partitioning integrated with Boustrophedon
+      path planning and Fault-Tolerant Cooperative Coverage (FT-CC) for adaptive
+      task redistribution under failures. The mid-level layer utilizes Optimal
+      Reciprocal Collision Avoidance (ORCA) for decentralized collision-free
+      navigation. The low-level layer combines PID-LQR attitude control with
+      PID-Hinf position control for robust trajectory tracking under external
+      disturbances. The framework is validated through high-fidelity simulation
+      in ROS2 Lyrical, Gazebo Harmonic, and PX4 SITL. Expected results indicate
+      90--95\% coverage of non-convex regions with zero inter-robot collisions,
+      demonstrating the potential of the proposed architecture for real-world
+      geodetic applications.
 \end{adjustwidth}
 
 % =====================================================================
@@ -186,118 +192,148 @@ trigger coverage redistribution.
 % FIGURE 1 - Three-Layer Architecture
 % =====================================================================
 \begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-    node distance=0.2cm and 0.3cm,
-    box/.style={draw,thick,minimum width=3.2cm,minimum height=0.9cm,
-                align=center,fill=white,font=\fontsize{7.5}{9}\selectfont},
-    layer/.style={draw,thick,rounded corners,inner sep=5pt},
-    arr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick},
-    darr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dashed},
-    faultarr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dotted},
-    lbl/.style={font=\fontsize{6.5}{8}\itshape,text=gray!60},
-]
+      \centering
+      \begin{tikzpicture}[
+            node distance=0.1cm and 0.4cm,
+            box/.style={draw,thick,minimum width=2.9cm,minimum height=0.7cm,
+                        align=center,fill=white,font=\fontsize{7.5}{9}\selectfont, rounded corners=2pt},
+            layer/.style={draw,thick,rounded corners,inner sep=6pt, fill opacity=0.08, text opacity=1.0, minimum width=9.2cm},
+            arr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick},
+            darr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dashed},
+            faultarr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dotted},
+            lbl/.style={font=\fontsize{6.5}{8}\itshape},
+            ]
 
-% --------  INPUT BOX  --------
-\node[draw,thick,minimum width=10.2cm,minimum height=0.8cm,fill=gray!15,
-      font=\fontsize{8}{10}\bfseries] (input)
-      {Region Input: non-convex boundary, $N$ drone initial poses};
+            % Define custom palette matching the progress report colors
+            \definecolor{high}{HTML}{2E86AB}
+            \definecolor{mid}{HTML}{A23B72}
+            \definecolor{low}{HTML}{F18F01}
+            \definecolor{sim}{HTML}{1B998B}
 
-% --------  HIGH-LEVEL LAYER (gray!5)  --------
-\node[layer,fill=gray!5,minimum width=10.2cm,below=0.7cm of input] (hl) {};
-\node[anchor=north west,font=\fontsize{8}{10}\bfseries,inner sep=3pt]
-      at (hl.north west) {HIGH-LEVEL LAYER --- Coverage Planning};
+            % --------  INPUT BOX  --------
+            \node[draw,thick,minimum width=10.2cm,minimum height=0.6cm,fill=gray!12,
+                  font=\fontsize{8}{10}\bfseries, rounded corners=2pt] (input)
+            {Region Input: non-convex boundary, $N$ drone initial poses};
 
-\node[box,below=0.25cm of hl.north,xshift=-3.45cm] (voronoi)
-      {Voronoi\\Non-Convex\\Partition};
-\node[box,right=0.25cm of voronoi] (boustro)
-      {Boustrophedon\\Path\\Planning};
-\node[box,right=0.25cm of boustro] (ftcc)
-      {FT-CC\\Fault-Tolerant\\Coverage};
+            % --------  HIGH-LEVEL LAYER COMPONENTS  --------
+            % We place Boustro in center, Voronoi left, FT-CC right
+            \node[box,draw=high,below=0.55cm of input] (boustro)
+            {Boustrophedon\\Path\\Planning};
 
-\draw[arr] (voronoi) -- (boustro);
-\draw[arr] (boustro) -- (ftcc);
+            \node[box,draw=high,left=0.4cm of boustro] (voronoi)
+            {Voronoi\\Non-Convex\\Partition};
 
-\node[lbl,below=2pt of voronoi] {I: boundary, poses};
-\node[lbl,below=2pt of ftcc] {O: waypoints};
+            \node[box,draw=high,right=0.4cm of boustro] (ftcc)
+            {FT-CC\\Fault-Tolerant\\Coverage};
 
-% --------  MID-LEVEL LAYER (gray!10)  --------
-\node[layer,fill=gray!10,minimum width=10.2cm,below=0.7cm of hl] (ml) {};
-\node[anchor=north west,font=\fontsize{8}{10}\bfseries,inner sep=3pt]
-      at (ml.north west) {MID-LEVEL LAYER --- Collision Avoidance};
+            % Connect High-Level modules
+            \draw[arr,high] (voronoi) -- (boustro);
+            \draw[arr,high] (boustro) -- (ftcc);
 
-\node[draw,thick,minimum width=9.2cm,minimum height=1.8cm,fill=white,
-      font=\fontsize{7}{8.5}\selectfont,
-      below=0.2cm of ml.north,align=center] (orca)
-      {ORCA --- Optimal Reciprocal Collision Avoidance\\
-       I: neighbor positions/velocities (broadcast), preferred vel from waypoint;\\
-       O: collision-free velocity command $(v_x,v_y,v_z,\dot{\psi})$;\\
-       Steps: velocity obstacle computation, reciprocal velocity selection
-      };
+            % Self-healing path-recalculation / re-partitioning loop
+            \draw[darr,high,bend right=25] (ftcc.north) to node[midway,above,lbl] {heartbeat timeout (re-partition)} (voronoi.north);
 
-% --------  LOW-LEVEL LAYER (gray!15)  --------
-\node[layer,fill=gray!15,minimum width=10.2cm,below=0.7cm of ml] (ll) {};
-\node[anchor=north west,font=\fontsize{8}{10}\bfseries,inner sep=3pt]
-      at (ll.north west) {LOW-LEVEL LAYER --- Attitude \& Position Control};
+            % Fit High-Level Layer Background
+            \begin{scope}[on background layer]
+                  \node[layer,fill=high,draw=high,fit=(voronoi) (ftcc) (boustro)] (hl) {};
+            \end{scope}
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{high},inner sep=3pt]
+            at (hl.north west) {HIGH-LEVEL LAYER --- Coverage Planning};
 
-% Cascade: PID-Hinf (position) -> PID-LQR (attitude) -> Plant
-\node[box,below=0.2cm of ll.north] (pidhinf)
-      {PID-Hinf\\Position Control\\$(x,y,z)$};
-\node[box,below=0.6cm of pidhinf] (pidlqr)
-      {PID-LQR\\Attitude Control\\$(\phi,\theta,\dot{\psi})$};
-\node[box,minimum width=4.5cm,below=0.6cm of pidlqr] (plant)
-      {Quadrotor Plant\\PX4 SITL + Gazebo Harmonic};
+            % --------  MID-LEVEL LAYER COMPONENTS  --------
+            % Split ORCA block into Sensor Fusion and ORCA Solver
+            \node[box,draw=mid,below=0.75cm of boustro,xshift=-1.8cm] (fusion)
+            {Sensor Fusion\\(LiDAR \& Odom)};
 
-% Command arrows
-\draw[arr] (pidhinf) -- node[right,lbl] {ref attitude} (pidlqr);
-\draw[arr] (pidlqr) -- node[right,lbl] {PWM} (plant);
+            \node[box,draw=mid,right=0.8cm of fusion] (orca)
+            {Decentralized\\ORCA Solver};
 
-% Wind Disturbance
-\node[lbl,right=0.1cm of plant.east] (wind) {Wind Disturbance};
-\draw[-{Stealth[length=2.2mm,width=2.2mm]},thick] (wind.west) -- (plant.east);
+            % Connect Mid-Level modules
+            \draw[arr,mid] (fusion) -- node[above,lbl] {obstacle profiles} (orca);
 
-% --------  OUTPUT BOX  --------
-\node[draw,thick,minimum width=10.2cm,minimum height=0.8cm,fill=gray!15,
-      font=\fontsize{8}{10}\bfseries,below=0.7cm of ll] (output)
-      {Mission Output: coverage $\geq$90\%, zero collisions, fault recovery};
+            % High-Level waypoints link to ORCA (as pref_vel)
+            \draw[arr,high] (ftcc) -- node[right,lbl] {waypoints} (orca);
 
-% --------  VERTICAL ARROWS (top-down command flow)  --------
-\draw[arr] ([yshift=-1pt]input.south) -- ([yshift=1pt]hl.north);
-\draw[arr] ([yshift=-1pt]hl.south)   -- ([yshift=1pt]ml.north)
-    node[midway,right=2pt,lbl] {waypoints};
-\draw[arr] ([yshift=-1pt]ml.south)   -- ([yshift=1pt]ll.north)
-    node[midway,right=2pt,lbl] {velocity cmd};
-\draw[arr] ([yshift=-1pt]ll.south)   -- ([yshift=1pt]output.north);
+            % Fit Mid-Level Layer Background
+            \begin{scope}[on background layer]
+                  \node[layer,fill=mid,draw=mid,fit=(fusion) (orca)] (ml) {};
+            \end{scope}
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{mid},inner sep=3pt]
+            at (ml.north west) {MID-LEVEL LAYER --- Collision Avoidance};
 
-% --------  CURVED FEEDBACK (outside left)  --------
-\draw[darr] ([xshift=-0.3cm]ll.west) .. controls +(left:1.2cm) and +(left:1.2cm) ..
-    ([xshift=-0.3cm]ml.west) node[midway,left,lbl] {state};
-\draw[darr] ([xshift=-0.3cm]ml.west) .. controls +(left:1.2cm) and +(left:1.2cm) ..
-    ([xshift=-0.3cm]hl.west) node[midway,left,lbl] {coverage status};
+            % --------  LOW-LEVEL LAYER COMPONENTS  --------
+            % Cascaded position and attitude control loops
+            \node[box,draw=low,below=0.65cm of ml] (pidhinf)
+            {PID-Hinf\\Position Control\\$(x,y,z)$};
 
-% --------  LOW-LEVEL INTERNAL FEEDBACK (left side cascade)  --------
-\draw[darr] ([xshift=-0.3cm]plant.north) -- ([xshift=-0.3cm]pidlqr.south)
-    node[midway,left,lbl] {attitude};
-\draw[darr] ([xshift=-0.3cm]pidlqr.north) -- ([xshift=-0.3cm]pidhinf.south)
-    node[midway,left,lbl] {position};
+            \node[box,draw=low,below=0.35cm of pidhinf] (pidlqr)
+            {PID-LQR\\Attitude Control\\$(\phi,\theta,\dot{\psi})$};
 
-% --------  FAULT SIGNAL (dotted, curved right)  --------
-\draw[faultarr] ([xshift=0.3cm]ll.east) .. controls +(right:1.2cm) and +(right:1.2cm) ..
-    ([xshift=0.3cm]hl.east) node[midway,right,lbl] {fault detection};
+            % Connect Mid-Level command to Low-Level
+            \draw[arr,mid] (orca.south) |- node[pos=0.3,right,lbl] {velocity cmd} (pidhinf.east);
 
-% --------  LEGEND  --------
-\node[draw,thick,fill=white,font=\fontsize{6.5}{7.5}\selectfont,inner sep=4pt,
-      below=0.3cm of output.south] (legend)
-      {\begin{tabular}{@{}l@{}}
-        \raisebox{0.3ex}{\tikz\draw[arr](0,0)--(0.35,0);}\ command\\[-0.1ex]
-        \raisebox{0.3ex}{\tikz\draw[darr](0,0)--(0.35,0);}\ state feedback\\[-0.1ex]
-        \raisebox{0.3ex}{\tikz\draw[faultarr](0,0)--(0.35,0);}\ fault detection
-       \end{tabular}};
+            % Cascade commands
+            \draw[arr,low] (pidhinf) -- node[right,lbl] {ref attitude} (pidlqr);
 
-\end{tikzpicture}
-\caption{Proposed three-layer control architecture for resilient autonomous
-swarm quadrotor geodesic mapping.}
-\label{fig:architecture}
+            % Fit Low-Level Layer Background
+            \begin{scope}[on background layer]
+                  \node[layer,fill=low,draw=low,fit=(pidhinf) (pidlqr)] (ll) {};
+            \end{scope}
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{low},inner sep=3pt]
+            at (ll.north west) {LOW-LEVEL LAYER --- Attitude \& Position Control};
+
+            % --------  PHYSICAL SIMULATION LAYER  --------
+            \node[box,draw=sim,minimum width=4.5cm,below=0.55cm of ll] (plant)
+            {Quadrotor Plant\\(PX4 SITL + Gazebo Harmonic)};
+
+            % Command input to motor
+            \draw[arr,low] (pidlqr) -- node[right,lbl] {motor RPM / PWM} (plant);
+
+            % Wind Disturbance
+            \node[lbl,right=0.6cm of plant,align=left] (wind) {Wind Disturbance\\(Dryden Turbulence)};
+            \draw[-{Stealth[length=2.2mm,width=2.2mm]},thick,red!80!black] (wind.west) -- (plant.east);
+
+            % Fit Simulation Layer Background
+            \begin{scope}[on background layer]
+                  \node[layer,fill=sim,draw=sim,fit=(plant)] (simlayer) {};
+            \end{scope}
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{sim},inner sep=3pt]
+            at (simlayer.north west) {PHYSICAL SIMULATION ENVIRONMENT --- Gazebo Harmonic};
+
+            % --------  OUTPUT BOX  --------
+            \node[draw,thick,minimum width=10.2cm,minimum height=0.6cm,fill=gray!12,
+                  font=\fontsize{8}{10}\bfseries,below=0.45cm of simlayer,rounded corners=2pt] (output)
+            {Mission Output: coverage $\geq$90\%, zero collisions, fault recovery};
+
+            % Connect Input and Output
+            \draw[arr] (input.south) -- (hl.north);
+            \draw[arr] (simlayer.south) -- (output.north);
+
+            % --------  FEEDBACK PATHS (LEFT SIDE - POSITION/ATTITUDE/SENSORS)  --------
+            % 1. Attitude feedback (from plant to PID-LQR)
+            \draw[darr,low] ([yshift=0.1cm]plant.west) -- ++(-1.1,0) |- node[pos=0.8,left,lbl] {attitude state} (pidlqr.west);
+
+            % 2. Position feedback (from plant to PID-Hinf)
+            \draw[darr,low] ([yshift=-0.1cm]plant.west) -- ++(-1.8,0) |- node[pos=0.8,left,lbl] {position state} (pidhinf.west);
+
+            % 3. Sensor Feedback (LiDAR scan & neighbor odometry to Sensor Fusion)
+            \draw[darr,mid] ([yshift=-0.3cm]plant.west) -- ++(-2.5,0) |- node[pos=0.8,left,lbl] {LiDAR \& odom} (fusion.west);
+
+            % --------  FAULT DETECTION PATH (RIGHT SIDE - HEARTBEAT TO FT-CC)  --------
+            \draw[faultarr,high] (plant.east) -- ++(2.2,0) |- node[pos=0.8,right,lbl] {heartbeat loss (fault)} (ftcc.east);
+
+            % --------  LEGEND  --------
+            \node[draw,thick,fill=white,font=\fontsize{6.5}{7.5}\selectfont,inner sep=4pt,
+                  below=0.2cm of output.south] (legend)
+            {\begin{tabular}{@{}l@{\hspace{2.5em}}l@{\hspace{2.5em}}l@{}}
+                        \raisebox{0.3ex}{\tikz\draw[arr](0,0)--(0.4,0);}\ Command         &
+                        \raisebox{0.3ex}{\tikz\draw[darr](0,0)--(0.4,0);}\ State Feedback &
+                        \raisebox{0.3ex}{\tikz\draw[faultarr](0,0)--(0.4,0);}\ Fault Detection / Heartbeat
+                  \end{tabular}};
+      \end{tikzpicture}
+      \caption{Proposed three-layer control architecture for resilient autonomous
+            swarm quadrotor geodesic mapping.}
+      \label{fig:architecture}
 \end{figure}
 
 % =====================================================================
@@ -343,15 +379,15 @@ teams with diverse sensor payloads.
 % =====================================================================
 \heading{REFERENCES}
 
-\begin{enumerate}[leftmargin=*,labelsep=0.5em,itemsep=0pt]
-  \item {\fontsize{9}{11}\selectfont Author, A.\ et al., \emph{Journal
-         Name} \textbf{Vol}, pp.\ 1--10 (Year).}
-  \item {\fontsize{9}{11}\selectfont Author, B.\ et al., in
-         \emph{Conference Proceedings}, pp.\ 100--110 (Year).}
-  \item {\fontsize{9}{11}\selectfont Author, C., \emph{Book Title},
-         Publisher (Year).}
-  \item {\fontsize{9}{11}\selectfont Author, D.\ et al., \emph{Journal
-         Name} \textbf{Vol}, Article 12345 (Year).}
+\begin{enumerate}[leftmargin=*,labelsep=0.5em,itemsep=0pt,parsep=0pt,topsep=2pt,partopsep=0pt]
+      \item {\fontsize{9}{11}\selectfont Author, A.\ et al., \emph{Journal
+                  Name} \textbf{Vol}, pp.\ 1--10 (Year).}
+      \item {\fontsize{9}{11}\selectfont Author, B.\ et al., in
+            \emph{Conference Proceedings}, pp.\ 100--110 (Year).}
+      \item {\fontsize{9}{11}\selectfont Author, C., \emph{Book Title},
+            Publisher (Year).}
+      \item {\fontsize{9}{11}\selectfont Author, D.\ et al., \emph{Journal
+                  Name} \textbf{Vol}, Article 12345 (Year).}
 \end{enumerate}
 
 \end{document}
