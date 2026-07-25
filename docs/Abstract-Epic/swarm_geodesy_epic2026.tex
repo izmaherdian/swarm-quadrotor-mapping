@@ -197,7 +197,7 @@ trigger coverage redistribution.
             node distance=0.1cm and 0.4cm,
             box/.style={draw,thick,minimum width=2.9cm,minimum height=0.7cm,
                         align=center,fill=white,font=\fontsize{7.5}{9}\selectfont, rounded corners=2pt},
-            layer/.style={draw,thick,rounded corners,inner sep=6pt, fill opacity=0.08, text opacity=1.0, minimum width=9.2cm},
+            layer/.style={draw,thick,rounded corners,inner sep=6pt, minimum width=9.2cm},
             arr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick},
             darr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dashed},
             faultarr/.style={-{Stealth[length=2.2mm,width=2.2mm]},thick,dotted},
@@ -233,16 +233,9 @@ trigger coverage redistribution.
             % Self-healing path-recalculation / re-partitioning loop
             \draw[darr,high,bend right=25] (ftcc.north) to node[midway,above,lbl] {heartbeat timeout (re-partition)} (voronoi.north);
 
-            % Fit High-Level Layer Background
-            \begin{scope}[on background layer]
-                  \node[layer,fill=high,draw=high,fit=(voronoi) (ftcc) (boustro)] (hl) {};
-            \end{scope}
-            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{high},inner sep=3pt]
-            at (hl.north west) {HIGH-LEVEL LAYER --- Coverage Planning};
-
             % --------  MID-LEVEL LAYER COMPONENTS  --------
             % Split ORCA block into Sensor Fusion and ORCA Solver
-            \node[box,draw=mid,below=0.75cm of boustro,xshift=-1.8cm] (fusion)
+            \node[box,draw=mid,below=0.65cm of boustro,xshift=-1.8cm] (fusion)
             {Sensor Fusion\\(LiDAR \& Odom)};
 
             \node[box,draw=mid,right=0.8cm of fusion] (orca)
@@ -254,16 +247,9 @@ trigger coverage redistribution.
             % High-Level waypoints link to ORCA (as pref_vel)
             \draw[arr,high] (ftcc) -- node[right,lbl] {waypoints} (orca);
 
-            % Fit Mid-Level Layer Background
-            \begin{scope}[on background layer]
-                  \node[layer,fill=mid,draw=mid,fit=(fusion) (orca)] (ml) {};
-            \end{scope}
-            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{mid},inner sep=3pt]
-            at (ml.north west) {MID-LEVEL LAYER --- Collision Avoidance};
-
             % --------  LOW-LEVEL LAYER COMPONENTS  --------
             % Cascaded position and attitude control loops
-            \node[box,draw=low,below=0.65cm of ml] (pidhinf)
+            \node[box,draw=low,below=2.0cm of boustro] (pidhinf)
             {PID-Hinf\\Position Control\\$(x,y,z)$};
 
             \node[box,draw=low,below=0.35cm of pidhinf] (pidlqr)
@@ -275,15 +261,36 @@ trigger coverage redistribution.
             % Cascade commands
             \draw[arr,low] (pidhinf) -- node[right,lbl] {ref attitude} (pidlqr);
 
-            % Fit Low-Level Layer Background
+            % Fit the Outer Drone Swarm Containers (stacked)
             \begin{scope}[on background layer]
-                  \node[layer,fill=low,draw=low,fit=(pidhinf) (pidlqr)] (ll) {};
+                  % Drone N (Backmost)
+                  \node[draw=gray!40,thick,fill=white,rounded corners=4pt,fit=(voronoi) (ftcc) (pidlqr),inner sep=12pt,xshift=0.24cm,yshift=-0.24cm] (drone_n) {};
+                  \node[anchor=north west,font=\fontsize{7}{8.5}\bfseries\color{gray!60},xshift=0.24cm,yshift=-0.24cm] at (drone_n.north west) {Drone $N$};
+
+                  % Drone 2 (Middle)
+                  \node[draw=gray!60,thick,fill=white,rounded corners=4pt,fit=(voronoi) (ftcc) (pidlqr),inner sep=12pt,xshift=0.12cm,yshift=-0.12cm] (drone_2) {};
+                  \node[anchor=north west,font=\fontsize{7}{8.5}\bfseries\color{gray!80},xshift=0.12cm,yshift=-0.12cm] at (drone_2.north west) {Drone 2};
+
+                  % Drone i (Frontmost)
+                  \node[draw=gray!80,thick,fill=gray!2,rounded corners=4pt,fit=(voronoi) (ftcc) (pidlqr),inner sep=12pt] (drone_1) {};
             \end{scope}
-            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{low},inner sep=3pt]
-            at (ll.north west) {LOW-LEVEL LAYER --- Attitude \& Position Control};
+            \node[anchor=north west,font=\fontsize{7.5}{9}\bfseries\color{black},inner sep=5pt] at (drone_1.north west) {Drone $i$ (Local Swarm Agent)};
+
+            % Fit Layer Backgrounds (drawn on top of the Drone i background)
+            \begin{scope}[on background layer]
+                  \node[layer,fill=high!8,draw=high,fit=(voronoi) (ftcc) (boustro)] (hl) {};
+                  \node[layer,fill=mid!8,draw=mid,fit=(fusion) (orca)] (ml) {};
+                  \node[layer,fill=low!8,draw=low,fit=(pidhinf) (pidlqr)] (ll) {};
+            \end{scope}
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{high},inner sep=3pt] at (hl.north west) {HIGH-LEVEL LAYER --- Coverage Planning};
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{mid},inner sep=3pt] at (ml.north west) {MID-LEVEL LAYER --- Collision Avoidance};
+            \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{low},inner sep=3pt] at (ll.north west) {LOW-LEVEL LAYER --- Attitude \& Position Control};
+
+            % P2P DDS Mesh network communication between High-Level layers
+            \draw[darr,high,<->] (ftcc.east) -- node[above,lbl,pos=0.65,rotate=-20] {P2P DDS} (drone_n.east |- ftcc.east);
 
             % --------  PHYSICAL SIMULATION LAYER  --------
-            \node[box,draw=sim,minimum width=4.5cm,below=0.55cm of ll] (plant)
+            \node[box,draw=sim,minimum width=4.5cm,below=0.45cm of drone_1.south] (plant)
             {Quadrotor Plant\\(PX4 SITL + Gazebo Harmonic)};
 
             % Command input to motor
@@ -295,7 +302,7 @@ trigger coverage redistribution.
 
             % Fit Simulation Layer Background
             \begin{scope}[on background layer]
-                  \node[layer,fill=sim,draw=sim,fit=(plant)] (simlayer) {};
+                  \node[layer,fill=sim!8,draw=sim,fit=(plant)] (simlayer) {};
             \end{scope}
             \node[anchor=north west,font=\fontsize{8}{10}\bfseries\color{sim},inner sep=3pt]
             at (simlayer.north west) {PHYSICAL SIMULATION ENVIRONMENT --- Gazebo Harmonic};
@@ -306,7 +313,7 @@ trigger coverage redistribution.
             {Mission Output: coverage $\geq$90\%, zero collisions, fault recovery};
 
             % Connect Input and Output
-            \draw[arr] (input.south) -- (hl.north);
+            \draw[arr] (input.south) -- (drone_1.north);
             \draw[arr] (simlayer.south) -- (output.north);
 
             % --------  FEEDBACK PATHS (LEFT SIDE - POSITION/ATTITUDE/SENSORS)  --------
