@@ -41,11 +41,10 @@ swarm_ws/src/swarm_sim/**/*.png
 swarm_ws/src/swarm_sim/**/*.log
 
 # Folder Debug & MatlabtoPython
-Debug/
 debug/
-MatlabtoPython/
 matlabtopython/
 docs/References-Paper/
+docs/Progress/videos/
 
 # Dokumentasi proyek (dikelola di luar git)
 Roadmap_Swarm_Quadrotor.md
