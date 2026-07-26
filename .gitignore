@@ -20,6 +20,9 @@ log/
 .DS_Store
 Thumbs.db
 
+# LibreOffice lock files
+*.~lock.*
+
 # Data / hasil simulasi
 swarm_ws/src/swarm_high_level/**/*.csv
 swarm_ws/src/swarm_high_level/**/*.png
@@ -38,7 +41,9 @@ swarm_ws/src/swarm_sim/**/*.png
 swarm_ws/src/swarm_sim/**/*.log
 
 # Folder Debug & MatlabtoPython
+Debug/
 debug/
+MatlabtoPython/
 matlabtopython/
 docs/References-Paper/
 
