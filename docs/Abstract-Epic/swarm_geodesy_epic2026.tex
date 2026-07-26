@@ -105,9 +105,7 @@
       path planning and Fault-Tolerant Cooperative Coverage (FT-CC) for adaptive
       task redistribution under failures. The mid-level layer utilizes Optimal
       Reciprocal Collision Avoidance (ORCA) for decentralized collision-free
-      navigation. The low-level layer combines PID-LQR attitude control with
-      PID-Hinf position control for robust trajectory tracking under external
-      disturbances. The framework is validated through high-fidelity simulation
+      navigation. The low-level layer employs a cascaded PID control architecture, comparing optimal LQR synthesis with robust $H_\infty$ synthesis (HARE) for attitude and position tracking under external disturbances. The framework is validated through high-fidelity simulation
       in ROS2 Lyrical, Gazebo Harmonic, and PX4 SITL. Expected results indicate
       90--95\% coverage of non-convex regions with zero inter-robot collisions,
       demonstrating the potential of the proposed architecture for real-world
@@ -148,7 +146,7 @@ with full quadrotor dynamics is still limited, with most studies relying on
 simplified kinematic models. To address these gaps, this paper proposes a
 three-layer architecture integrating Voronoi-based non-convex partitioning,
 Boustrophedon path planning, FT-CC, ORCA-based collision avoidance, and
-PID-LQR/PID-Hinf robust control, validated through high-fidelity
+cascaded PID-LQR / PID-$H_\infty$ robust control, validated through high-fidelity
 ROS2-Gazebo-PX4 simulation.
 
 % =====================================================================
@@ -177,11 +175,14 @@ assigned waypoint. The resulting velocity commands are forwarded to the
 low-level layer.
 
 The low-level layer executes the received velocity commands through a
-cascaded control architecture. PID-LQR regulates attitude angles
-($\phi$, $\theta$, $\dot{\psi}$) with optimal state feedback, while
-PID-Hinf provides robust outer-loop position control ($x$, $y$, $z$)
-with guaranteed $H_\infty$ disturbance rejection against wind gusts and
-model uncertainties. Control outputs are converted to motor PWM signals
+cascaded PID control architecture. Both PID-LQR and PID-$H_\infty$ share the
+identical cascaded topology, consisting of an outer position control loop
+($x$, $y$, $z$) generating reference attitude angles and an inner attitude
+control loop ($\phi$, $\theta$, $\dot{\psi}$) regulating quadrotor torques.
+The distinction lies in gain synthesis: PID-LQR solves the standard continuous
+Algebraic Riccati Equation (ARE), whereas PID-$H_\infty$ solves the $H_\infty$
+Riccati Equation (HARE) incorporating an explicit $H_\infty$ disturbance
+attenuation bound $\gamma$. Control outputs are converted to motor PWM signals
 and applied to the quadrotor plant simulated in the Gazebo Harmonic physics
 engine running PX4 SITL firmware. State feedback (pose, velocity, IMU
 measurements) propagates upward through all layers, enabling ORCA to
@@ -250,10 +251,10 @@ trigger coverage redistribution.
             % --------  LOW-LEVEL LAYER COMPONENTS  --------
             % Cascaded position and attitude control loops
             \node[box,draw=low,below=2.0cm of boustro] (pidhinf)
-            {PID-Hinf\\Position Control\\$(x,y,z)$};
+            {Cascaded Outer Loop\\Position Control $(x,y,z)$\\(PID Gains: LQR / $H_\infty$)};
 
             \node[box,draw=low,below=0.35cm of pidhinf] (pidlqr)
-            {PID-LQR\\Attitude Control\\$(\phi,\theta,\dot{\psi})$};
+            {Cascaded Inner Loop\\Attitude Control $(\phi,\theta,\dot{\psi})$\\(PID Gains: LQR / $H_\infty$)};
 
             % Connect Mid-Level command to Low-Level
             \draw[arr,mid] (orca.south) |- node[pos=0.3,right,lbl] {velocity cmd} (pidhinf.east);
