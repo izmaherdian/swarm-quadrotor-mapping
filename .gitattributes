@@ -1,0 +1,20 @@
+# Auto detect text files and force LF line endings across Windows and Linux
+* text=auto eol=lf
+
+# Explicitly ensure LaTeX, Python, Shell, and Config files use LF
+*.tex text eol=lf
+*.bib text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.pdf binary
+*.onnx binary
+*.zip binary
