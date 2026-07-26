@@ -1,211 +1,214 @@
-<mxfile host="app.diagrams.net" modified="2026-07-26T05:27:39.000Z" agent="Antigravity" version="21.0.0" type="device">
+<mxfile host="app.diagrams.net" modified="2026-07-26T05:30:15.000Z" agent="Antigravity" version="21.0.0" type="device">
   <diagram id="three-layer-architecture" name="Three-Layer Swarm Quadrotor Architecture">
-    <mxGraphModel dx="1200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1300" math="1" shadow="0">
+    <mxGraphModel dx="1000" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="700" pageHeight="950" math="1" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
+        <!-- GLOBAL STYLES METADATA -->
+        <!-- Default Font: Times New Roman, Serif -->
+
         <!-- INPUT BOX -->
-        <mxCell id="input" value="Region Input: non-convex boundary, N drone initial poses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666666;fontStyle=1;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="100" y="40" width="700" height="40" as="geometry" />
+        <mxCell id="input" value="&lt;b&gt;Region Input:&lt;/b&gt; Non-Convex Boundary &amp;amp; Initial Drone Poses $(p_i^0, N)$" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F4F4;strokeColor=#5D6D7E;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#2C3E50;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="580" height="30" as="geometry" />
         </mxCell>
 
         <!-- DRONE N (STACKED BACKMOST) -->
-        <mxCell id="drone_n" value="Drone N" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B0B0B0;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#888888;" vertex="1" parent="1">
-          <mxGeometry x="130" y="110" width="670" height="740" as="geometry" />
+        <mxCell id="drone_n" value="&lt;i&gt;Drone N&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#BDC3C7;strokeWidth=1;dashed=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;fontFamily=Times New Roman,Times,serif;fontSize=9;fontColor=#7F8C8D;" vertex="1" parent="1">
+          <mxGeometry x="64" y="80" width="556" height="515" as="geometry" />
         </mxCell>
 
         <!-- DRONE 2 (STACKED MIDDLE) -->
-        <mxCell id="drone_2" value="Drone 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#888888;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
-          <mxGeometry x="115" y="120" width="670" height="740" as="geometry" />
+        <mxCell id="drone_2" value="&lt;i&gt;Drone 2&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#95A5A6;strokeWidth=1;dashed=1;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;fontFamily=Times New Roman,Times,serif;fontSize=9;fontColor=#7F8C8D;" vertex="1" parent="1">
+          <mxGeometry x="52" y="88" width="556" height="515" as="geometry" />
         </mxCell>
 
         <!-- DRONE 1 (MAIN AGENT CONTAINER) -->
-        <mxCell id="drone_1" value="Drone i (Local Swarm Agent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#444444;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="100" y="130" width="670" height="740" as="geometry" />
+        <mxCell id="drone_1" value="&lt;b&gt;Drone $i$ (Local Swarm Agent)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#34495E;strokeWidth=1.5;verticalAlign=top;align=left;spacingLeft=8;spacingTop=4;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#1C2833;" vertex="1" parent="1">
+          <mxGeometry x="40" y="96" width="556" height="515" as="geometry" />
         </mxCell>
 
         <!-- HIGH-LEVEL LAYER CONTAINER -->
-        <mxCell id="hl_layer" value="HIGH-LEVEL LAYER — Coverage Planning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EBF4F8;strokeColor=#2E86AB;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#2E86AB;fontSize=11;" vertex="1" parent="drone_1">
-          <mxGeometry x="20" y="35" width="630" height="180" as="geometry" />
+        <mxCell id="hl_layer" value="&lt;b&gt;HIGH-LEVEL LAYER — Coverage Planning &amp;amp; Resilience&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EBF5FB;strokeColor=#1A5276;strokeWidth=1.5;verticalAlign=top;align=left;spacingLeft=8;spacingTop=3;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#1A5276;" vertex="1" parent="drone_1">
+          <mxGeometry x="15" y="24" width="526" height="135" as="geometry" />
         </mxCell>
 
         <!-- Voronoi Block -->
-        <mxCell id="voronoi" value="Voronoi&lt;br&gt;Non-Convex&lt;br&gt;Partition" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E86AB;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="hl_layer">
-          <mxGeometry x="30" y="45" width="160" height="70" as="geometry" />
+        <mxCell id="voronoi" value="&lt;b&gt;Voronoi Non-Convex&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;Region Partitioning&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A5276;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#1A5276;" vertex="1" parent="hl_layer">
+          <mxGeometry x="20" y="32" width="135" height="52" as="geometry" />
         </mxCell>
 
         <!-- Boustrophedon Block -->
-        <mxCell id="boustro" value="Boustrophedon&lt;br&gt;Path&lt;br&gt;Planning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E86AB;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="hl_layer">
-          <mxGeometry x="235" y="45" width="160" height="70" as="geometry" />
+        <mxCell id="boustro" value="&lt;b&gt;Boustrophedon&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;Sweeping Path Planner&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A5276;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#1A5276;" vertex="1" parent="hl_layer">
+          <mxGeometry x="195" y="32" width="135" height="52" as="geometry" />
         </mxCell>
 
         <!-- FT-CC Block -->
-        <mxCell id="ftcc" value="FT-CC&lt;br&gt;Fault-Tolerant&lt;br&gt;Coverage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#2E86AB;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="hl_layer">
-          <mxGeometry x="440" y="45" width="160" height="70" as="geometry" />
+        <mxCell id="ftcc" value="&lt;b&gt;FT-CC Module&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;Fault-Tolerant Coverage&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1A5276;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#1A5276;" vertex="1" parent="hl_layer">
+          <mxGeometry x="370" y="32" width="135" height="52" as="geometry" />
         </mxCell>
 
         <!-- High-level arrows -->
-        <mxCell id="edge_v_b" value="" style="endArrow=classic;html=1;strokeColor=#2E86AB;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="hl_layer" source="voronoi" target="boustro">
+        <mxCell id="edge_v_b" value="" style="endArrow=classic;html=1;strokeColor=#1A5276;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="hl_layer" source="voronoi" target="boustro">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge_b_f" value="" style="endArrow=classic;html=1;strokeColor=#2E86AB;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="hl_layer" source="boustro" target="ftcc">
+        <mxCell id="edge_b_f" value="" style="endArrow=classic;html=1;strokeColor=#1A5276;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="hl_layer" source="boustro" target="ftcc">
           <mxGeometry width="50" height="50" relative="1" as="geometry" />
         </mxCell>
 
         <!-- Heartbeat Timeout Curved Arrow -->
-        <mxCell id="edge_heartbeat" value="heartbeat timeout (re-partition)" style="endArrow=classic;html=1;dashed=1;strokeColor=#2E86AB;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;fontSize=9;fontStyle=2;fontColor=#2E86AB;" edge="1" parent="hl_layer" source="ftcc" target="voronoi">
-          <mxGeometry x="0.1" y="-10" relative="1" as="geometry">
+        <mxCell id="edge_heartbeat" value="&lt;i&gt;heartbeat timeout (re-partition)&lt;/i&gt;" style="endArrow=classic;html=1;dashed=1;strokeColor=#1A5276;strokeWidth=1.5;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;curved=1;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#1A5276;" edge="1" parent="hl_layer" source="ftcc" target="voronoi">
+          <mxGeometry x="0.05" y="-8" relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="320" y="15" />
+              <mxPoint x="260" y="10" />
             </Array>
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
 
         <!-- MID-LEVEL LAYER CONTAINER -->
-        <mxCell id="ml_layer" value="MID-LEVEL LAYER — Collision Avoidance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7EBF1;strokeColor=#A23B72;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#A23B72;fontSize=11;" vertex="1" parent="drone_1">
-          <mxGeometry x="20" y="240" width="630" height="150" as="geometry" />
+        <mxCell id="ml_layer" value="&lt;b&gt;MID-LEVEL LAYER — Decentralized Collision Avoidance&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5EEF8;strokeColor=#6C3483;strokeWidth=1.5;verticalAlign=top;align=left;spacingLeft=8;spacingTop=3;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#6C3483;" vertex="1" parent="drone_1">
+          <mxGeometry x="15" y="172" width="526" height="110" as="geometry" />
         </mxCell>
 
         <!-- Sensor Fusion Block -->
-        <mxCell id="fusion" value="Sensor Fusion&lt;br&gt;(LiDAR &amp;amp; Odom)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A23B72;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="ml_layer">
-          <mxGeometry x="80" y="45" width="180" height="65" as="geometry" />
+        <mxCell id="fusion" value="&lt;b&gt;Sensor Fusion&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;(LiDAR &amp;amp; Odometry)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C3483;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#6C3483;" vertex="1" parent="ml_layer">
+          <mxGeometry x="60" y="32" width="150" height="50" as="geometry" />
         </mxCell>
 
         <!-- ORCA Solver Block -->
-        <mxCell id="orca" value="Decentralized&lt;br&gt;ORCA Solver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#A23B72;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="ml_layer">
-          <mxGeometry x="370" y="45" width="180" height="65" as="geometry" />
+        <mxCell id="orca" value="&lt;b&gt;Decentralized ORCA Solver&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;(2D Velocity Obstacle)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C3483;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#6C3483;" vertex="1" parent="ml_layer">
+          <mxGeometry x="315" y="32" width="160" height="50" as="geometry" />
         </mxCell>
 
         <!-- Arrow Sensor Fusion to ORCA -->
-        <mxCell id="edge_fusion_orca" value="obstacle profiles" style="endArrow=classic;html=1;strokeColor=#A23B72;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=9;fontStyle=2;fontColor=#A23B72;" edge="1" parent="ml_layer" source="fusion" target="orca">
+        <mxCell id="edge_fusion_orca" value="&lt;i&gt;obstacle profiles&lt;/i&gt;" style="endArrow=classic;html=1;strokeColor=#6C3483;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#6C3483;" edge="1" parent="ml_layer" source="fusion" target="orca">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- Arrow High-Level FTCC waypoints to ORCA -->
-        <mxCell id="edge_waypoints" value="waypoints" style="endArrow=classic;html=1;strokeColor=#2E86AB;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;fontSize=9;fontStyle=2;fontColor=#2E86AB;" edge="1" parent="drone_1" source="ftcc" target="orca">
+        <mxCell id="edge_waypoints" value="&lt;i&gt;waypoints&lt;/i&gt;" style="endArrow=classic;html=1;strokeColor=#1A5276;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#1A5276;" edge="1" parent="drone_1" source="ftcc" target="orca">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- LOW-LEVEL LAYER CONTAINER -->
-        <mxCell id="ll_layer" value="LOW-LEVEL LAYER — Cascaded PID Control (LQR vs H-infinity)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF4E6;strokeColor=#F18F01;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#F18F01;fontSize=11;" vertex="1" parent="drone_1">
-          <mxGeometry x="20" y="415" width="630" height="295" as="geometry" />
+        <mxCell id="ll_layer" value="&lt;b&gt;LOW-LEVEL LAYER — Cascaded PID Robust Control (LQR / $H_\infty$)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF9E7;strokeColor=#B9770E;strokeWidth=1.5;verticalAlign=top;align=left;spacingLeft=8;spacingTop=3;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#B9770E;" vertex="1" parent="drone_1">
+          <mxGeometry x="15" y="294" width="526" height="205" as="geometry" />
         </mxCell>
 
-        <!-- PID-Hinf Position Control Block -->
-        <mxCell id="pidhinf" value="Cascaded Outer Loop&lt;br&gt;&lt;b&gt;Position Control&lt;/b&gt; $(x,y,z)$&lt;br&gt;&lt;i style=&quot;font-size: 10px;&quot;&gt;(PID Gains: LQR / $H_\infty$)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F18F01;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="ll_layer">
-          <mxGeometry x="190" y="45" width="250" height="85" as="geometry" />
+        <!-- Outer Loop Position Control -->
+        <mxCell id="pidhinf" value="&lt;b&gt;Cascaded Outer Loop:&lt;/b&gt; Position Control $(x,y,z)$&lt;br&gt;&lt;font style=&quot;font-size: 8.5px;&quot;&gt;&lt;i&gt;PID Gain Synthesis: LQR (ARE) vs $H_\infty$ (HARE, $\gamma$)&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B9770E;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#B9770E;" vertex="1" parent="ll_layer">
+          <mxGeometry x="135" y="32" width="260" height="60" as="geometry" />
         </mxCell>
 
-        <!-- PID-LQR Attitude Control Block -->
-        <mxCell id="pidlqr" value="Cascaded Inner Loop&lt;br&gt;&lt;b&gt;Attitude Control&lt;/b&gt; $(\phi,\theta,\dot{\psi})$&lt;br&gt;&lt;i style=&quot;font-size: 10px;&quot;&gt;(PID Gains: LQR / $H_\infty$)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F18F01;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="ll_layer">
-          <mxGeometry x="190" y="170" width="250" height="85" as="geometry" />
+        <!-- Inner Loop Attitude Control -->
+        <mxCell id="pidlqr" value="&lt;b&gt;Cascaded Inner Loop:&lt;/b&gt; Attitude Control $(\phi,\theta,\dot{\psi})$&lt;br&gt;&lt;font style=&quot;font-size: 8.5px;&quot;&gt;&lt;i&gt;PID Gain Synthesis: LQR (ARE) vs $H_\infty$ (HARE, $\gamma$)&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B9770E;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#B9770E;" vertex="1" parent="ll_layer">
+          <mxGeometry x="135" y="122" width="260" height="60" as="geometry" />
         </mxCell>
 
         <!-- Arrow ORCA to Outer Loop Position Control -->
-        <mxCell id="edge_orca_pidhinf" value="velocity cmd" style="endArrow=classic;html=1;strokeColor=#A23B72;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;fontColor=#A23B72;" edge="1" parent="drone_1" source="orca" target="pidhinf">
+        <mxCell id="edge_orca_pidhinf" value="&lt;i&gt;velocity cmd ($v_{\mathrm{ref}}$)&lt;/i&gt;" style="endArrow=classic;html=1;strokeColor=#6C3483;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#6C3483;" edge="1" parent="drone_1" source="orca" target="pidhinf">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- Arrow Outer Loop to Inner Loop -->
-        <mxCell id="edge_cascade" value="ref attitude" style="endArrow=classic;html=1;strokeColor=#F18F01;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=9;fontStyle=2;fontColor=#F18F01;" edge="1" parent="ll_layer" source="pidhinf" target="pidlqr">
+        <mxCell id="edge_cascade" value="&lt;i&gt;ref attitude ($\phi_{\mathrm{ref}}, \theta_{\mathrm{ref}}$)&lt;/i&gt;" style="endArrow=classic;html=1;strokeColor=#B9770E;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#B9770E;" edge="1" parent="ll_layer" source="pidhinf" target="pidlqr">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- P2P DDS MESH NETWORK ARROW -->
-        <mxCell id="edge_dds" value="P2P DDS Mesh" style="endArrow=classic;startArrow=classic;html=1;dashed=1;strokeColor=#2E86AB;strokeWidth=2;exitX=1;exitY=0.5;exitDx=0;exitDy=0;fontSize=9;fontStyle=2;fontColor=#2E86AB;" edge="1" parent="1" source="ftcc">
+        <mxCell id="edge_dds" value="&lt;i&gt;P2P DDS Mesh&lt;/i&gt;" style="endArrow=classic;startArrow=classic;html=1;dashed=1;strokeColor=#1A5276;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#1A5276;" edge="1" parent="1" source="ftcc">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="800" y="210" as="targetPoint" />
+            <mxPoint x="620" y="178" as="targetPoint" />
           </mxGeometry>
         </mxCell>
 
         <!-- PHYSICAL SIMULATION LAYER CONTAINER -->
-        <mxCell id="sim_layer" value="PHYSICAL SIMULATION ENVIRONMENT — Gazebo Harmonic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5F3;strokeColor=#1B998B;strokeWidth=2;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;fontStyle=1;fontColor=#1B998B;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="100" y="900" width="670" height="130" as="geometry" />
+        <mxCell id="sim_layer" value="&lt;b&gt;PHYSICAL SIMULATION ENVIRONMENT — Gazebo Harmonic&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F8F5;strokeColor=#117864;strokeWidth=1.5;verticalAlign=top;align=left;spacingLeft=8;spacingTop=3;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#117864;" vertex="1" parent="1">
+          <mxGeometry x="40" y="625" width="556" height="90" as="geometry" />
         </mxCell>
 
         <!-- Quadrotor Plant Block -->
-        <mxCell id="plant" value="Quadrotor Plant&lt;br&gt;(PX4 SITL + Gazebo Harmonic)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1B998B;strokeWidth=2;fontStyle=1;fontSize=12;" vertex="1" parent="sim_layer">
-          <mxGeometry x="210" y="35" width="250" height="65" as="geometry" />
+        <mxCell id="plant" value="&lt;b&gt;Quadrotor Dynamics &amp;amp; Plant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;(PX4 SITL + Gazebo Harmonic)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#117864;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#117864;" vertex="1" parent="sim_layer">
+          <mxGeometry x="150" y="24" width="230" height="50" as="geometry" />
         </mxCell>
 
         <!-- Arrow Inner Loop to Plant -->
-        <mxCell id="edge_pwm" value="motor RPM / PWM" style="endArrow=classic;html=1;strokeColor=#F18F01;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=9;fontStyle=2;fontColor=#F18F01;" edge="1" parent="1" source="pidlqr" target="plant">
+        <mxCell id="edge_pwm" value="&lt;i&gt;motor RPM / PWM&lt;/i&gt;" style="endArrow=classic;html=1;strokeColor=#B9770E;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#B9770E;" edge="1" parent="1" source="pidlqr" target="plant">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- Wind Disturbance -->
-        <mxCell id="wind" value="Wind Disturbance&lt;br&gt;&lt;i&gt;(Dryden Turbulence)&lt;/i&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#B22222;fontStyle=1;fontSize=10;" vertex="1" parent="sim_layer">
-          <mxGeometry x="500" y="47" width="140" height="40" as="geometry" />
+        <mxCell id="wind" value="&lt;b&gt;Wind Disturbance&lt;/b&gt;&lt;br&gt;&lt;i style=&quot;font-size: 8.5px;&quot;&gt;(Dryden Turbulence)&lt;/i&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontColor=#900C3F;fontFamily=Times New Roman,Times,serif;fontSize=9;" vertex="1" parent="sim_layer">
+          <mxGeometry x="410" y="29" width="130" height="40" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge_wind" value="" style="endArrow=classic;html=1;strokeColor=#B22222;strokeWidth=2;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="sim_layer" source="wind" target="plant">
+        <mxCell id="edge_wind" value="" style="endArrow=classic;html=1;strokeColor=#900C3F;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="sim_layer" source="wind" target="plant">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- OUTPUT BOX -->
-        <mxCell id="output" value="Mission Output: coverage ≥ 90%, zero collisions, fault recovery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666666;fontStyle=1;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="100" y="1060" width="700" height="40" as="geometry" />
+        <mxCell id="output" value="&lt;b&gt;Mission Output:&lt;/b&gt; Coverage $\ge 90\%$, Zero Inter-Robot Collisions, Resilient Fault Recovery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F4F4;strokeColor=#5D6D7E;strokeWidth=1.5;fontFamily=Times New Roman,Times,serif;fontSize=10;fontColor=#2C3E50;" vertex="1" parent="1">
+          <mxGeometry x="40" y="730" width="580" height="30" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge_plant_out" value="" style="endArrow=classic;html=1;strokeColor=#1B998B;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="sim_layer" target="output">
+        <mxCell id="edge_plant_out" value="" style="endArrow=classic;html=1;strokeColor=#117864;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="sim_layer" target="output">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge_in_drone" value="" style="endArrow=classic;html=1;strokeColor=#666666;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="input" target="drone_1">
+        <mxCell id="edge_in_drone" value="" style="endArrow=classic;html=1;strokeColor=#5D6D7E;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="input" target="drone_1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- FEEDBACK PATHS (LEFT SIDE) -->
         <!-- Attitude Feedback -->
-        <mxCell id="fb_att" value="attitude state" style="endArrow=classic;html=1;dashed=1;strokeColor=#F18F01;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;fontColor=#F18F01;" edge="1" parent="1" target="pidlqr">
+        <mxCell id="fb_att" value="&lt;i&gt;attitude state&lt;/i&gt;" style="endArrow=classic;html=1;dashed=1;strokeColor=#B9770E;strokeWidth=1.5;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#B9770E;" edge="1" parent="1" target="pidlqr">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="310" y="950" as="sourcePoint" />
+            <mxPoint x="240" y="660" as="sourcePoint" />
             <Array as="points">
-              <mxPoint x="200" y="950" />
-              <mxPoint x="200" y="758" />
+              <mxPoint x="140" y="660" />
+              <mxPoint x="140" y="520" />
             </Array>
           </mxGeometry>
         </mxCell>
 
         <!-- Position Feedback -->
-        <mxCell id="fb_pos" value="position state" style="endArrow=classic;html=1;dashed=1;strokeColor=#F18F01;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;fontColor=#F18F01;" edge="1" parent="1" target="pidhinf">
+        <mxCell id="fb_pos" value="&lt;i&gt;position state&lt;/i&gt;" style="endArrow=classic;html=1;dashed=1;strokeColor=#B9770E;strokeWidth=1.5;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#B9770E;" edge="1" parent="1" target="pidhinf">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="310" y="960" as="sourcePoint" />
+            <mxPoint x="240" y="670" as="sourcePoint" />
             <Array as="points">
-              <mxPoint x="160" y="960" />
-              <mxPoint x="160" y="633" />
+              <mxPoint x="100" y="670" />
+              <mxPoint x="100" y="420" />
             </Array>
           </mxGeometry>
         </mxCell>
 
         <!-- Sensor Feedback to Fusion -->
-        <mxCell id="fb_sensor" value="LiDAR &amp; odom" style="endArrow=classic;html=1;dashed=1;strokeColor=#A23B72;strokeWidth=2;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;fontColor=#A23B72;" edge="1" parent="1" target="fusion">
+        <mxCell id="fb_sensor" value="&lt;i&gt;LiDAR &amp;amp; odom&lt;/i&gt;" style="endArrow=classic;html=1;dashed=1;strokeColor=#6C3483;strokeWidth=1.5;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#6C3483;" edge="1" parent="1" target="fusion">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="310" y="970" as="sourcePoint" />
+            <mxPoint x="240" y="680" as="sourcePoint" />
             <Array as="points">
-              <mxPoint x="120" y="970" />
-              <mxPoint x="120" y="448" />
+              <mxPoint x="70" y="680" />
+              <mxPoint x="70" y="293" />
             </Array>
           </mxGeometry>
         </mxCell>
 
         <!-- FAULT DETECTION PATH (RIGHT SIDE) -->
-        <mxCell id="fb_fault" value="heartbeat loss (fault)" style="endArrow=classic;html=1;dashed=1;strokeColor=#2E86AB;strokeWidth=2;entryX=1;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=9;fontStyle=2;fontColor=#2E86AB;" edge="1" parent="1" target="ftcc">
+        <mxCell id="fb_fault" value="&lt;i&gt;heartbeat loss (fault)&lt;/i&gt;" style="endArrow=classic;html=1;dashed=1;strokeColor=#1A5276;strokeWidth=1.5;entryX=1;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;fontSize=8;fontFamily=Times New Roman,Times,serif;fontColor=#1A5276;" edge="1" parent="1" target="ftcc">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="560" y="950" as="sourcePoint" />
+            <mxPoint x="430" y="660" as="sourcePoint" />
             <Array as="points">
-              <mxPoint x="750" y="950" />
-              <mxPoint x="750" y="245" />
+              <mxPoint x="580" y="660" />
+              <mxPoint x="580" y="178" />
             </Array>
           </mxGeometry>
         </mxCell>
 
         <!-- LEGEND BOX -->
-        <mxCell id="legend" value="Legend:   ─── Command Signal     - - - State Feedback     ···· Heartbeat / Fault Signal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontStyle=1;fontSize=10;fontColor=#555555;" vertex="1" parent="1">
-          <mxGeometry x="180" y="1120" width="540" height="30" as="geometry" />
+        <mxCell id="legend" value="&lt;b&gt;Legend:&lt;/b&gt;   ─── Command Signal     - - - State Feedback     ···· Fault / Heartbeat Loss" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#B2BEC3;strokeWidth=1;fontFamily=Times New Roman,Times,serif;fontSize=9;fontColor=#2C3E50;" vertex="1" parent="1">
+          <mxGeometry x="110" y="770" width="440" height="24" as="geometry" />
         </mxCell>
 
       </root>
