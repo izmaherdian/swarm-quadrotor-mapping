@@ -39,7 +39,9 @@ swarm_ws/src/swarm_sim/**/*.log
 
 # Folder Debug & MatlabtoPython
 Debug/
+debug/
 MatlabtoPython/
+matlabtopython/
 docs/References-Paper/
 
 # Dokumentasi proyek (dikelola di luar git)
