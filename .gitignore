@@ -20,6 +20,9 @@ log/
 .DS_Store
 Thumbs.db
 
+# LibreOffice lock files
+*.~lock.*
+
 # Data / hasil simulasi
 swarm_ws/src/swarm_high_level/**/*.csv
 swarm_ws/src/swarm_high_level/**/*.png
@@ -41,6 +44,7 @@ swarm_ws/src/swarm_sim/**/*.log
 debug/
 matlabtopython/
 docs/References-Paper/
+docs/Progress/videos/
 
 # Dokumentasi proyek (dikelola di luar git)
 Roadmap_Swarm_Quadrotor.md
