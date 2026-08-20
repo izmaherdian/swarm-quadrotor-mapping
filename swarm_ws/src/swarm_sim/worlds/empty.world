@@ -189,7 +189,66 @@
         </visual>
       </link>
     </model>
-    -->
+    <!-- ======================================================= -->
+    <!-- STATIC OBSTACLES FOR CIRCULAR TRAJECTORY TRACKING      -->
+    <!-- ======================================================= -->
+    <!-- 1. Puncak Utara (X=3.0, Y=-3.0, Z=2.0) - Warna Oranye -->
+    <model name="obstacle_trajectory_cylinder_1">
+      <static>true</static>
+      <pose>3 -3 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>1.0 0.5 0.0 1.0</ambient>
+            <diffuse>1.0 0.6 0.0 1.0</diffuse>
+            <specular>1.0 0.8 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 2. Puncak Selatan (X=3.0, Y=-9.0, Z=2.0) - Warna Cyan/Biru -->
+    <model name="obstacle_trajectory_cylinder_2">
+      <static>true</static>
+      <pose>3 -9 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.1 0.7 1.0 1.0</ambient>
+            <diffuse>0.1 0.8 1.0 1.0</diffuse>
+            <specular>0.5 0.9 1.0 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
 
   </world>
 </sdf>

@@ -174,7 +174,7 @@ class CollisionAvoidanceNode(Node):
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
         self.declare_parameter('num_drones', 7)
-        self.declare_parameter('safety_radius', 0.8) # 0.8m radius -> 1.6m center-to-center
+        self.declare_parameter('safety_radius', 0.55) # 0.55m radius for close safe clearance
         self.declare_parameter('time_horizon', 5.0)
 
         self.max_speed = self.get_parameter('max_speed').value
@@ -362,6 +362,7 @@ class CollisionAvoidanceNode(Node):
         is_vel_mode = (self.cmd_vel_input is not None and self.cmd_vel_timeout > 0)
         if is_vel_mode:
             self.cmd_vel_timeout -= 1
+            self.target_waypoint = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
             body_vx = float(self.cmd_vel_input.linear.x)
             body_vy = float(self.cmd_vel_input.linear.y)
             yaw_rate_cmd = float(self.cmd_vel_input.angular.z)
@@ -469,13 +470,13 @@ class CollisionAvoidanceNode(Node):
                     'pos': obs_pos_i,
                     'vel': np.zeros(2, dtype=np.float32),
                     'is_static': True,
-                    'radius': 0.50  # combined radius = 0.8 + 0.50 = 1.30m from ray point
+                    'radius': 0.05  # combined with safety_radius (0.55m) = 0.60m tight clearance
                 })
 
-            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 2.2m untuk mencegah dorong belakang)
+            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 1.3m untuk mencegah dorong belakang)
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
-                if d_i < 0.5 or d_i > 2.2:
+                if d_i < 0.35 or d_i > 1.3:
                     continue
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
@@ -499,10 +500,10 @@ class CollisionAvoidanceNode(Node):
                 
                 if is_front:
                     push_dir = -obs_rel_i / max(d_i, 0.05)
-                    rep_gain_i = ((2.2 / max(d_i, 0.4)) ** 2) * 0.3
+                    rep_gain_i = ((1.2 / max(d_i, 0.3)) ** 2) * 0.12
                     repulsion_vec += push_dir * rep_gain_i
 
-            # 3c. Tangential Steering: Curve around closest obstacle face
+            # 3c. Tangential Steering: Smooth curve around closest obstacle
             min_idx = np.argmin(self.lidar_ranges)
             dist_min = float(self.lidar_ranges[min_idx])
             angle_min_world = float(angles_world[min_idx])
@@ -517,17 +518,17 @@ class CollisionAvoidanceNode(Node):
                     is_neighbor_min = True
                     break
 
-            if not is_neighbor_min:
+            if not is_neighbor_min and dist_min < 1.0:
                 dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
-                if dot_front > 0.3:
+                if dot_front > 0.2:
                     tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                     if (pref_vel[0] * obs_dir[1] - pref_vel[1] * obs_dir[0]) > 0:
                         tangent_dir = -tangent_dir
-                    repulsion_vec += tangent_dir * (self.max_speed * 0.6)
+                    repulsion_vec += tangent_dir * (self.max_speed * 0.20)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))
-        max_rep = self.max_speed * 0.4
+        max_rep = self.max_speed * 0.3
         if rep_len > max_rep:
             repulsion_vec = (repulsion_vec / rep_len) * max_rep
 
@@ -539,7 +540,7 @@ class CollisionAvoidanceNode(Node):
         if not hasattr(self, 'repulsion_smooth'):
             self.repulsion_smooth = repulsion_vec
         else:
-            self.repulsion_smooth = 0.7 * self.repulsion_smooth + 0.3 * repulsion_vec
+            self.repulsion_smooth = 0.85 * self.repulsion_smooth + 0.15 * repulsion_vec
 
         # Gabungkan gaya tolak hanya jika belum dekat target untuk menghindari drifting saat melayang diam
         if dist_to_target > 0.3:
@@ -560,10 +561,10 @@ class CollisionAvoidanceNode(Node):
         ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
         ref_vy = np.clip(safe_vel[1], -2.0, 2.0) # Cap lateral speed to +-2.0m/s for fast stable avoidance
 
-        # 5. Smooth Acceleration / Slew-Rate Limiter (Max 3.5 m/s^2 acceleration untuk gerak gesit tanpa kaget)
-        MAX_ACCEL = 3.5  # m/s^2
+        # 5. Smooth Acceleration / Slew-Rate Limiter (Max 3.0 m/s^2 acceleration untuk gerak gesit tanpa kaget)
+        MAX_ACCEL = 3.0  # m/s^2
         dt_mid = 0.1     # 10 Hz control loop
-        max_dv = MAX_ACCEL * dt_mid  # max 0.35 m/s per step
+        max_dv = MAX_ACCEL * dt_mid  # max 0.30 m/s per step
 
         target_vel_raw = np.array([ref_vx, ref_vy], dtype=np.float32)
         if not hasattr(self, 'cmd_vel_smooth'):
@@ -579,7 +580,18 @@ class CollisionAvoidanceNode(Node):
 
         # 5b. Yaw Control & 6. Position Integration
         if is_vel_mode:
-            yaw_rate = yaw_rate_cmd
+            # Nose selalu menghadap ke depan arah terbang nyata (vektor kecepatan actual)
+            actual_speed = float(np.sqrt(out_vx**2 + out_vy**2))
+            if actual_speed > 0.10:
+                target_yaw = float(np.arctan2(out_vy, out_vx))
+                delta_yaw = (target_yaw - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+                yaw_step = np.clip(0.22 * delta_yaw, -0.15, 0.15)
+                self.yaw_smooth += yaw_step
+                self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+                yaw_rate = yaw_step / self.dt
+            else:
+                yaw_rate = 0.0
+
             half_yaw = self.yaw_smooth * 0.5
             qw = float(np.cos(half_yaw))
             qz = float(np.sin(half_yaw))
@@ -592,8 +604,8 @@ class CollisionAvoidanceNode(Node):
 
             # Tether pos_ref to current_pos to avoid runaway reference
             tracking_err = float(np.linalg.norm(self.pos_ref - self.current_pos[:2]))
-            if tracking_err > 0.35:
-                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.35 / tracking_err)
+            if tracking_err > 0.30:
+                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.30 / tracking_err)
 
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()
