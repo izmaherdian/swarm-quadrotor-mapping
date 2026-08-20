@@ -83,13 +83,13 @@ class PIDLQRNode(Node):
         
         # Inisialisasi Blok PID untuk seluruh sumbu
         self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
-        self.pid_x_in  = PID(gains['x_inner']['Kp'], gains['x_inner']['Ki'], gains['x_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
+        self.pid_x_in  = PID(gains['x_inner']['Kp'], 0.0, gains['x_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
-        self.pid_y_in  = PID(gains['y_inner']['Kp'], gains['y_inner']['Ki'], gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
+        self.pid_y_in  = PID(gains['y_inner']['Kp'], 0.0, gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'])
-        self.pid_yaw = PID(gains['yaw']['Kp'] * 1.0, gains['yaw']['Ki'] * 1.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
+        self.pid_yaw = PID(gains['yaw']['Kp'] * 1.0, 0.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         # Konstanta Fisika dan Matriks Mixer
         self.g = self.params['g']
@@ -320,12 +320,12 @@ class PIDLQRNode(Node):
         max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
         theta_ref = np.clip(theta_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_theta = theta_ref - theta
-        uy_pid = self.pid_x_in.compute(err_theta, reset_derivative=reset_derivative)
+        uy_pid = np.clip(self.pid_x_in.Kp * err_theta - self.pid_x_in.Kd * q_ang, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         phi_ref_raw = self.pid_y_out.compute(err_y_body, reset_derivative=reset_derivative) - self.k_ff * vy_body
         phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
-        ux_pid = self.pid_y_in.compute(err_phi, reset_derivative=reset_derivative)
+        ux_pid = np.clip(self.pid_y_in.Kp * err_phi - self.pid_y_in.Kd * p, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         err_z = self.filt_z[0] - z
         uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
@@ -338,7 +338,7 @@ class PIDLQRNode(Node):
         
         # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
-        uyaw_pid = self.pid_yaw.compute(err_yaw, reset_derivative=reset_derivative) + self.k_ff_yaw * self.yaw_rate_cmd
+        uyaw_pid = np.clip(self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang + self.k_ff_yaw * self.yaw_rate_cmd, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
