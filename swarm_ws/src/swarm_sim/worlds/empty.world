@@ -102,40 +102,32 @@
       </link>
     </model>
 
-    <!-- STATIC OBSTACLES -->
-    <model name="obstacle_a">
-      <static>true</static>
-      <pose>2 -1.5 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
-        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <model name="obstacle_b">
-      <static>true</static>
-      <pose>3.5 1.5 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
-        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>0 1 0 1</ambient><diffuse>0 1 0 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <model name="obstacle_c">
+    <!-- STATIC OBSTACLE (CYLINDER / TABUNG BIRU) -->
+    <model name="obstacle_blue_cylinder">
       <static>true</static>
       <pose>5 -1.5 2 0 0 0</pose>
       <link name="link">
-        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
-        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>0 0 1 1</ambient><diffuse>0 0 1 1</diffuse></material></visual>
-      </link>
-    </model>
-
-    <model name="obstacle_d">
-      <static>true</static>
-      <pose>6.5 2.5 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision"><geometry><box><size>0.5 0.5 4</size></box></geometry></collision>
-        <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material></visual>
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.0 0.2 0.9 1.0</ambient>
+            <diffuse>0.0 0.3 1.0 1.0</diffuse>
+            <specular>0.5 0.5 1.0 1.0</specular>
+          </material>
+        </visual>
       </link>
     </model>
 
