@@ -160,10 +160,10 @@
       </link>
     </model>
 
-    <!-- STATIC OBSTACLE (CYLINDER / TABUNG HIJAU - DEKAT WP 3) -->
+    <!-- STATIC OBSTACLE (CYLINDER / TABUNG HIJAU - TEPAT DI WP 3) -->
     <model name="obstacle_green_cylinder">
       <static>true</static>
-      <pose>0.8 -1.0 2 0 0 0</pose>
+      <pose>0 -1 2 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
