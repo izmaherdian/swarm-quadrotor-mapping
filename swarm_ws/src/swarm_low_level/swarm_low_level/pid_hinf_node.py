@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from actuator_msgs.msg import Actuators
 from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped
 from visualization_msgs.msg import Marker, MarkerArray
@@ -142,6 +142,7 @@ class PIDHinfNode(Node):
         self.vel_sub = self.create_subscription(TwistStamped, 'target_velocity', self.target_velocity_callback, 10)
         self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
         self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
+        self.path_pub = self.create_publisher(Path, 'actual_path', 10)
             
         self.get_logger().info("=========================================")
         self.get_logger().info(f"OTAK PID-HINF iris_{did} AKTIF! Misi: Melayang di Z=2.0m")
@@ -160,43 +161,102 @@ class PIDHinfNode(Node):
         self.last_time = None
         self.last_csv_log_time = 0.0
 
-    def publish_drone_marker(self, x, y, z, roll, pitch, yaw, q_msg):
+    def publish_drone_marker(self, x, y, z, roll, pitch, yaw, q_msg, vx=0.0, vy=0.0, vz=0.0):
         color_map = {
-            1: (1.0, 0.0, 0.0),
-            2: (1.0, 0.5, 0.0),
-            3: (1.0, 1.0, 0.0),
-            4: (0.0, 1.0, 0.0),
-            5: (0.0, 1.0, 1.0),
-            6: (0.0, 0.5, 1.0),
-            7: (1.0, 0.0, 1.0)
+            1: (1.0, 0.15, 0.15),  # Iris 1: Vibrant Red
+            2: (1.0, 0.60, 0.0),   # Iris 2: Vibrant Orange
+            3: (1.0, 0.95, 0.1),   # Iris 3: Yellow
+            4: (0.1, 0.95, 0.2),   # Iris 4: Green
+            5: (0.1, 0.85, 1.0),   # Iris 5: Cyan
+            6: (0.3, 0.45, 1.0),   # Iris 6: Blue
+            7: (0.9, 0.20, 1.0)    # Iris 7: Purple
         }
         r_c, g_c, b_c = color_map.get(self.drone_id, (1.0, 1.0, 1.0))
+        now_msg = self.get_clock().now().to_msg()
         
         ma = MarkerArray()
         
-        # 1. Bodi Drone (Bola / Sphere) saja, sangat simpel!
+        # 1. Bodi Drone (Solid Sphere)
         m_body = Marker()
         m_body.header.frame_id = 'world'
-        m_body.header.stamp = self.get_clock().now().to_msg()
-        m_body.ns = 'swarm_drones'
-        m_body.id = self.drone_id
+        m_body.header.stamp = now_msg
+        m_body.ns = f'drone_{self.drone_id}_body'
+        m_body.id = 0
         m_body.type = Marker.SPHERE
         m_body.action = Marker.ADD
         m_body.pose.position.x = float(x)
         m_body.pose.position.y = float(y)
         m_body.pose.position.z = float(z)
         m_body.pose.orientation = q_msg
-        
-        m_body.scale.x = 0.15 # Diameter bodi asli di Gazebo (15cm)
-        m_body.scale.y = 0.15
-        m_body.scale.z = 0.15
-        
+        m_body.scale.x = 0.20
+        m_body.scale.y = 0.20
+        m_body.scale.z = 0.20
         m_body.color.r = float(r_c)
         m_body.color.g = float(g_c)
         m_body.color.b = float(b_c)
         m_body.color.a = 1.0
-        
         ma.markers.append(m_body)
+
+        # 2. Safety Bubble Clearance (Translucent Sphere r = 0.40m)
+        m_bubble = Marker()
+        m_bubble.header.frame_id = 'world'
+        m_bubble.header.stamp = now_msg
+        m_bubble.ns = f'drone_{self.drone_id}_bubble'
+        m_bubble.id = 1
+        m_bubble.type = Marker.SPHERE
+        m_bubble.action = Marker.ADD
+        m_bubble.pose.position.x = float(x)
+        m_bubble.pose.position.y = float(y)
+        m_bubble.pose.position.z = float(z)
+        m_bubble.scale.x = 0.80  # diameter 2 * 0.40m
+        m_bubble.scale.y = 0.80
+        m_bubble.scale.z = 0.80
+        m_bubble.color.r = float(r_c)
+        m_bubble.color.g = float(g_c)
+        m_bubble.color.b = float(b_c)
+        m_bubble.color.a = 0.22
+        ma.markers.append(m_bubble)
+
+        # 3. Horizon Prediksi Gerak 2 Detik ke Depan di Bidang X-Y (World Frame)
+        # Transformasi kecepatan dari Body Frame ke World Frame:
+        cos_yaw = math.cos(yaw)
+        sin_yaw = math.sin(yaw)
+        vx_world = vx * cos_yaw - vy * sin_yaw
+        vy_world = vx * sin_yaw + vy * cos_yaw
+        speed_2d = math.sqrt(vx_world**2 + vy_world**2)
+
+        tau = 2.0  # Horizon lookahead 2.0 detik (sesuai parameter tau ORCA)
+        p_start = GeometryPoint(x=float(x), y=float(y), z=float(z + 0.05))
+        if speed_2d > 0.08:
+            p_end = GeometryPoint(
+                x=float(x + vx_world * tau),
+                y=float(y + vy_world * tau),
+                z=float(z + 0.05)
+            )
+        else:
+            # Jika sedang hover diam, tunjukkan orientasi hidung drone sepanjang 0.35m
+            p_end = GeometryPoint(
+                x=float(x + 0.35 * cos_yaw),
+                y=float(y + 0.35 * sin_yaw),
+                z=float(z + 0.05)
+            )
+
+        m_arrow = Marker()
+        m_arrow.header.frame_id = 'world'
+        m_arrow.header.stamp = now_msg
+        m_arrow.ns = f'drone_{self.drone_id}_horizon'
+        m_arrow.id = 2
+        m_arrow.type = Marker.ARROW
+        m_arrow.action = Marker.ADD
+        m_arrow.points = [p_start, p_end]
+        m_arrow.scale.x = 0.04  # Diameter batang panah
+        m_arrow.scale.y = 0.10  # Diameter kepala panah
+        m_arrow.scale.z = 0.12  # Panjang kepala panah
+        m_arrow.color.r = float(r_c)
+        m_arrow.color.g = float(g_c)
+        m_arrow.color.b = float(b_c)
+        m_arrow.color.a = 0.95
+        ma.markers.append(m_arrow)
         
         self.marker_pub.publish(ma)
 
@@ -227,6 +287,10 @@ class PIDHinfNode(Node):
             self.last_time = current_time
             self.spawn_x = x
             self.spawn_y = y
+            self.formation_x = x
+            self.formation_y = y
+            self.x_cmd = x
+            self.y_cmd = y
             qx0 = msg.pose.pose.orientation.x
             qy0 = msg.pose.pose.orientation.y
             qz0 = msg.pose.pose.orientation.z
@@ -370,10 +434,25 @@ class PIDHinfNode(Node):
                                       vx, vy, vz, p, q_ang, r_ang,
                                       uz_pid, ux_pid, uy_pid, uyaw_pid,
                                       w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
-            self.csv_file.flush()
-            self.last_csv_log_time = t
-        
-        self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation)
+        self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation, vx, vy, vz)
+
+        # Update and publish trajectory path trail
+        if not hasattr(self, 'path_msg'):
+            self.path_msg = Path()
+            self.path_msg.header.frame_id = 'world'
+            self.last_path_pub_time = 0.0
+
+        if (current_time - self.last_path_pub_time) >= 0.08:
+            self.last_path_pub_time = current_time
+            pose_stamped = PoseStamped()
+            pose_stamped.header = msg.header
+            pose_stamped.header.frame_id = 'world'
+            pose_stamped.pose = msg.pose.pose
+            self.path_msg.poses.append(pose_stamped)
+            if len(self.path_msg.poses) > 2500:
+                self.path_msg.poses.pop(0)
+            self.path_msg.header.stamp = msg.header.stamp
+            self.path_pub.publish(self.path_msg)
 
     def target_pose_callback(self, msg):
         self.x_cmd = msg.pose.position.x

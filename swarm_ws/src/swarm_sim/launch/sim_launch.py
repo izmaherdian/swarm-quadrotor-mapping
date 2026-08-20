@@ -142,7 +142,22 @@ def generate_launch_description():
             output='screen'
         ))
         
-        y_pos = float((i - 4.0) * spacing)
+        # Hitung posisi spawn: Jika 2 drone, posisikan di (-6, 0) dan (+6, 0)
+        _num_drones_int = 7
+        for _a in sys.argv:
+            if _a.startswith('num_drones:='):
+                try:
+                    _num_drones_int = int(_a.split(':=', 1)[1])
+                except ValueError:
+                    pass
+                break
+
+        if _num_drones_int == 2:
+            x_pos_str = '-6.0' if i == 1 else '6.0'
+            y_pos_str = '0.0'
+        else:
+            x_pos_str = '0.0'
+            y_pos_str = str(float((i - 4.0) * spacing))
 
         spawn_node = Node(
             package='ros_gz_sim',
@@ -152,8 +167,8 @@ def generate_launch_description():
                 '-world', 'swarm_world',
                 '-name', f'iris_{i}',
                 '-file', os.path.join(model_dir, f'iris_{i}', 'model.sdf'),
-                '-x', '0.0',
-                '-y', str(y_pos),
+                '-x', x_pos_str,
+                '-y', y_pos_str,
                 '-z', '0.01'
             ],
             condition=drone_condition,

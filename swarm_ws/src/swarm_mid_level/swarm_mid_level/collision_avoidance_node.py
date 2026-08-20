@@ -205,10 +205,10 @@ class CollisionAvoidanceNode(Node):
         self.current_yaw = 0.0
         self.yaw_smooth = 0.0
         
-        # Target awal waypoint = lokasi formation spawn persis
-        spacing = 2.0
-        self.spawn_y = float((did - 4.0) * spacing)
-        self.target_waypoint = np.array([0.0, self.spawn_y], dtype=np.float32)
+        # Target awal waypoint: None sampai odometry pertama diterima
+        self.spawn_x = 0.0
+        self.spawn_y = 0.0
+        self.target_waypoint = None
         self.waypoint_received = False
         self.lidar_ranges = np.ones(360, dtype=np.float32) * 10.0
         self.steps = 0
@@ -317,6 +317,10 @@ class CollisionAvoidanceNode(Node):
         if not hasattr(self, 'spawn_yaw'):
             self.spawn_yaw = self.current_yaw
             self.yaw_smooth = self.current_yaw
+            self.spawn_x = float(self.current_pos[0])
+            self.spawn_y = float(self.current_pos[1])
+            if not self.waypoint_received:
+                self.target_waypoint = np.array([self.spawn_x, self.spawn_y], dtype=np.float32)
 
     def waypoint_callback(self, msg):
         self.target_waypoint = np.array([msg.point.x, msg.point.y], dtype=np.float32)
@@ -372,8 +376,8 @@ class CollisionAvoidanceNode(Node):
             self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
             # Rotate body velocity to world frame using current yaw
-            cos_y = math.cos(self.yaw_smooth)
-            sin_y = math.sin(self.yaw_smooth)
+            cos_y = math.cos(self.current_yaw)
+            sin_y = math.sin(self.current_yaw)
             world_vx = body_vx * cos_y - body_vy * sin_y
             world_vy = body_vx * sin_y + body_vy * cos_y
 
@@ -399,32 +403,32 @@ class CollisionAvoidanceNode(Node):
                     pref_vel[1] += y_restore
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
-        # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
+        # Jika ada tetangga dekat di depan arah pergerakan, geser preferred velocity ke kanan masing-masing
         for nbr in self.neighbors_state.values():
             rel_nbr = nbr['pos'] - self.current_pos[:2]
             dist_nbr = float(np.linalg.norm(rel_nbr))
-            if dist_nbr < 2.5:
+            if dist_nbr < 3.5:
                 pref_speed = np.linalg.norm(pref_vel)
                 if pref_speed > 0.1:
                     unit_pref = pref_vel / pref_speed
                     unit_nbr = rel_nbr / max(dist_nbr, 0.05)
                     dot_front = np.dot(unit_pref, unit_nbr)
-                    if dot_front > 0.85:
+                    if dot_front > 0.40:
+                        # Vektor tegak lurus ke kanan arah terbang
                         right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
-                        bias_gain = 0.1 * (1.0 - (dist_nbr / 2.5))
+                        bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
                         pref_vel += right_vec * (self.max_speed * bias_gain)
 
         # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
         neighbor_list = list(self.neighbors_state.values())
         repulsion_vec = np.zeros(2, dtype=np.float32)
 
-        # 2b. Repulsion from neighbor drones (Zone = 1.4m untuk cegah drift pada drone tepi saat formasi nominal 2.0m)
+        # 2b. Repulsion from neighbor drones (hanya aktif pada jarak ekstra dekat < 0.45m sebagai buffer darurat)
         for nbr in neighbor_list:
             rel_nbr = self.current_pos[:2] - nbr['pos'] # Pointing AWAY from neighbor
             dist_nbr = float(np.linalg.norm(rel_nbr))
-            if 1e-3 < dist_nbr < 1.4:
-                # Inverse-Square Law: hanya aktif jika jarak < 1.4m (menghindari repulsi pada jarak nominal 2.0m)
-                rep_gain = ((1.4 / max(dist_nbr, 0.4)) ** 2) * 0.4
+            if 1e-3 < dist_nbr < 0.45:
+                rep_gain = ((0.45 / max(dist_nbr, 0.2)) ** 2) * 0.2
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
@@ -456,10 +460,10 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 
-                # Filter out teammate drones (already handled in ORCA neighbors)
+                # Filter out teammate drones (exclude LiDAR points within 0.85m of teammate)
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < self.safety_radius:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.85:
                         is_neighbor = True
                         break
                 if is_neighbor:
@@ -484,7 +488,7 @@ class CollisionAvoidanceNode(Node):
                 # Filter out teammate drones
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < self.safety_radius:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.85:
                         is_neighbor = True
                         break
                 if is_neighbor:
