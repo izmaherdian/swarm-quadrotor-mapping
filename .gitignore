@@ -20,6 +20,9 @@ log/
 .DS_Store
 Thumbs.db
 
+# LibreOffice lock files
+*.~lock.*
+
 # Data / hasil simulasi
 swarm_ws/src/swarm_high_level/**/*.csv
 swarm_ws/src/swarm_high_level/**/*.png
@@ -38,5 +41,33 @@ swarm_ws/src/swarm_sim/**/*.png
 swarm_ws/src/swarm_sim/**/*.log
 
 # Folder Debug & MatlabtoPython
-Debug/
-MatlabtoPython/
+debug/
+matlabtopython/
+docs/References-Paper/
+docs/Progress/videos/
+
+# Dokumentasi proyek (dikelola di luar git)
+Roadmap_Swarm_Quadrotor.md
+PRD_Swarm_Quadrotor_Geodesy.md
+
+# LaTeX build artifacts
+*.aux
+*.bcf
+*.log
+*.toc
+*.out
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bak
+*.run.xml
+
+# docs/Progress — only track .tex, .bib, .pdf
+docs/Progress/*
+!docs/Progress/*.tex
+!docs/Progress/*.bib
+!docs/Progress/*.pdf
+!docs/Progress/figures/
+!docs/Progress/figures/**
