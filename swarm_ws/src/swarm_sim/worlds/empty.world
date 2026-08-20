@@ -103,99 +103,12 @@
     </model>
 
     <!-- ======================================================= -->
-    <!-- OBSTACLES FOR WAYPOINT TEST (COMMENTED TEMPORARILY)     -->
+    <!-- 4 OBSTACLES AT 45-DEGREE ANGLES ALONG R=6.0m CIRCLE     -->
+    <!-- Positions: (+4.24, +4.24), (-4.24, +4.24), (-4.24, -4.24), (+4.24, -4.24) -->
     <!-- ======================================================= -->
-    <!--
-    <model name="obstacle_blue_cylinder">
+    <model name="obstacle_45_deg">
       <static>true</static>
-      <pose>5 -3 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.0 0.2 0.9 1.0</ambient>
-            <diffuse>0.0 0.3 1.0 1.0</diffuse>
-            <specular>0.5 0.5 1.0 1.0</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="obstacle_red_cylinder">
-      <static>true</static>
-      <pose>2.5 -6 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.9 0.1 0.1 1.0</ambient>
-            <diffuse>1.0 0.1 0.1 1.0</diffuse>
-            <specular>1.0 0.5 0.5 1.0</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-
-    <model name="obstacle_green_cylinder">
-      <static>true</static>
-      <pose>0.8 -1.8 2 0 0 0</pose>
-      <link name="link">
-        <collision name="collision">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-        </collision>
-        <visual name="visual">
-          <geometry>
-            <cylinder>
-              <radius>0.35</radius>
-              <length>4.0</length>
-            </cylinder>
-          </geometry>
-          <material>
-            <ambient>0.1 0.8 0.1 1.0</ambient>
-            <diffuse>0.1 1.0 0.1 1.0</diffuse>
-            <specular>0.5 1.0 0.5 1.0</specular>
-          </material>
-        </visual>
-      </link>
-    </model>
-    <!-- ======================================================= -->
-    <!-- STATIC OBSTACLES FOR CIRCULAR TRAJECTORY (COMMENTED)   -->
-    <!-- ======================================================= -->
-    <!--
-    <model name="obstacle_trajectory_cylinder_1">
-      <static>true</static>
-      <pose>3 -3 2 0 0 0</pose>
+      <pose>4.2426 4.2426 2.0 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
@@ -214,16 +127,16 @@
           </geometry>
           <material>
             <ambient>1.0 0.5 0.0 1.0</ambient>
-            <diffuse>1.0 0.6 0.0 1.0</diffuse>
-            <specular>1.0 0.8 0.5 1.0</specular>
+            <diffuse>1.0 0.5 0.0 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
           </material>
         </visual>
       </link>
     </model>
 
-    <model name="obstacle_trajectory_cylinder_2">
+    <model name="obstacle_135_deg">
       <static>true</static>
-      <pose>3 -9 2 0 0 0</pose>
+      <pose>-4.2426 4.2426 2.0 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
@@ -241,17 +154,17 @@
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.1 0.7 1.0 1.0</ambient>
-            <diffuse>0.1 0.8 1.0 1.0</diffuse>
-            <specular>0.5 0.9 1.0 1.0</specular>
+            <ambient>0.0 0.6 1.0 1.0</ambient>
+            <diffuse>0.0 0.7 1.0 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
           </material>
         </visual>
       </link>
     </model>
 
-    <model name="obstacle_trajectory_cylinder_3">
+    <model name="obstacle_225_deg">
       <static>true</static>
-      <pose>1 -4 2 0 0 0</pose>
+      <pose>-4.2426 -4.2426 2.0 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry>
@@ -269,14 +182,41 @@
             </cylinder>
           </geometry>
           <material>
-            <ambient>0.1 0.9 0.1 1.0</ambient>
-            <diffuse>0.1 1.0 0.1 1.0</diffuse>
-            <specular>0.5 1.0 0.5 1.0</specular>
+            <ambient>0.1 0.9 0.2 1.0</ambient>
+            <diffuse>0.1 0.9 0.2 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
           </material>
         </visual>
       </link>
     </model>
-    -->
+
+    <model name="obstacle_315_deg">
+      <static>true</static>
+      <pose>4.2426 -4.2426 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.35</radius>
+              <length>4.0</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.9 0.1 0.9 1.0</ambient>
+            <diffuse>0.9 0.1 0.9 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
 
   </world>
 </sdf>

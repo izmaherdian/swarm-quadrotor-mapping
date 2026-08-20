@@ -174,7 +174,7 @@ class CollisionAvoidanceNode(Node):
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
         self.declare_parameter('num_drones', 7)
-        self.declare_parameter('safety_radius', 0.55) # 0.55m radius for close safe clearance
+        self.declare_parameter('safety_radius', 0.75) # 0.75m radius for wider safe clearance bubble
         self.declare_parameter('time_horizon', 5.0)
 
         self.max_speed = self.get_parameter('max_speed').value
@@ -491,13 +491,13 @@ class CollisionAvoidanceNode(Node):
                     'pos': obs_pos_i,
                     'vel': np.zeros(2, dtype=np.float32),
                     'is_static': True,
-                    'radius': 0.05  # combined with safety_radius (0.55m) = 0.60m tight clearance
+                    'radius': 0.15  # combined with safety_radius (0.75m) = 0.90m comfortable clearance bubble
                 })
 
-            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 1.3m untuk rintangan statis)
+            # 3b. Non-Linear Repulsion for smooth steering (Jarak aman diperbesar < 1.6m untuk rintangan statis)
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
-                if d_i < 0.35 or d_i > 1.3:
+                if d_i < 0.35 or d_i > 1.6:
                     continue
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
@@ -521,7 +521,7 @@ class CollisionAvoidanceNode(Node):
                 
                 if is_front:
                     push_dir = -obs_rel_i / max(d_i, 0.05)
-                    rep_gain_i = ((1.2 / max(d_i, 0.3)) ** 2) * 0.12
+                    rep_gain_i = ((1.5 / max(d_i, 0.35)) ** 2) * 0.18
                     repulsion_vec += push_dir * rep_gain_i
 
             # 3c. Tangential Steering: Smooth curve around closest obstacle
@@ -539,13 +539,13 @@ class CollisionAvoidanceNode(Node):
                     is_neighbor_min = True
                     break
 
-            if not is_neighbor_min and dist_min < 1.0:
+            if not is_neighbor_min and dist_min < 1.3:
                 dot_front = np.dot(pref_vel / max(np.linalg.norm(pref_vel), 0.1), obs_dir)
                 if dot_front > 0.2:
                     tangent_dir = np.array([-obs_dir[1], obs_dir[0]], dtype=np.float32)
                     if (pref_vel[0] * obs_dir[1] - pref_vel[1] * obs_dir[0]) > 0:
                         tangent_dir = -tangent_dir
-                    repulsion_vec += tangent_dir * (self.max_speed * 0.20)
+                    repulsion_vec += tangent_dir * (self.max_speed * 0.22)
 
         # Cap total repulsion vector magnitude to prevent extreme force spikes
         rep_len = float(np.linalg.norm(repulsion_vec))

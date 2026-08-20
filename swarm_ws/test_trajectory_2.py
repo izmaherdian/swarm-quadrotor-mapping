@@ -402,7 +402,34 @@ class DualSymmetricTrajectoryNode(Node):
         m_south.color.a = 0.75
         ma.markers.append(m_south)
 
-        # 6. Real-time Setpoint Target Marker untuk Iris 1 & Iris 2
+        # 6. 4 Rintangan Statis di Sudut 45°, 135°, 225°, dan 315°
+        obs_configs = [
+            (10, +4.2426, +4.2426, 1.0, 0.5, 0.0),  # 45° Orange
+            (11, -4.2426, +4.2426, 0.0, 0.6, 1.0),  # 135° Blue
+            (12, -4.2426, -4.2426, 0.1, 0.9, 0.2),  # 225° Green
+            (13, +4.2426, -4.2426, 0.9, 0.1, 0.9),  # 315° Magenta
+        ]
+        for obs_id, ox, oy, cr, cg, cb in obs_configs:
+            m_obs = Marker()
+            m_obs.header.frame_id = 'world'
+            m_obs.header.stamp = now_msg
+            m_obs.ns = 'static_obstacles'
+            m_obs.id = obs_id
+            m_obs.type = Marker.CYLINDER
+            m_obs.action = Marker.ADD
+            m_obs.pose.position.x = float(ox)
+            m_obs.pose.position.y = float(oy)
+            m_obs.pose.position.z = 2.0
+            m_obs.scale.x = 0.70  # Diameter 2 x 0.35m
+            m_obs.scale.y = 0.70
+            m_obs.scale.z = 4.0   # Tinggi 4m
+            m_obs.color.r = float(cr)
+            m_obs.color.g = float(cg)
+            m_obs.color.b = float(cb)
+            m_obs.color.a = 0.85
+            ma.markers.append(m_obs)
+
+        # 7. Real-time Setpoint Target Marker untuk Iris 1 & Iris 2
         ref_1_x = self.center_x - self.radius * math.cos(self.theta_1)
         ref_1_y = self.center_y + self.radius * math.sin(self.theta_1)
         m_sp1 = Marker()

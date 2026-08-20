@@ -208,9 +208,9 @@ class PIDHinfNode(Node):
         m_bubble.pose.position.x = float(x)
         m_bubble.pose.position.y = float(y)
         m_bubble.pose.position.z = float(z)
-        m_bubble.scale.x = 0.80  # diameter 2 * 0.40m
-        m_bubble.scale.y = 0.80
-        m_bubble.scale.z = 0.80
+        m_bubble.scale.x = 1.10  # diameter 2 * 0.55m
+        m_bubble.scale.y = 1.10
+        m_bubble.scale.z = 1.10
         m_bubble.color.r = float(r_c)
         m_bubble.color.g = float(g_c)
         m_bubble.color.b = float(b_c)
