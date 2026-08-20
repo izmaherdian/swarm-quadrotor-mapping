@@ -130,8 +130,8 @@ class PIDHinfNode(Node):
         self.filt_z = [0.0, 0.0]
         self.filt_yaw = [0.0, 0.0]
         
-        self.w_n_sq = 1.44      # omega_n = 1.2 rad/s (gerakan referensi mulus tanpa hentakan kaget)
-        self.two_zeta_wn = 2.28  # 2 * 0.95 * 1.20
+        self.w_n_sq = 12.25      # omega_n = 3.5 rad/s (respons cepat, presisi, dan stabil tanpa lag berlebih)
+        self.two_zeta_wn = 6.65  # 2 * 0.95 * 3.50
 
         # Konfigurasi Log Directory
         self.declare_parameter('log_dir', os.getcwd())

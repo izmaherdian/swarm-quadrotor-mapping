@@ -169,7 +169,7 @@ class CollisionAvoidanceNode(Node):
         super().__init__('collision_avoidance_node')
 
         # Parameters
-        self.declare_parameter('max_speed', 1.5)
+        self.declare_parameter('max_speed', 3.0)
         self.declare_parameter('target_z_height', 2.0)
         self.declare_parameter('dt', 0.1)
         self.declare_parameter('drone_id', 1)
@@ -352,8 +352,8 @@ class CollisionAvoidanceNode(Node):
         if dist_to_target < 0.1:
             pref_vel = np.zeros(2, dtype=np.float32)
         else:
-            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 0.8)
-            speed = min(self.max_speed, dist_to_target * 0.8)
+            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 1.5)
+            speed = min(self.max_speed, dist_to_target * 1.5)
             pref_vel = (rel_target / dist_to_target) * speed
             
             # Lane-keeping restoring force to pull the drone back to Y_spawn lane
@@ -525,12 +525,12 @@ class CollisionAvoidanceNode(Node):
 
         # 5. Low-Pass Velocity Filter & Slew Rate Limiter (mencegah RPM saturation & drone terbalik)
         ref_vx = np.clip(safe_vel[0], -self.max_speed, self.max_speed)
-        ref_vy = np.clip(safe_vel[1], -1.2, 1.2) # Cap lateral speed to +-1.2m/s for fast stable avoidance
+        ref_vy = np.clip(safe_vel[1], -2.0, 2.0) # Cap lateral speed to +-2.0m/s for fast stable avoidance
 
-        # 5. Smooth Acceleration / Slew-Rate Limiter (Max 1.5 m/s^2 acceleration untuk gerak mulus tanpa kaget)
-        MAX_ACCEL = 1.5  # m/s^2
+        # 5. Smooth Acceleration / Slew-Rate Limiter (Max 3.5 m/s^2 acceleration untuk gerak gesit tanpa kaget)
+        MAX_ACCEL = 3.5  # m/s^2
         dt_mid = 0.1     # 10 Hz control loop
-        max_dv = MAX_ACCEL * dt_mid  # max 0.15 m/s per step
+        max_dv = MAX_ACCEL * dt_mid  # max 0.35 m/s per step
 
         target_vel_raw = np.array([ref_vx, ref_vy], dtype=np.float32)
         if not hasattr(self, 'cmd_vel_smooth'):
