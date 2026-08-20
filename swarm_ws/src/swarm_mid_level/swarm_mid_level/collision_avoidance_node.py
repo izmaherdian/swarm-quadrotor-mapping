@@ -280,13 +280,25 @@ class CollisionAvoidanceNode(Node):
 
     def make_neighbor_odom_callback(self, nid):
         def callback(msg):
-            px = msg.pose.pose.position.x
-            py = msg.pose.pose.position.y
-            vx = msg.twist.twist.linear.x
-            vy = msg.twist.twist.linear.y
+            px = float(msg.pose.pose.position.x)
+            py = float(msg.pose.pose.position.y)
+            vx_b = float(msg.twist.twist.linear.x)
+            vy_b = float(msg.twist.twist.linear.y)
+            qx = msg.pose.pose.orientation.x
+            qy = msg.pose.pose.orientation.y
+            qz = msg.pose.pose.orientation.z
+            qw = msg.pose.pose.orientation.w
+            yaw_nbr = self.euler_from_quaternion(qx, qy, qz, qw)
+
+            # Konversi kecepatan V2V tetangga dari Body Frame ke World Frame
+            cos_y = math.cos(yaw_nbr)
+            sin_y = math.sin(yaw_nbr)
+            vx_w = vx_b * cos_y - vy_b * sin_y
+            vy_w = vx_b * sin_y + vy_b * cos_y
+
             self.neighbors_state[nid] = {
                 'pos': np.array([px, py], dtype=np.float32),
-                'vel': np.array([vx, vy], dtype=np.float32)
+                'vel': np.array([vx_w, vy_w], dtype=np.float32)
             }
         return callback
 
@@ -305,14 +317,19 @@ class CollisionAvoidanceNode(Node):
         self.current_pos[1] = msg.pose.pose.position.y
         self.current_pos[2] = msg.pose.pose.position.z
 
-        self.current_vel[0] = msg.twist.twist.linear.x
-        self.current_vel[1] = msg.twist.twist.linear.y
-
         qx = msg.pose.pose.orientation.x
         qy = msg.pose.pose.orientation.y
         qz = msg.pose.pose.orientation.z
         qw = msg.pose.pose.orientation.w
         self.current_yaw = self.euler_from_quaternion(qx, qy, qz, qw)
+
+        # Konversi kecepatan sendiri dari Body Frame ke World Frame
+        vx_b = float(msg.twist.twist.linear.x)
+        vy_b = float(msg.twist.twist.linear.y)
+        cos_y = math.cos(self.current_yaw)
+        sin_y = math.sin(self.current_yaw)
+        self.current_vel[0] = vx_b * cos_y - vy_b * sin_y
+        self.current_vel[1] = vx_b * sin_y + vy_b * cos_y
 
         if not hasattr(self, 'spawn_yaw'):
             self.spawn_yaw = self.current_yaw
@@ -403,20 +420,20 @@ class CollisionAvoidanceNode(Node):
                     pref_vel[1] += y_restore
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
-        # Jika ada tetangga dekat di depan arah pergerakan, geser preferred velocity ke kanan masing-masing
+        # Hanya aktif saat jarak sudah dekat (< 2.2m) agar drone tetap berada di jalur mapping sepanjang mungkin
         for nbr in self.neighbors_state.values():
             rel_nbr = nbr['pos'] - self.current_pos[:2]
             dist_nbr = float(np.linalg.norm(rel_nbr))
-            if dist_nbr < 3.5:
+            if dist_nbr < 2.2:
                 pref_speed = np.linalg.norm(pref_vel)
                 if pref_speed > 0.1:
                     unit_pref = pref_vel / pref_speed
                     unit_nbr = rel_nbr / max(dist_nbr, 0.05)
                     dot_front = np.dot(unit_pref, unit_nbr)
-                    if dot_front > 0.40:
+                    if dot_front > 0.45:
                         # Vektor tegak lurus ke kanan arah terbang
                         right_vec = np.array([unit_pref[1], -unit_pref[0]], dtype=np.float32)
-                        bias_gain = 0.25 * (1.0 - (dist_nbr / 3.5))
+                        bias_gain = 0.20 * (1.0 - (dist_nbr / 2.2))
                         pref_vel += right_vec * (self.max_speed * bias_gain)
 
         # 2. Extract neighbor drone states and apply Non-Linear Repulsion (Inverse-Square Law)
@@ -460,10 +477,10 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 
-                # Filter out teammate drones (exclude LiDAR points within 0.85m of teammate)
+                # Filter out teammate drones (exclude all LiDAR rays within 1.5m of teammate)
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.85:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 1.50:
                         is_neighbor = True
                         break
                 if is_neighbor:
@@ -477,7 +494,7 @@ class CollisionAvoidanceNode(Node):
                     'radius': 0.05  # combined with safety_radius (0.55m) = 0.60m tight clearance
                 })
 
-            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 1.3m untuk mencegah dorong belakang)
+            # 3b. Non-Linear Repulsion for smooth steering (Hanya jarak dekat < 1.3m untuk rintangan statis)
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
                 if d_i < 0.35 or d_i > 1.3:
@@ -485,10 +502,10 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
 
-                # Filter out teammate drones
+                # Filter out teammate drones (exclude all LiDAR rays within 1.5m of teammate)
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
-                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 0.85:
+                    if np.linalg.norm(obs_pos_i - nbr['pos']) < 1.50:
                         is_neighbor = True
                         break
                 if is_neighbor:
@@ -518,7 +535,7 @@ class CollisionAvoidanceNode(Node):
             obs_pos_min = self.current_pos[:2] + obs_rel_min
             is_neighbor_min = False
             for nbr in self.neighbors_state.values():
-                if np.linalg.norm(obs_pos_min - nbr['pos']) < self.safety_radius:
+                if np.linalg.norm(obs_pos_min - nbr['pos']) < 1.50:
                     is_neighbor_min = True
                     break
 

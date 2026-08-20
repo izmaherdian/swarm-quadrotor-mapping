@@ -152,10 +152,32 @@ class DualSymmetricTrajectoryNode(Node):
             self.step_count += 1
 
             total_target = self.total_laps * 2.0 * math.pi
+            lead_rad = 0.45 / self.radius  # Lead target 0.45m di depan busur drone
 
             # -------------------------------------------------------------
             # A. DRONE 1 (iris_1): Mulai di Barat (-6, 0), Gerak CCW -> ke Timur (+6, 0)
             # -------------------------------------------------------------
+            raw_angle_1 = math.atan2(float(self.drone_1_pos[1]), float(-self.drone_1_pos[0]))
+            if raw_angle_1 < 0:
+                raw_angle_1 += 2.0 * math.pi
+
+            if not hasattr(self, 'theta_1_prog'):
+                self.theta_1_prog = 0.0
+                self.last_raw_1 = raw_angle_1
+
+            d_theta_1 = (raw_angle_1 - self.last_raw_1)
+            if d_theta_1 < -math.pi:
+                d_theta_1 += 2.0 * math.pi
+            elif d_theta_1 > math.pi:
+                d_theta_1 -= 2.0 * math.pi
+            self.last_raw_1 = raw_angle_1
+
+            if d_theta_1 > 0:
+                self.theta_1_prog += d_theta_1
+
+            # Target di lingkaran menunggu posisi nyata drone dan hanya memimpin sejauh 0.45m
+            self.theta_1 = min(total_target, self.theta_1_prog + lead_rad)
+
             ref_1_x = self.center_x - self.radius * math.cos(self.theta_1)
             ref_1_y = self.center_y + self.radius * math.sin(self.theta_1)
 
@@ -163,27 +185,23 @@ class DualSymmetricTrajectoryNode(Node):
             e1_y = ref_1_y - self.drone_1_pos[1]
             dist_err_1 = math.sqrt(e1_x**2 + e1_y**2)
 
-            if self.theta_1 < total_target:
-                scale_1 = max(0.40, 0.60 / dist_err_1) if dist_err_1 > 0.40 else 1.0
-                self.theta_1 += (self.omega * scale_1) * self.dt
-                if self.theta_1 >= total_target:
-                    self.theta_1 = total_target
-                v1_ff_x = (self.nominal_speed * scale_1) * math.sin(self.theta_1)
-                v1_ff_y = (self.nominal_speed * scale_1) * math.cos(self.theta_1)
+            if self.theta_1_prog < total_target:
+                v1_ff_x = self.nominal_speed * math.sin(self.theta_1)
+                v1_ff_y = self.nominal_speed * math.cos(self.theta_1)
             else:
-                self.theta_1 = total_target
                 v1_ff_x = 0.0
                 v1_ff_y = 0.0
 
-            if self.theta_1 >= total_target and dist_err_1 < 0.20:
+            if self.theta_1_prog >= total_target and dist_err_1 < 0.15:
                 self.publish_twist_1(0.0, 0.0, 0.0)
             else:
-                v1_cmd_x = v1_ff_x + 0.60 * e1_x
-                v1_cmd_y = v1_ff_y + 0.60 * e1_y
+                # Gain proporsional 0.90 menarik drone seketika kembali ke keliling R=6.0m pasca menghindar
+                v1_cmd_x = v1_ff_x + 0.90 * e1_x
+                v1_cmd_y = v1_ff_y + 0.90 * e1_y
                 spd_1 = math.sqrt(v1_cmd_x**2 + v1_cmd_y**2)
-                if spd_1 > 0.90:
-                    v1_cmd_x = (v1_cmd_x / spd_1) * 0.90
-                    v1_cmd_y = (v1_cmd_y / spd_1) * 0.90
+                if spd_1 > 0.95:
+                    v1_cmd_x = (v1_cmd_x / spd_1) * 0.95
+                    v1_cmd_y = (v1_cmd_y / spd_1) * 0.95
 
                 cos_y1 = math.cos(self.drone_1_yaw)
                 sin_y1 = math.sin(self.drone_1_yaw)
@@ -194,6 +212,26 @@ class DualSymmetricTrajectoryNode(Node):
             # -------------------------------------------------------------
             # B. DRONE 2 (iris_2): Mulai di Timur (+6, 0), Gerak Berlawanan Arah -> ke Barat (-6, 0)
             # -------------------------------------------------------------
+            raw_angle_2 = math.atan2(float(self.drone_2_pos[1]), float(self.drone_2_pos[0]))
+            if raw_angle_2 < 0:
+                raw_angle_2 += 2.0 * math.pi
+
+            if not hasattr(self, 'theta_2_prog'):
+                self.theta_2_prog = 0.0
+                self.last_raw_2 = raw_angle_2
+
+            d_theta_2 = (raw_angle_2 - self.last_raw_2)
+            if d_theta_2 < -math.pi:
+                d_theta_2 += 2.0 * math.pi
+            elif d_theta_2 > math.pi:
+                d_theta_2 -= 2.0 * math.pi
+            self.last_raw_2 = raw_angle_2
+
+            if d_theta_2 > 0:
+                self.theta_2_prog += d_theta_2
+
+            self.theta_2 = min(total_target, self.theta_2_prog + lead_rad)
+
             ref_2_x = self.center_x + self.radius * math.cos(self.theta_2)
             ref_2_y = self.center_y + self.radius * math.sin(self.theta_2)
 
@@ -201,27 +239,22 @@ class DualSymmetricTrajectoryNode(Node):
             e2_y = ref_2_y - self.drone_2_pos[1]
             dist_err_2 = math.sqrt(e2_x**2 + e2_y**2)
 
-            if self.theta_2 < total_target:
-                scale_2 = max(0.40, 0.60 / dist_err_2) if dist_err_2 > 0.40 else 1.0
-                self.theta_2 += (self.omega * scale_2) * self.dt
-                if self.theta_2 >= total_target:
-                    self.theta_2 = total_target
-                v2_ff_x = -(self.nominal_speed * scale_2) * math.sin(self.theta_2)
-                v2_ff_y = (self.nominal_speed * scale_2) * math.cos(self.theta_2)
+            if self.theta_2_prog < total_target:
+                v2_ff_x = -self.nominal_speed * math.sin(self.theta_2)
+                v2_ff_y = self.nominal_speed * math.cos(self.theta_2)
             else:
-                self.theta_2 = total_target
                 v2_ff_x = 0.0
                 v2_ff_y = 0.0
 
-            if self.theta_2 >= total_target and dist_err_2 < 0.20:
+            if self.theta_2_prog >= total_target and dist_err_2 < 0.15:
                 self.publish_twist_2(0.0, 0.0, 0.0)
             else:
-                v2_cmd_x = v2_ff_x + 0.60 * e2_x
-                v2_cmd_y = v2_ff_y + 0.60 * e2_y
+                v2_cmd_x = v2_ff_x + 0.90 * e2_x
+                v2_cmd_y = v2_ff_y + 0.90 * e2_y
                 spd_2 = math.sqrt(v2_cmd_x**2 + v2_cmd_y**2)
-                if spd_2 > 0.90:
-                    v2_cmd_x = (v2_cmd_x / spd_2) * 0.90
-                    v2_cmd_y = (v2_cmd_y / spd_2) * 0.90
+                if spd_2 > 0.95:
+                    v2_cmd_x = (v2_cmd_x / spd_2) * 0.95
+                    v2_cmd_y = (v2_cmd_y / spd_2) * 0.95
 
                 cos_y2 = math.cos(self.drone_2_yaw)
                 sin_y2 = math.sin(self.drone_2_yaw)
@@ -234,11 +267,11 @@ class DualSymmetricTrajectoryNode(Node):
 
             # Tampilkan telemetri setiap 1 detik
             if self.step_count % 10 == 0:
-                lap1 = min(100.0, ((self.theta_1 % (2 * math.pi)) / (2 * math.pi)) * 100.0)
-                lap2 = min(100.0, ((self.theta_2 % (2 * math.pi)) / (2 * math.pi)) * 100.0)
-                if self.theta_1 >= total_target:
+                lap1 = min(100.0, ((self.theta_1_prog % (2 * math.pi)) / (2 * math.pi)) * 100.0)
+                lap2 = min(100.0, ((self.theta_2_prog % (2 * math.pi)) / (2 * math.pi)) * 100.0)
+                if self.theta_1_prog >= total_target:
                     lap1 = 100.0
-                if self.theta_2 >= total_target:
+                if self.theta_2_prog >= total_target:
                     lap2 = 100.0
                 self.get_logger().info(
                     f'[iris_1: {lap1:4.1f}% | iris_2: {lap2:4.1f}%] '
@@ -248,7 +281,7 @@ class DualSymmetricTrajectoryNode(Node):
                 )
 
             # Selesai setelah kedua drone menyelesaikan 2 putaran penuh (4 * pi rad)
-            if self.theta_1 >= total_target and self.theta_2 >= total_target and dist_err_1 < 0.25 and dist_err_2 < 0.25:
+            if self.theta_1_prog >= total_target and self.theta_2_prog >= total_target and dist_err_1 < 0.20 and dist_err_2 < 0.20:
                 self.state = 'hovering'
                 self.get_logger().info('========================================================================')
                 self.get_logger().info('  MISI 2 DRONE SELESAI: Tepat 2 Putaran Selesai!')
