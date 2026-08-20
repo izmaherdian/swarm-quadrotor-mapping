@@ -32,6 +32,7 @@ rm -f "$WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"*.csv
 rm -f "$WS_DIR/src/swarm_sim/results/multi_agent/pid_hinf/"*.csv
 
 cleanup() {
+    trap - EXIT INT TERM
     echo ""
     echo "=== Cleanup ==="
     if [ -n "$SIM_PID" ]; then

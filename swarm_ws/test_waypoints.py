@@ -111,13 +111,18 @@ class SwarmWaypointTester(Node):
                 self.get_logger().info(f"[{num_reached}/{self.num_drones} Tercapai] Pos X: {summary}")
 
             if all_done:
-                self.get_logger().info("========================================================")
-                self.get_logger().info("  MISI SELESAI: Seluruh 7 drone telah tiba di target X=10m!")
-                self.get_logger().info("========================================================")
-                self.state = 'done'
-                self.timer.cancel()
-                # Beri waktu 1 detik lalu shutdown node secara bersih
-                self.create_timer(1.0, lambda: sys.exit(0))
+                self.get_logger().info("========================================================================")
+                self.get_logger().info("  MISI SELESAI: Seluruh 7 drone telah tiba di target X=10.0m!")
+                self.get_logger().info("  Drone tetap HOVER di titik akhir. Tekan Ctrl+C untuk mengakhiri.")
+                self.get_logger().info("========================================================================")
+                self.state = 'hovering'
+                return
+
+        if self.state == 'hovering':
+            # Terus kirim target posisi agar drone mempertahankan posisi hover di titik akhir
+            self.step_count += 1
+            if self.step_count % 10 == 0:
+                self.send_all_waypoints()
 
 def main(args=None):
     rclpy.init(args=args)

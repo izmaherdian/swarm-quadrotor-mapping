@@ -30,6 +30,7 @@ echo "=== Clean old CSVs ==="
 rm -f "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv
 
 cleanup() {
+    trap - EXIT INT TERM
     echo ""
     echo "=== Cleanup ==="
     if [ -n "$SIM_PID" ]; then
