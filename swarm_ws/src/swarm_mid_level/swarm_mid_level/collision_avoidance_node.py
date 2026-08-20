@@ -357,8 +357,8 @@ class CollisionAvoidanceNode(Node):
             pref_vel = (rel_target / dist_to_target) * speed
             
             # Lane-keeping restoring force to pull the drone back to Y_spawn lane
-            # Only apply if we are actively flying (dist_to_target > 0.5m)
-            if dist_to_target > 0.5:
+            # Only apply if the mission waypoint is along the original spawn lane (e.g. multi-agent straight-line mission)
+            if dist_to_target > 0.5 and abs(self.target_waypoint[1] - self.spawn_y) < 0.2:
                 y_err = self.current_pos[1] - self.spawn_y
                 y_restore = -0.35 * y_err  # restoring proportional gain
                 y_restore = np.clip(y_restore, -0.6, 0.6) # clip to prevent excessive lateral commands
@@ -547,7 +547,7 @@ class CollisionAvoidanceNode(Node):
         # 5b. Yaw Control — Hybrid Waypoint + Velocity Blend
         #   Default: waypoint direction (forward-pointing, stabil)
         #   Saat vel arah > 90° beda dari waypoint (aggressive avoidance), blend ke velocity
-        #   Ini prevents yaw error besar tanpa bikin drone kehilangan arah.
+        #   Saat hover / dekat target (< 0.3m): TAHAN yaw saat ini (hold heading) untuk cegah osilasi atan2 pada noise posisi
         if not hasattr(self, 'yaw_smooth'):
             self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
 
@@ -558,21 +558,26 @@ class CollisionAvoidanceNode(Node):
         cmd_speed = float(np.sqrt(out_vx**2 + out_vy**2))
         dx_target = self.target_waypoint[0] - self.current_pos[0]
         dy_target = self.target_waypoint[1] - self.current_pos[1]
-        wp_angle = float(np.arctan2(dy_target, dx_target))
 
-        if self.waypoint_received and cmd_speed > YAW_SPEED_DEADBAND and dist_to_target > YAW_DIST_DEADBAND:
-            vel_angle = float(np.arctan2(out_vy, out_vx))
-            diff = vel_angle - wp_angle
-            diff = (diff + np.pi) % (2 * np.pi) - np.pi
-            diff_abs = float(np.abs(diff))
-            # Blend toward velocity direction when > 90° from waypoint (aggressive avoidance)
-            if diff_abs > np.pi / 2:
-                blend = min(1.0, (diff_abs - np.pi / 2) / (np.pi / 2))
-                yaw_target = (1.0 - blend) * wp_angle + blend * vel_angle
+        if dist_to_target > 0.3:
+            wp_angle = float(np.arctan2(dy_target, dx_target))
+            if self.waypoint_received and cmd_speed > YAW_SPEED_DEADBAND and dist_to_target > YAW_DIST_DEADBAND:
+                vel_angle = float(np.arctan2(out_vy, out_vx))
+                diff = vel_angle - wp_angle
+                diff = (diff + np.pi) % (2 * np.pi) - np.pi
+                diff_abs = float(np.abs(diff))
+                # Blend toward velocity direction when > 90° from waypoint (aggressive avoidance)
+                if diff_abs > np.pi / 2:
+                    blend = min(1.0, (diff_abs - np.pi / 2) / (np.pi / 2))
+                    yaw_target = (1.0 - blend) * wp_angle + blend * vel_angle
+                else:
+                    yaw_target = wp_angle
             else:
                 yaw_target = wp_angle
         else:
-            yaw_target = wp_angle
+            # Hold current smooth heading when hovering/reaching waypoint (< 0.3m)
+            # This completely prevents atan2(micro-noise, micro-noise) singularity from shaking the drone
+            yaw_target = self.yaw_smooth
 
         delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
         yaw_step = YAW_FILTER_ALPHA * delta_yaw
@@ -635,6 +640,9 @@ class CollisionAvoidanceNode(Node):
             self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
             self.pos_ref = np.array([float(self.target_waypoint[0]),
                                       float(self.target_waypoint[1])], dtype=np.float32)
+            out_vx = 0.0
+            out_vy = 0.0
+            yaw_rate = 0.0
 
         target_pose.pose.position.z = float(self.target_z_height)
         target_pose.pose.orientation.x = 0.0
