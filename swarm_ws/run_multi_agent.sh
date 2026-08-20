@@ -34,7 +34,7 @@ rm -f "$WS_DIR/src/swarm_sim/results/multi_agent/pid_hinf/"*.csv
 echo "=== Launch Gazebo sim (background) ==="
 nohup ros2 launch swarm_sim sim_launch.py \
     num_drones:=7 controller:=pid_lqr_node \
-    headless:=true rviz:=false \
+    headless:=false rviz:=false \
     results_base:=multi_agent "$@" > /tmp/sim_multi.log 2>&1 &
 SIM_PID=$!
 echo "  sim PID=$SIM_PID"
@@ -53,16 +53,13 @@ if ! grep -q "initialized" /tmp/sim_multi.log 2>/dev/null; then
     exit 1
 fi
 
+echo "=== Run test_waypoints.py (sending waypoints to all 7 drones) ==="
+python3 "$WS_DIR/test_waypoints.py"
+EXIT_CODE=$?
+
+echo "=== Cleanup ==="
+kill "$SIM_PID" 2>/dev/null
 echo ""
-echo "============================================"
-echo "  SIM READY — all 7 drones spawned"
-echo "  Run this in another terminal:"
-echo ""
-echo "    cd $WS_DIR"
-echo "    python3 test_waypoints.py"
-echo ""
-echo "  CSV akan tersimpan di:"
-echo "    src/swarm_sim/results/multi_agent/pid_lqr/"
-echo "============================================"
-echo ""
-echo "SIM PID=$SIM_PID — kill with: kill $SIM_PID"
+echo "=== CSV hasil 7 Drone: ==="
+ls "$WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"*.csv 2>/dev/null || echo "(tidak ada CSV)"
+echo "Done (exit=$EXIT_CODE)"
