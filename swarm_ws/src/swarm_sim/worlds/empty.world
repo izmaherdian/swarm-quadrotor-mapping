@@ -102,7 +102,10 @@
       </link>
     </model>
 
-    <!-- STATIC OBSTACLE (CYLINDER / TABUNG BIRU) -->
+    <!-- ======================================================= -->
+    <!-- OBSTACLES FOR WAYPOINT TEST (COMMENTED TEMPORARILY)     -->
+    <!-- ======================================================= -->
+    <!--
     <model name="obstacle_blue_cylinder">
       <static>true</static>
       <pose>5 -3 2 0 0 0</pose>
@@ -131,7 +134,6 @@
       </link>
     </model>
 
-    <!-- STATIC OBSTACLE (CYLINDER / TABUNG MERAH - DI TENGAH WP 0 KE 1) -->
     <model name="obstacle_red_cylinder">
       <static>true</static>
       <pose>2.5 -6 2 0 0 0</pose>
@@ -160,7 +162,6 @@
       </link>
     </model>
 
-    <!-- STATIC OBSTACLE (CYLINDER / TABUNG HIJAU - DEKAT WP 3 DI DALAM KOTAK) -->
     <model name="obstacle_green_cylinder">
       <static>true</static>
       <pose>0.8 -1.8 2 0 0 0</pose>
@@ -188,6 +189,7 @@
         </visual>
       </link>
     </model>
+    -->
 
   </world>
 </sdf>

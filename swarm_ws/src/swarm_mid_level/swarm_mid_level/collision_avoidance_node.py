@@ -5,7 +5,7 @@ import math
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PointStamped, PoseStamped, TwistStamped
+from geometry_msgs.msg import PointStamped, PoseStamped, TwistStamped, Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import LaserScan
 
@@ -241,6 +241,14 @@ class CollisionAvoidanceNode(Node):
             self.waypoint_pose_callback,
             10
         )
+        self.cmd_vel_sub = self.create_subscription(
+            Twist,
+            f'/iris_{did}/cmd_vel',
+            self.cmd_vel_callback,
+            10
+        )
+        self.cmd_vel_input = None
+        self.cmd_vel_timeout = 0
 
         # 2. Subscribe to all neighbor drones' odometry for ORCA reciprocal state
         for i in range(1, self.num_drones + 1):
@@ -323,12 +331,17 @@ class CollisionAvoidanceNode(Node):
         self.target_z_height = msg.pose.position.z
         self.waypoint_received = True
 
+    def cmd_vel_callback(self, msg: Twist):
+        self.cmd_vel_input = msg
+        self.cmd_vel_timeout = 5  # active for 0.5s (5 ticks @ 10Hz)
+        self.waypoint_received = True
+
     def control_loop(self):
         self.steps += 1
         if self.target_waypoint is None:
             return
 
-        # 0. Hover at spawn position until Waypoint is received
+        # 0. Hover at spawn position until Waypoint or cmd_vel is received
         if not self.waypoint_received:
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()
@@ -345,24 +358,44 @@ class CollisionAvoidanceNode(Node):
             self.pose_pub.publish(target_pose)
             return
 
-        # 1. Calculate Preferred Velocity towards Target Waypoint
-        rel_target = self.target_waypoint - self.current_pos[:2]
-        dist_to_target = float(np.linalg.norm(rel_target))
+        # 1. Calculate Preferred Velocity
+        is_vel_mode = (self.cmd_vel_input is not None and self.cmd_vel_timeout > 0)
+        if is_vel_mode:
+            self.cmd_vel_timeout -= 1
+            body_vx = float(self.cmd_vel_input.linear.x)
+            body_vy = float(self.cmd_vel_input.linear.y)
+            yaw_rate_cmd = float(self.cmd_vel_input.angular.z)
 
-        if dist_to_target < 0.1:
-            pref_vel = np.zeros(2, dtype=np.float32)
+            # Update yaw angle smooth directly from commanded yaw_rate
+            self.yaw_smooth += yaw_rate_cmd * self.dt
+            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+
+            # Rotate body velocity to world frame using current yaw
+            cos_y = math.cos(self.yaw_smooth)
+            sin_y = math.sin(self.yaw_smooth)
+            world_vx = body_vx * cos_y - body_vy * sin_y
+            world_vy = body_vx * sin_y + body_vy * cos_y
+
+            pref_vel = np.array([world_vx, world_vy], dtype=np.float32)
+            dist_to_target = 5.0  # nominal distance for obstacle scaling
         else:
-            # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 1.5)
-            speed = min(self.max_speed, dist_to_target * 1.5)
-            pref_vel = (rel_target / dist_to_target) * speed
-            
-            # Lane-keeping restoring force to pull the drone back to Y_spawn lane
-            # Only apply if the mission waypoint is along the original spawn lane (e.g. multi-agent straight-line mission)
-            if dist_to_target > 0.5 and abs(self.target_waypoint[1] - self.spawn_y) < 0.2:
-                y_err = self.current_pos[1] - self.spawn_y
-                y_restore = -0.35 * y_err  # restoring proportional gain
-                y_restore = np.clip(y_restore, -0.6, 0.6) # clip to prevent excessive lateral commands
-                pref_vel[1] += y_restore
+            rel_target = self.target_waypoint - self.current_pos[:2]
+            dist_to_target = float(np.linalg.norm(rel_target))
+
+            if dist_to_target < 0.1:
+                pref_vel = np.zeros(2, dtype=np.float32)
+            else:
+                # Deselerasi halus saat mendekati titik tujuan agar tidak overshoot (tuning 1.5)
+                speed = min(self.max_speed, dist_to_target * 1.5)
+                pref_vel = (rel_target / dist_to_target) * speed
+                
+                # Lane-keeping restoring force to pull the drone back to Y_spawn lane
+                # Only apply if the mission waypoint is along the original spawn lane (e.g. multi-agent straight-line mission)
+                if dist_to_target > 0.5 and abs(self.target_waypoint[1] - self.spawn_y) < 0.2:
+                    y_err = self.current_pos[1] - self.spawn_y
+                    y_restore = -0.35 * y_err  # restoring proportional gain
+                    y_restore = np.clip(y_restore, -0.6, 0.6) # clip to prevent excessive lateral commands
+                    pref_vel[1] += y_restore
 
         # 1b. Break head-on symmetry (COLREGs Turn-Right Rule)
         # Jika ada tetangga dekat di depan arah preferred velocity, geser preferred velocity sedikit ke kanan
@@ -544,123 +577,142 @@ class CollisionAvoidanceNode(Node):
         self.cmd_vel_smooth += dv
         out_vx, out_vy = float(self.cmd_vel_smooth[0]), float(self.cmd_vel_smooth[1])
 
-        # 5b. Yaw Control — Hybrid Waypoint + Velocity Blend
-        #   Default: waypoint direction (forward-pointing, stabil)
-        #   Saat vel arah > 90° beda dari waypoint (aggressive avoidance), blend ke velocity
-        #   Saat hover / dekat target (< 0.3m): TAHAN yaw saat ini (hold heading) untuk cegah osilasi atan2 pada noise posisi
-        if not hasattr(self, 'yaw_smooth'):
-            self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
+        # 5b. Yaw Control & 6. Position Integration
+        if is_vel_mode:
+            yaw_rate = yaw_rate_cmd
+            half_yaw = self.yaw_smooth * 0.5
+            qw = float(np.cos(half_yaw))
+            qz = float(np.sin(half_yaw))
 
-        YAW_SPEED_DEADBAND = 0.15
-        YAW_DIST_DEADBAND = 0.8
-        YAW_FILTER_ALPHA = 0.25
+            if not hasattr(self, 'pos_ref'):
+                self.pos_ref = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
 
-        cmd_speed = float(np.sqrt(out_vx**2 + out_vy**2))
-        dx_target = self.target_waypoint[0] - self.current_pos[0]
-        dy_target = self.target_waypoint[1] - self.current_pos[1]
+            self.pos_ref[0] += out_vx * self.dt
+            self.pos_ref[1] += out_vy * self.dt
 
-        if dist_to_target > 0.3:
-            wp_angle = float(np.arctan2(dy_target, dx_target))
-            if self.waypoint_received and cmd_speed > YAW_SPEED_DEADBAND and dist_to_target > YAW_DIST_DEADBAND:
-                vel_angle = float(np.arctan2(out_vy, out_vx))
-                diff = vel_angle - wp_angle
-                diff = (diff + np.pi) % (2 * np.pi) - np.pi
-                diff_abs = float(np.abs(diff))
-                # Blend toward velocity direction when > 90° from waypoint (aggressive avoidance)
-                if diff_abs > np.pi / 2:
-                    blend = min(1.0, (diff_abs - np.pi / 2) / (np.pi / 2))
-                    yaw_target = (1.0 - blend) * wp_angle + blend * vel_angle
+            # Tether pos_ref to current_pos to avoid runaway reference
+            tracking_err = float(np.linalg.norm(self.pos_ref - self.current_pos[:2]))
+            if tracking_err > 0.35:
+                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.35 / tracking_err)
+
+            target_pose = PoseStamped()
+            target_pose.header.stamp = self.get_clock().now().to_msg()
+            target_pose.header.frame_id = 'world'
+            target_pose.pose.position.x = float(self.pos_ref[0])
+            target_pose.pose.position.y = float(self.pos_ref[1])
+            target_pose.pose.position.z = float(self.target_z_height)
+            target_pose.pose.orientation.x = 0.0
+            target_pose.pose.orientation.y = 0.0
+            target_pose.pose.orientation.z = qz
+            target_pose.pose.orientation.w = qw
+            self.pose_pub.publish(target_pose)
+
+            vel_msg = TwistStamped()
+            vel_msg.header.stamp = target_pose.header.stamp
+            vel_msg.header.frame_id = 'world'
+            vel_msg.twist.linear.x = float(out_vx)
+            vel_msg.twist.linear.y = float(out_vy)
+            vel_msg.twist.angular.z = float(yaw_rate)
+            self.vel_pub.publish(vel_msg)
+            return
+        else:
+            # Hybrid Waypoint + Velocity Blend for Waypoint Navigation
+            if not hasattr(self, 'yaw_smooth'):
+                self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
+
+            YAW_SPEED_DEADBAND = 0.15
+            YAW_DIST_DEADBAND = 0.8
+            YAW_FILTER_ALPHA = 0.25
+
+            cmd_speed = float(np.sqrt(out_vx**2 + out_vy**2))
+            dx_target = self.target_waypoint[0] - self.current_pos[0]
+            dy_target = self.target_waypoint[1] - self.current_pos[1]
+
+            if dist_to_target > 0.3:
+                wp_angle = float(np.arctan2(dy_target, dx_target))
+                if self.waypoint_received and cmd_speed > YAW_SPEED_DEADBAND and dist_to_target > YAW_DIST_DEADBAND:
+                    vel_angle = float(np.arctan2(out_vy, out_vx))
+                    diff = vel_angle - wp_angle
+                    diff = (diff + np.pi) % (2 * np.pi) - np.pi
+                    diff_abs = float(np.abs(diff))
+                    if diff_abs > np.pi / 2:
+                        blend = min(1.0, (diff_abs - np.pi / 2) / (np.pi / 2))
+                        yaw_target = (1.0 - blend) * wp_angle + blend * vel_angle
+                    else:
+                        yaw_target = wp_angle
                 else:
                     yaw_target = wp_angle
             else:
-                yaw_target = wp_angle
-        else:
-            # Hold current smooth heading when hovering/reaching waypoint (< 0.3m)
-            # This completely prevents atan2(micro-noise, micro-noise) singularity from shaking the drone
-            yaw_target = self.yaw_smooth
+                yaw_target = self.yaw_smooth
 
-        delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-        yaw_step = YAW_FILTER_ALPHA * delta_yaw
-        MAX_YAW_STEP = 0.262
-        yaw_step = np.clip(yaw_step, -MAX_YAW_STEP, MAX_YAW_STEP)
-        self.yaw_smooth += yaw_step
-        self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+            delta_yaw = (yaw_target - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+            yaw_step = YAW_FILTER_ALPHA * delta_yaw
+            MAX_YAW_STEP = 0.262
+            yaw_step = np.clip(yaw_step, -MAX_YAW_STEP, MAX_YAW_STEP)
+            self.yaw_smooth += yaw_step
+            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
-        yaw_rate = yaw_step / self.dt
+            yaw_rate = yaw_step / self.dt
 
-        # Encode yaw_smooth ke quaternion orientation (roll=0, pitch=0, yaw=yaw_smooth)
-        half_yaw = self.yaw_smooth * 0.5
-        qw = float(np.cos(half_yaw))
-        qz = float(np.sin(half_yaw))
+            half_yaw = self.yaw_smooth * 0.5
+            qw = float(np.cos(half_yaw))
+            qz = float(np.sin(half_yaw))
 
-        # Debug log every ~2s
-        if self.steps % 20 == 0:
-            self.get_logger().info(
-                f"[ORCA] Pos=({self.current_pos[0]:.2f},{self.current_pos[1]:.2f}) "
-                f"Target=({self.target_waypoint[0]:.1f},{self.target_waypoint[1]:.1f}) "
-                f"Dist={dist_to_target:.2f}m | Vel=({out_vx:.2f},{out_vy:.2f}) | Yaw={np.degrees(self.yaw_smooth):.1f}°"
-            )
+            # Integrate ORCA velocity to target position with smooth blending lookahead
+            target_pose = PoseStamped()
+            target_pose.header.stamp = self.get_clock().now().to_msg()
+            target_pose.header.frame_id = 'world'
 
-        # 6. Integrate ORCA velocity to target position with smooth blending lookahead
-        target_pose = PoseStamped()
-        target_pose.header.stamp = self.get_clock().now().to_msg()
-        target_pose.header.frame_id = 'world'
+            if not hasattr(self, 'pos_ref'):
+                self.pos_ref = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
 
-        # Smooth position integration from cmd_vel — zero step-change, no jump
-        if not hasattr(self, 'pos_ref'):
-            self.pos_ref = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
+            self.pos_ref[0] += out_vx * self.dt
+            self.pos_ref[1] += out_vy * self.dt
 
-        self.pos_ref[0] += out_vx * self.dt
-        self.pos_ref[1] += out_vy * self.dt
+            tracking_err = np.linalg.norm(self.pos_ref - self.current_pos[:2])
+            if tracking_err > 0.2:
+                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.2 / tracking_err)
 
-        # Synchronize pos_ref to current_pos if tracking error is too large (> 0.2m)
-        # This keeps the reference trajectory tethered to the actual drone position,
-        # preventing the reference from running away and violating ORCA distance constraints.
-        tracking_err = np.linalg.norm(self.pos_ref - self.current_pos[:2])
-        if tracking_err > 0.2:
-            self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.2 / tracking_err)
+            # Clamp: jangan melampaui waypoint (anti-overshoot)
+            if self.target_waypoint[0] <= self.current_pos[0]:
+                self.pos_ref[0] = max(self.pos_ref[0], float(self.target_waypoint[0]))
+            if self.target_waypoint[0] > self.current_pos[0]:
+                self.pos_ref[0] = min(self.pos_ref[0], float(self.target_waypoint[0]))
+            if self.target_waypoint[1] <= self.current_pos[1]:
+                self.pos_ref[1] = max(self.pos_ref[1], float(self.target_waypoint[1]))
+            if self.target_waypoint[1] > self.current_pos[1]:
+                self.pos_ref[1] = min(self.pos_ref[1], float(self.target_waypoint[1]))
 
-        # Clamp: jangan melampaui waypoint (anti-overshoot)
-        if self.target_waypoint[0] <= self.current_pos[0]:
-            self.pos_ref[0] = max(self.pos_ref[0], float(self.target_waypoint[0]))
-        if self.target_waypoint[0] > self.current_pos[0]:
-            self.pos_ref[0] = min(self.pos_ref[0], float(self.target_waypoint[0]))
-        if self.target_waypoint[1] <= self.current_pos[1]:
-            self.pos_ref[1] = max(self.pos_ref[1], float(self.target_waypoint[1]))
-        if self.target_waypoint[1] > self.current_pos[1]:
-            self.pos_ref[1] = min(self.pos_ref[1], float(self.target_waypoint[1]))
+            target_pose.pose.position.x = float(self.pos_ref[0] + out_vx * self.lookahead_damping)
+            target_pose.pose.position.y = float(self.pos_ref[1] + out_vy * self.lookahead_damping)
 
-        target_pose.pose.position.x = float(self.pos_ref[0] + out_vx * self.lookahead_damping)
-        target_pose.pose.position.y = float(self.pos_ref[1] + out_vy * self.lookahead_damping)
+            # Kunci presisi mutlak saat sangat dekat (< 0.15m)
+            if dist_to_target < 0.15:
+                target_pose.pose.position.x = float(self.target_waypoint[0])
+                target_pose.pose.position.y = float(self.target_waypoint[1])
+                self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
+                self.pos_ref = np.array([float(self.target_waypoint[0]),
+                                          float(self.target_waypoint[1])], dtype=np.float32)
+                out_vx = 0.0
+                out_vy = 0.0
+                yaw_rate = 0.0
 
-        # Kunci presisi mutlak saat sangat dekat (< 0.15m)
-        if dist_to_target < 0.15:
-            target_pose.pose.position.x = float(self.target_waypoint[0])
-            target_pose.pose.position.y = float(self.target_waypoint[1])
-            self.cmd_vel_smooth = np.zeros(2, dtype=np.float32)
-            self.pos_ref = np.array([float(self.target_waypoint[0]),
-                                      float(self.target_waypoint[1])], dtype=np.float32)
-            out_vx = 0.0
-            out_vy = 0.0
-            yaw_rate = 0.0
+            target_pose.pose.position.z = float(self.target_z_height)
+            target_pose.pose.orientation.x = 0.0
+            target_pose.pose.orientation.y = 0.0
+            target_pose.pose.orientation.z = qz
+            target_pose.pose.orientation.w = qw
+            self.pose_pub.publish(target_pose)
 
-        target_pose.pose.position.z = float(self.target_z_height)
-        target_pose.pose.orientation.x = 0.0
-        target_pose.pose.orientation.y = 0.0
-        target_pose.pose.orientation.z = qz
-        target_pose.pose.orientation.w = qw
-
-        self.pose_pub.publish(target_pose)
-
-        # Publish ORCA velocity sebagai feedforward untuk low-level
-        vel_msg = TwistStamped()
-        vel_msg.header.stamp = target_pose.header.stamp
-        vel_msg.header.frame_id = 'world'
-        vel_msg.twist.linear.x = float(out_vx)
-        vel_msg.twist.linear.y = float(out_vy)
-        vel_msg.twist.linear.z = 0.0
-        vel_msg.twist.angular.z = float(yaw_rate)
-        self.vel_pub.publish(vel_msg)
+            # Publish ORCA velocity sebagai feedforward untuk low-level
+            vel_msg = TwistStamped()
+            vel_msg.header.stamp = target_pose.header.stamp
+            vel_msg.header.frame_id = 'world'
+            vel_msg.twist.linear.x = float(out_vx)
+            vel_msg.twist.linear.y = float(out_vy)
+            vel_msg.twist.linear.z = 0.0
+            vel_msg.twist.angular.z = float(yaw_rate)
+            self.vel_pub.publish(vel_msg)
 
 
 def main(args=None):
