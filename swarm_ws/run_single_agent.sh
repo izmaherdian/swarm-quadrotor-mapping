@@ -70,5 +70,16 @@ if ! grep -q "initialized" /tmp/sim_single.log 2>/dev/null; then
     exit 1
 fi
 
-echo "=== Run test_square.py (square path) ==="
-python3 "$WS_DIR/test_square.py"
+echo "============================================"
+echo "  SIM READY — Single Drone (iris_1) spawned"
+echo "  Jalankan perintah ini di terminal terpisah:"
+echo ""
+echo "    cd $WS_DIR"
+echo "    python3 test_square.py"
+echo ""
+echo "  CSV akan tersimpan di:"
+echo "    src/swarm_sim/results/single_agent/pid_lqr/"
+echo "============================================"
+echo ""
+echo "SIM PID=$SIM_PID — Tekan Ctrl+C di terminal ini untuk berhenti & cleanup..."
+wait "$SIM_PID"

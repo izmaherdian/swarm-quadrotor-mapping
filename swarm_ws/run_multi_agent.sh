@@ -72,5 +72,16 @@ if ! grep -q "initialized" /tmp/sim_multi.log 2>/dev/null; then
     exit 1
 fi
 
-echo "=== Run test_waypoints.py (Monitoring 7 Drone Swarm secara Real-Time) ==="
-python3 "$WS_DIR/test_waypoints.py"
+echo "============================================"
+echo "  SIM READY — all 7 drones spawned"
+echo "  Jalankan perintah ini di terminal terpisah:"
+echo ""
+echo "    cd $WS_DIR"
+echo "    python3 test_waypoints.py"
+echo ""
+echo "  CSV akan tersimpan di:"
+echo "    src/swarm_sim/results/multi_agent/pid_lqr/"
+echo "============================================"
+echo ""
+echo "SIM PID=$SIM_PID — Tekan Ctrl+C di terminal ini untuk berhenti & cleanup..."
+wait "$SIM_PID"
