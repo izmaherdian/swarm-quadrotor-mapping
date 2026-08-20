@@ -31,6 +31,25 @@ echo "=== Clean old CSVs ==="
 rm -f "$WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"*.csv
 rm -f "$WS_DIR/src/swarm_sim/results/multi_agent/pid_hinf/"*.csv
 
+cleanup() {
+    echo ""
+    echo "=== Cleanup ==="
+    if [ -n "$SIM_PID" ]; then
+        kill "$SIM_PID" 2>/dev/null || true
+    fi
+    for pid in $(ps aux | grep -E "gz.sim|ros2 launch|parameter_bridge|ai_iris|collision|pid_" | grep -v grep | awk '{print $2}'); do
+        kill -9 "$pid" 2>/dev/null || true
+    done
+    echo ""
+    echo "=== CSV hasil 7 Drone tersimpan di: ==="
+    echo "  $WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"
+    echo ""
+    ls -lh "$WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"*.csv 2>/dev/null || echo "  (tidak ada CSV)"
+    echo ""
+    echo "Done (Multi-Agent Swarm Selesai)."
+}
+trap cleanup EXIT INT TERM
+
 echo "=== Launch Gazebo sim (background) ==="
 nohup ros2 launch swarm_sim sim_launch.py \
     num_drones:=7 controller:=pid_lqr_node \
@@ -49,17 +68,8 @@ for i in $(seq 1 60); do
 done
 if ! grep -q "initialized" /tmp/sim_multi.log 2>/dev/null; then
     echo "  ERROR: ORCA tidak pernah initialized. Cek /tmp/sim_multi.log"
-    kill "$SIM_PID" 2>/dev/null
     exit 1
 fi
 
-echo "=== Run test_waypoints.py (sending waypoints to all 7 drones) ==="
+echo "=== Run test_waypoints.py (Monitoring 7 Drone Swarm secara Real-Time) ==="
 python3 "$WS_DIR/test_waypoints.py"
-EXIT_CODE=$?
-
-echo "=== Cleanup ==="
-kill "$SIM_PID" 2>/dev/null
-echo ""
-echo "=== CSV hasil 7 Drone: ==="
-ls "$WS_DIR/src/swarm_sim/results/multi_agent/pid_lqr/"*.csv 2>/dev/null || echo "(tidak ada CSV)"
-echo "Done (exit=$EXIT_CODE)"

@@ -29,6 +29,25 @@ done
 echo "=== Clean old CSVs ==="
 rm -f "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv
 
+cleanup() {
+    echo ""
+    echo "=== Cleanup ==="
+    if [ -n "$SIM_PID" ]; then
+        kill "$SIM_PID" 2>/dev/null || true
+    fi
+    for pid in $(ps aux | grep -E "gz.sim|ros2 launch|parameter_bridge|ai_iris|collision|pid_" | grep -v grep | awk '{print $2}'); do
+        kill -9 "$pid" 2>/dev/null || true
+    done
+    echo ""
+    echo "=== CSV hasil Single Agent tersimpan di: ==="
+    echo "  $WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"
+    echo ""
+    ls -lh "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv 2>/dev/null || echo "  (tidak ada CSV)"
+    echo ""
+    echo "Done (Single-Agent Selesai)."
+}
+trap cleanup EXIT INT TERM
+
 echo "=== Launch Gazebo sim (background) ==="
 nohup ros2 launch swarm_sim sim_launch.py \
     num_drones:=1 controller:=pid_lqr_node \
@@ -47,17 +66,8 @@ for i in $(seq 1 30); do
 done
 if ! grep -q "initialized" /tmp/sim_single.log 2>/dev/null; then
     echo "  ERROR: ORCA tidak pernah initialized. Cek /tmp/sim_single.log"
-    kill "$SIM_PID" 2>/dev/null
     exit 1
 fi
 
 echo "=== Run test_square.py (square path) ==="
 python3 "$WS_DIR/test_square.py"
-EXIT_CODE=$?
-
-echo "=== Cleanup ==="
-kill "$SIM_PID" 2>/dev/null
-echo ""
-echo "=== CSV hasil: ==="
-ls "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv 2>/dev/null || echo "(tidak ada CSV)"
-echo "Done (exit=$EXIT_CODE)"

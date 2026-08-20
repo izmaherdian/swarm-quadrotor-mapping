@@ -384,13 +384,13 @@ class CollisionAvoidanceNode(Node):
         neighbor_list = list(self.neighbors_state.values())
         repulsion_vec = np.zeros(2, dtype=np.float32)
 
-        # 2b. Repulsion from neighbor drones (Zone = 2.0m)
+        # 2b. Repulsion from neighbor drones (Zone = 1.4m untuk cegah drift pada drone tepi saat formasi nominal 2.0m)
         for nbr in neighbor_list:
             rel_nbr = self.current_pos[:2] - nbr['pos'] # Pointing AWAY from neighbor
             dist_nbr = float(np.linalg.norm(rel_nbr))
-            if 1e-3 < dist_nbr < 2.0:
-                # Inverse-Square Law: semakin dekat (< 1.0m), gaya tolak melonjak sangat kuat
-                rep_gain = ((2.0 / max(dist_nbr, 0.4)) ** 2) * 0.4
+            if 1e-3 < dist_nbr < 1.4:
+                # Inverse-Square Law: hanya aktif jika jarak < 1.4m (menghindari repulsi pada jarak nominal 2.0m)
+                rep_gain = ((1.4 / max(dist_nbr, 0.4)) ** 2) * 0.4
                 repulsion_vec += (rel_nbr / dist_nbr) * rep_gain
 
         # 3. Extract static Lidar obstacles as Point-Cloud Obstacles in ORCA
