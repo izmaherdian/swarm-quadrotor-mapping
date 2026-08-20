@@ -102,7 +102,7 @@
       </link>
     </model>
 
-    <!-- OBSTACLES DITUTUP SEMENTARA UNTUK SINGLE AGENT VALIDATION
+    <!-- STATIC OBSTACLES -->
     <model name="obstacle_a">
       <static>true</static>
       <pose>2 -1.5 2 0 0 0</pose>
@@ -138,7 +138,6 @@
         <visual name="visual"><geometry><box><size>0.5 0.5 4</size></box></geometry><material><ambient>1 0.5 0 1</ambient><diffuse>1 0.5 0 1</diffuse></material></visual>
       </link>
     </model>
-    -->
 
   </world>
 </sdf>
