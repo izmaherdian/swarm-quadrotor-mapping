@@ -152,7 +152,10 @@ def generate_launch_description():
                     pass
                 break
 
-        if _num_drones_int == 2:
+        if _num_drones_int == 1:
+            x_pos_str = '-5.5'
+            y_pos_str = '-5.5'
+        elif _num_drones_int == 2:
             x_pos_str = '-6.0' if i == 1 else '6.0'
             y_pos_str = '0.0'
         else:
@@ -204,7 +207,8 @@ def generate_launch_description():
             executable='collision_avoidance_node',
             name=f'ai_iris_{i}',
             parameters=[
-                {'drone_id': i}
+                {'drone_id': i},
+                {'max_speed': 1.0}
             ],
             condition=mid_level_condition,
             output='screen'

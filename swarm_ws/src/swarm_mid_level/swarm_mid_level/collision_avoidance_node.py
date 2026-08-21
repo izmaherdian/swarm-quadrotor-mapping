@@ -308,9 +308,17 @@ class CollisionAvoidanceNode(Node):
         self.lidar_ranges = np.clip(ranges, 0.1, 10.0)
 
     def euler_from_quaternion(self, x, y, z, w):
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll = math.atan2(t0, t1)
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch = math.asin(t2)
         t3 = +2.0 * (w * z + x * y)
         t4 = +1.0 - 2.0 * (y * y + z * z)
-        return math.atan2(t3, t4)
+        yaw = math.atan2(t3, t4)
+        return roll, pitch, yaw
 
     def odom_callback(self, msg):
         self.current_pos[0] = msg.pose.pose.position.x
@@ -321,7 +329,10 @@ class CollisionAvoidanceNode(Node):
         qy = msg.pose.pose.orientation.y
         qz = msg.pose.pose.orientation.z
         qw = msg.pose.pose.orientation.w
-        self.current_yaw = self.euler_from_quaternion(qx, qy, qz, qw)
+        roll, pitch, yaw = self.euler_from_quaternion(qx, qy, qz, qw)
+        self.current_roll = roll
+        self.current_pitch = pitch
+        self.current_yaw = yaw
 
         # Konversi kecepatan sendiri dari Body Frame ke World Frame
         vx_b = float(msg.twist.twist.linear.x)
@@ -453,11 +464,21 @@ class CollisionAvoidanceNode(Node):
         # the 2D LiDAR beam hits the ground and creates 360° phantom obstacles,
         # corrupting ORCA velocity and yaw computation.
         current_yaw = getattr(self, 'current_yaw', 0.0)
+        current_pitch = getattr(self, 'current_pitch', 0.0)
+        current_roll = getattr(self, 'current_roll', 0.0)
         angles_body = np.linspace(-np.pi, np.pi, len(self.lidar_ranges))
         angles_world = current_yaw + angles_body # Transform Lidar body frame to World frame
 
-        if self.current_pos[2] > 1.5:
-            obs_mask = self.lidar_ranges < 4.5
+        # Hitung estimasi ketinggian Z titik kontak laser di koordinat dunia berdasarkan Roll & Pitch
+        # z_hit = z_drone - d_i * (sin(pitch)*cos(body_angle) - sin(roll)*sin(body_angle))
+        z_drone = float(self.current_pos[2])
+        z_ray_offsets = np.sin(current_pitch) * np.cos(angles_body) - np.sin(current_roll) * np.sin(angles_body)
+        z_hits = z_drone - self.lidar_ranges * z_ray_offsets
+
+        # Sinar laser hanya diakui sebagai rintangan nyata jika berada di atas lantai (z_hit > 0.35m)
+        # dan berada dalam radius deteksi aktif (< 4.5m)
+        if z_drone > 1.0:
+            obs_mask = (self.lidar_ranges < 4.5) & (z_hits > 0.35)
         else:
             obs_mask = np.zeros(len(self.lidar_ranges), dtype=bool)
 
@@ -465,7 +486,7 @@ class CollisionAvoidanceNode(Node):
             close_indices = np.where(obs_mask)[0]
             if self.steps % 20 == 0:
                 self.get_logger().info(
-                    f"[LIDAR] Obstacle points: {len(close_indices)} Z={self.current_pos[2]:.2f}m"
+                    f"[LIDAR] Real Obstacle points: {len(close_indices)} Z={z_drone:.2f}m"
                 )
             
             # 3a. Represent Lidar points directly as static ORCA obstacle spheres
@@ -473,7 +494,7 @@ class CollisionAvoidanceNode(Node):
             for idx in close_indices[::6]:
                 d_i = float(self.lidar_ranges[idx])
                 if d_i < 0.5:
-                    continue  # skip self-detection / LiDAR noise (common in headless empty world)
+                    continue  # skip self-detection / LiDAR noise
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
                 
@@ -494,7 +515,7 @@ class CollisionAvoidanceNode(Node):
                     'radius': 0.15  # combined with safety_radius (0.75m) = 0.90m comfortable clearance bubble
                 })
 
-            # 3b. Non-Linear Repulsion for smooth steering (Jarak aman diperbesar < 1.6m untuk rintangan statis)
+            # 3b. Non-Linear Repulsion for smooth steering
             for idx in close_indices[::4]:
                 d_i = float(self.lidar_ranges[idx])
                 if d_i < 0.35 or d_i > 1.6:
@@ -502,7 +523,7 @@ class CollisionAvoidanceNode(Node):
                 ang_i_world = float(angles_world[idx])
                 obs_pos_i = self.current_pos[:2] + np.array([d_i * np.cos(ang_i_world), d_i * np.sin(ang_i_world)], dtype=np.float32)
 
-                # Filter out teammate drones (exclude all LiDAR rays within 1.5m of teammate)
+                # Filter out teammate drones
                 is_neighbor = False
                 for nbr in self.neighbors_state.values():
                     if np.linalg.norm(obs_pos_i - nbr['pos']) < 1.50:
@@ -525,8 +546,9 @@ class CollisionAvoidanceNode(Node):
                     repulsion_vec += push_dir * rep_gain_i
 
             # 3c. Tangential Steering: Smooth curve around closest obstacle
-            min_idx = np.argmin(self.lidar_ranges)
-            dist_min = float(self.lidar_ranges[min_idx])
+            valid_ranges = np.where(obs_mask, self.lidar_ranges, 10.0)
+            min_idx = np.argmin(valid_ranges)
+            dist_min = float(valid_ranges[min_idx])
             angle_min_world = float(angles_world[min_idx])
             obs_rel_min = np.array([dist_min * np.cos(angle_min_world), dist_min * np.sin(angle_min_world)], dtype=np.float32)
             obs_dir = obs_rel_min / max(dist_min, 0.05)
@@ -601,16 +623,15 @@ class CollisionAvoidanceNode(Node):
 
         # 5b. Yaw Control & 6. Position Integration
         if is_vel_mode:
-            # Nose selalu menghadap ke depan arah terbang nyata (vektor kecepatan actual)
-            actual_speed = float(np.sqrt(out_vx**2 + out_vy**2))
-            if actual_speed > 0.10:
-                target_yaw = float(np.arctan2(out_vy, out_vx))
-                delta_yaw = (target_yaw - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-                yaw_step = np.clip(0.22 * delta_yaw, -0.15, 0.15)
-                self.yaw_smooth += yaw_step
+            # Mode Pemetaan / Holonomik: pertahankan orientasi yaw tetap (spawn_yaw = 0)
+            # Quadrotor bergerak bebas di bidang (vx, vy) tanpa perlu memutar hidung.
+            # Ini menghilangkan 100% gangguan gyroskopik dan cross-coupling roll-pitch saat sweep.
+            if hasattr(self, 'cmd_vel_input') and self.cmd_vel_input is not None and abs(self.cmd_vel_input.angular.z) > 1e-3:
+                self.yaw_smooth += self.cmd_vel_input.angular.z * self.dt
                 self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-                yaw_rate = yaw_step / self.dt
+                yaw_rate = float(self.cmd_vel_input.angular.z)
             else:
+                self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
                 yaw_rate = 0.0
 
             half_yaw = self.yaw_smooth * 0.5

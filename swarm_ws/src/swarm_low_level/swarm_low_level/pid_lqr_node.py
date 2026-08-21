@@ -13,13 +13,14 @@ import yaml
 from .solver_pid_lqr import PIDLQRSolver
 
 class PID:
-    def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf):
+    def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf, i_max=None):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
         self.dt = dt
         self.out_min = out_min
         self.out_max = out_max
+        self.i_max = i_max
         self.integral = 0
         self.prev_error = 0
         
@@ -45,6 +46,8 @@ class PID:
             
         if integrate:
             self.integral += error * self.dt
+            if self.i_max is not None:
+                self.integral = float(np.clip(self.integral, -self.i_max, self.i_max))
             
         output = proportional + self.Ki * self.integral + derivative
         
@@ -82,13 +85,15 @@ class PIDLQRNode(Node):
         self.dt = 0.02 # Asumsi 50Hz, akan diupdate dinamis
         
         # Inisialisasi Blok PID untuk seluruh sumbu
-        self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
+        # i_max untuk outer loop dibatasi ke 0.052 rad (3.0 deg) agar integral tidak mendominasi pengereman
+        i_max_xy_out = 0.052 / max(abs(gains['x_outer']['Ki']), 1e-3)
+        self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'], i_max=i_max_xy_out)
         self.pid_x_in  = PID(gains['x_inner']['Kp'], 0.0, gains['x_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
+        self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'], i_max=i_max_xy_out)
         self.pid_y_in  = PID(gains['y_inner']['Kp'], 0.0, gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'])
+        self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'], i_max=2.0)
         self.pid_yaw = PID(gains['yaw']['Kp'] * 1.0, 0.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         # Konstanta Fisika dan Matriks Mixer
@@ -333,8 +338,11 @@ class PIDLQRNode(Node):
         self.pid_yaw.dt = dt_control
 
         if z < 0.15:
+            self.pid_x_out.integral = 0.0
+            self.pid_y_out.integral = 0.0
             self.pid_x_in.integral = 0.0
             self.pid_y_in.integral = 0.0
+            self.pid_z.integral = 0.0
             self.pid_yaw.integral = 0.0
         
         x = msg.pose.pose.position.x

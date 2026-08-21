@@ -53,6 +53,18 @@ Visualization Manager:
       Reliability: Reliable
       Value: /swarm_reference_track
     Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Mapping_Markers
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /mapping/markers
+    Value: true
   - Class: rviz_default_plugins/Path
     Alpha: 1.0
     Buffer Length: 1
