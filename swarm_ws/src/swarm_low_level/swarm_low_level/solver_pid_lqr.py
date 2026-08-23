@@ -80,21 +80,21 @@ class PIDLQRSolver:
         # ==========================================
         # 1. Subsistem X (Longitudinal -> Pitch)
         # ==========================================
-        # Outer Loop: X -> Theta_ref
+        # Outer Loop: X -> Theta_ref (Bandwidth optimal untuk eliminasi limit-cycle oscillation)
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([10.0, 1.0])
+        Q_x_out = np.diag([0.05, 0.30])
         R_x_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
-        # Inner Loop: Theta -> tau_y
+        # Inner Loop: Theta -> tau_y (Bandwidth tinggi untuk tracking sikap presisi dan redaman gyro kuat)
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([1.0, 0.1])
-        R_x_in = np.array([[0.01]])
+        Q_x_in = np.diag([2.0, 0.2])
+        R_x_in = np.array([[0.08]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -105,7 +105,7 @@ class PIDLQRSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([10.0, 1.0])
+        Q_y_out = np.diag([0.05, 0.30])
         R_y_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
@@ -114,10 +114,11 @@ class PIDLQRSolver:
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([1.0, 0.1])
-        R_y_in = np.array([[0.01]])
+        Q_y_in = np.diag([2.0, 0.2])
+        R_y_in = np.array([[0.08]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
+
 
         # ==========================================
         # 3. Subsistem Z (Altitude)
@@ -125,8 +126,8 @@ class PIDLQRSolver:
         Az = np.array([[0, 1], [0, 0]])
         Bz = np.array([[0], [1/m]])
         Cz = np.array([[1, 0]])
-        Q_z = np.diag([1, 1000])     # UPDATE TUNER: Q_damping = 1000
-        R_z = np.array([[1]])        # UPDATE TUNER: R = 1
+        Q_z = np.diag([1, 1000])     # Q_damping = 1000 untuk peredaman z mulus
+        R_z = np.array([[1]])
         Kp, Ki, Kd = self.solve_pid_lqr(Az, Bz, Cz, Q_z, R_z)
         gains['z'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 

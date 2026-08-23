@@ -1,20 +1,18 @@
-# Parameter Fisik Quadrotor
-# Nilai ini diekstrak dari nominal MATLAB Phase 0
-# Anda bisa membuat file berbeda (misal: quadrotor_berat.yaml) untuk skenario "Heterogeneous Swarm"
+# Parameter Fisik Quadrotor 3DR Iris (PX4 Benchmark)
 physics:
-  mass: 1.0        # kg
+  mass: 1.50       # kg (Nominal 3DR Iris dengan baterai & sensor)
   g: 9.81          # m/s^2
-  ix: 8.1e-3       # kg.m^2
-  iy: 8.1e-3       # kg.m^2
-  iz: 14.2e-3      # kg.m^2
-  arm_length: 0.24 # meter
+  ix: 0.0291       # kg.m^2 (Inersia asli PX4 SITL 3DR Iris)
+  iy: 0.0291       # kg.m^2
+  iz: 0.0552       # kg.m^2
+  arm_length: 0.22 # meter (d = arm_length * sin(45°) = 0.1556m)
 
 actuator_limits:
-  thrust_min: -9.81   # N (perturbasi minimum, setara thrust 0 N)
-  thrust_max: 10.19   # N (berdasarkan TWR 2:1, max 20 N)
-  tau_rp_max: 1.0     # Nm (Batas Torsi Roll/Pitch)
-  tau_y_max: 0.2      # Nm (Batas Torsi Yaw)
-  angle_max: 0.436    # rad (Batas kemiringan Roll/Pitch, 25 derajat)
+  thrust_min: -14.715 # N (perturbasi minimum, setara thrust 0 N pada hover 14.715 N)
+  thrust_max: 15.285  # N (total thrust max 30 N, TWR ~2.04:1)
+  tau_rp_max: 0.80    # Nm (Batas Torsi Roll/Pitch optimal untuk kontrol gesit dan aman)
+  tau_y_max: 0.25     # Nm (Batas Torsi Yaw)
+  angle_max: 0.262    # rad (Batas kemiringan Roll/Pitch, 15 derajat untuk mapping stabil)
 
 actuator_physics:
   kf: 8.54858e-06     # N / (rad/s)^2 (Thrust coefficient)
@@ -22,3 +20,4 @@ actuator_physics:
   tau_m: 0.02         # s (Motor time constant / First-Order Lag)
   omega_max: 1100.0   # rad/s (Batas maksimal putaran baling-baling)
   omega_min: 0.0      # rad/s
+

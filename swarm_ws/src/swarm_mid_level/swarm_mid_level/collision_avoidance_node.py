@@ -626,13 +626,7 @@ class CollisionAvoidanceNode(Node):
             # Mode Pemetaan / Holonomik: pertahankan orientasi yaw tetap (spawn_yaw = 0)
             # Quadrotor bergerak bebas di bidang (vx, vy) tanpa perlu memutar hidung.
             # Ini menghilangkan 100% gangguan gyroskopik dan cross-coupling roll-pitch saat sweep.
-            if hasattr(self, 'cmd_vel_input') and self.cmd_vel_input is not None and abs(self.cmd_vel_input.angular.z) > 1e-3:
-                self.yaw_smooth += self.cmd_vel_input.angular.z * self.dt
-                self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
-                yaw_rate = float(self.cmd_vel_input.angular.z)
-            else:
-                self.yaw_smooth = getattr(self, 'spawn_yaw', 0.0)
-                yaw_rate = 0.0
+            yaw_rate = float(self.cmd_vel_input.angular.z) if (hasattr(self, 'cmd_vel_input') and self.cmd_vel_input is not None) else 0.0
 
             half_yaw = self.yaw_smooth * 0.5
             qw = float(np.cos(half_yaw))
@@ -644,10 +638,10 @@ class CollisionAvoidanceNode(Node):
             self.pos_ref[0] += out_vx * self.dt
             self.pos_ref[1] += out_vy * self.dt
 
-            # Tether pos_ref to current_pos to avoid runaway reference
+            # Tether pos_ref to current_pos to avoid runaway reference (1.20m dynamic lead window)
             tracking_err = float(np.linalg.norm(self.pos_ref - self.current_pos[:2]))
-            if tracking_err > 0.30:
-                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (0.30 / tracking_err)
+            if tracking_err > 1.20:
+                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (1.20 / tracking_err)
 
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()

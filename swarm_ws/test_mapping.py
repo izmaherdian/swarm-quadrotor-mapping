@@ -80,6 +80,16 @@ class PureContinuousMappingNode(Node):
         self.dx = (self.x_max - self.x_min) / self.grid_n
         self.dy = (self.y_max - self.y_min) / self.grid_n
 
+        # ── Yaw Mode Configuration ('fixed' atau 'follow_path') ──────
+        self.declare_parameter('yaw_mode', 'fixed')
+        self.yaw_mode = self.get_parameter('yaw_mode').get_parameter_value().string_value
+        import sys
+        for arg in sys.argv:
+            if arg in ['--yaw-follow', '--follow', 'yaw_mode:=follow_path']:
+                self.yaw_mode = 'follow_path'
+            elif arg in ['--fixed-yaw', '--fixed', 'yaw_mode:=fixed']:
+                self.yaw_mode = 'fixed'
+
         # ── State Machine ────────────────────────────────────────────
         #   wait_odom -> wait_takeoff -> sweeping_row -> delay_at_corner_end
         #   -> stepping_vertical -> delay_at_new_row -> sweeping_row -> ... -> done
@@ -89,7 +99,8 @@ class PureContinuousMappingNode(Node):
         self.state = 'wait_odom'
         self.takeoff_timer = 0
         self.delay_remaining = 0
-        self.corner_delay_ticks = 5     # 0.5s jeda diam di sudut
+        # 1.5s jeda di sudut jika follow_path (untuk rotasi yaw mulus), 0.5s jika fixed yaw
+        self.corner_delay_ticks = 15 if self.yaw_mode == 'follow_path' else 5
         self.row_idx = 0
         self.ref_pos = np.array([-5.50, -5.50], dtype=np.float32)
         self.step_count = 0
@@ -104,12 +115,21 @@ class PureContinuousMappingNode(Node):
         self.timer_viz = self.create_timer(0.10, self.publish_rviz_markers)
 
         self.get_logger().info(
-            f'Pure Continuous Mapping v4 Siap! '
+            f'Pure Continuous Mapping v4 Siap! [Yaw Mode: {self.yaw_mode.upper()}] '
             f'({self.num_rows} Baris, v_sweep={self.nominal_speed:.2f}m/s, '
             f'Y=[{float(self.y_rows[0]):.2f} -> {float(self.y_rows[-1]):.2f}])'
         )
 
     # ── Utilitas ─────────────────────────────────────────────────────
+
+    def compute_wz(self, target_yaw):
+        """Hitung laju yaw (rad/s) mulus dengan shortest-path circular diff."""
+        if self.yaw_mode != 'follow_path':
+            return 0.0
+        diff = math.atan2(math.sin(target_yaw - self.drone_yaw), math.cos(target_yaw - self.drone_yaw))
+        MAX_WZ = math.radians(60.0)  # Max 60 deg/s untuk mencegah gyroscopic jerk
+        wz = np.clip(1.5 * diff, -MAX_WZ, MAX_WZ)
+        return float(wz)
 
     def euler_from_quaternion(self, qx, qy, qz, qw):
         t3 = 2.0 * (qw * qz + qx * qy)
@@ -200,6 +220,10 @@ class PureContinuousMappingNode(Node):
             y_curr  = float(self.y_rows[self.row_idx])
             dir_x   = 1.0 if go_right else -1.0
 
+            # Target yaw: 0.0 jika ke kanan (+X), pi jika ke kiri (-X)
+            target_yaw = 0.0 if go_right else math.pi
+            wz_cmd = self.compute_wz(target_yaw)
+
             actual_prog = self.get_actual_progress_x()
 
             # Lead point referensi selalu memimpin 0.45m di depan posisi nyata drone
@@ -237,7 +261,7 @@ class PureContinuousMappingNode(Node):
             sin_y = math.sin(self.drone_yaw)
             v_body_x =  v_cmd_x * cos_y + v_cmd_y * sin_y
             v_body_y = -v_cmd_x * sin_y + v_cmd_y * cos_y
-            self.publish_twist(v_body_x, v_body_y, 0.0)
+            self.publish_twist(v_body_x, v_body_y, wz_cmd)
 
             # Telemetri setiap 1 detik
             if self.step_count % 10 == 0:
@@ -246,7 +270,7 @@ class PureContinuousMappingNode(Node):
                     f'  Baris {self.row_idx+1:2d}/{self.num_rows} | '
                     f'Prog: {actual_prog:4.1f}/{self.line_len:4.1f}m | '
                     f'Pos: ({self.drone_pos[0]:5.2f}, {self.drone_pos[1]:5.2f}) | '
-                    f'Err: ({e_x:+5.3f}, {e_y:+5.3f}) | Cov: {pct:4.1f}%'
+                    f'Err: ({e_x:+5.3f}, {e_y:+5.3f}) | Yaw: {math.degrees(self.drone_yaw):+5.1f}° | Cov: {pct:4.1f}%'
                 )
 
             # Cek ketercapaian ujung baris
@@ -256,7 +280,7 @@ class PureContinuousMappingNode(Node):
                 self.get_logger().info(
                     f'  -> Ujung Baris {self.row_idx + 1}/{self.num_rows} tercapai '
                     f'({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f}). '
-                    f'Coverage: {pct:.1f}%. Jeda sudut 0.5s'
+                    f'Coverage: {pct:.1f}%. Jeda sudut {self.corner_delay_ticks * 0.1:.1f}s'
                 )
                 self.publish_twist(0.0, 0.0, 0.0)
                 self.state = 'delay_at_corner_end'
@@ -264,10 +288,12 @@ class PureContinuousMappingNode(Node):
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 2. DELAY AT CORNER END — Jeda diam total 0.5s di sudut
+        # 2. DELAY AT CORNER END — Jeda & rotasi yaw ke +90 deg (arah +Y)
         # ─────────────────────────────────────────────────────────────
         if self.state == 'delay_at_corner_end':
-            self.publish_twist(0.0, 0.0, 0.0)
+            target_yaw = math.pi / 2.0  # +90° menghadap arah langkah vertikal (+Y)
+            wz_cmd = self.compute_wz(target_yaw)
+            self.publish_twist(0.0, 0.0, wz_cmd)
             self.delay_remaining -= 1
             if self.delay_remaining <= 0:
                 if self.row_idx >= self.num_rows - 1:
@@ -296,6 +322,9 @@ class PureContinuousMappingNode(Node):
             y_start  = float(self.y_rows[self.row_idx])
             y_target = float(self.y_rows[self.row_idx + 1])
             step_len = abs(y_target - y_start)  # 1.20m
+
+            target_yaw = math.pi / 2.0  # +90°
+            wz_cmd = self.compute_wz(target_yaw)
 
             actual_prog_y = float(self.drone_pos[1]) - y_start
             actual_prog_y = max(0.0, min(step_len, actual_prog_y))
@@ -335,14 +364,14 @@ class PureContinuousMappingNode(Node):
             sin_y = math.sin(self.drone_yaw)
             v_body_x =  v_cmd_x * cos_y + v_cmd_y * sin_y
             v_body_y = -v_cmd_x * sin_y + v_cmd_y * cos_y
-            self.publish_twist(v_body_x, v_body_y, 0.0)
+            self.publish_twist(v_body_x, v_body_y, wz_cmd)
 
             # Cek ketercapaian titik awal baris baru
             dist_to_target_y = abs(float(self.drone_pos[1]) - y_target)
             if dist_to_target_y < 0.15 or dist_to_end_y < 0.10:
                 self.get_logger().info(
                     f'  -> Titik awal Baris {self.row_idx + 2} tercapai ({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f})! '
-                    f'Jeda settling 0.5s'
+                    f'Jeda settling {self.corner_delay_ticks * 0.1:.1f}s'
                 )
                 self.publish_twist(0.0, 0.0, 0.0)
                 self.state = 'delay_at_new_row'
@@ -350,10 +379,13 @@ class PureContinuousMappingNode(Node):
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 4. DELAY AT NEW ROW — Settling diam 0.5s sebelum baris baru
+        # 4. DELAY AT NEW ROW — Settling & rotasi yaw ke baris baru
         # ─────────────────────────────────────────────────────────────
         if self.state == 'delay_at_new_row':
-            self.publish_twist(0.0, 0.0, 0.0)
+            next_go_right = ((self.row_idx + 1) % 2 == 0)
+            target_yaw = 0.0 if next_go_right else math.pi
+            wz_cmd = self.compute_wz(target_yaw)
+            self.publish_twist(0.0, 0.0, wz_cmd)
             self.delay_remaining -= 1
             if self.delay_remaining <= 0:
                 self.row_idx += 1
@@ -516,10 +548,15 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info('🛑 Pemetaan dihentikan manual oleh pengguna (Ctrl+C).')
+    except Exception as e:
+        node.get_logger().info(f'Sesi pemetaan selesai: {e}')
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.destroy_node()
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

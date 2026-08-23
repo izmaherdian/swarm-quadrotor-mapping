@@ -12,13 +12,14 @@ import yaml
 from swarm_low_level.solver_pid_hinf import PIDHinfSolver
 
 class PID:
-    def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf):
+    def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf, i_max=np.inf):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
         self.dt = dt
         self.out_min = out_min
         self.out_max = out_max
+        self.i_max = i_max
         self.integral = 0
         self.prev_error = 0
         
@@ -44,6 +45,8 @@ class PID:
             
         if integrate:
             self.integral += error * self.dt
+            if self.i_max < np.inf:
+                self.integral = float(np.clip(self.integral, -self.i_max, self.i_max))
             
         output = proportional + self.Ki * self.integral + derivative
         
@@ -80,14 +83,16 @@ class PIDHinfNode(Node):
         self.dt = 0.02 # Asumsi 50Hz, akan diupdate dinamis
         
         # Inisialisasi Blok PID untuk seluruh sumbu
-        self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
+        # i_max untuk outer loop dibatasi ke 0.052 rad (3.0 deg) agar integral tidak mendominasi pengereman
+        i_max_xy_out = 0.052 / max(abs(gains['x_outer']['Ki']), 1e-3)
+        self.pid_x_out = PID(gains['x_outer']['Kp'], gains['x_outer']['Ki'], gains['x_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'], i_max=i_max_xy_out)
         self.pid_x_in  = PID(gains['x_inner']['Kp'], 0.0, gains['x_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'])
+        self.pid_y_out = PID(gains['y_outer']['Kp'], gains['y_outer']['Ki'], gains['y_outer']['Kd'], self.dt, -self.limits['angle_max'], self.limits['angle_max'], i_max=i_max_xy_out)
         self.pid_y_in  = PID(gains['y_inner']['Kp'], 0.0, gains['y_inner']['Kd'], self.dt, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'])
-        self.pid_yaw = PID(gains['yaw']['Kp'], 0.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
+        self.pid_z   = PID(gains['z']['Kp'], gains['z']['Ki'], gains['z']['Kd'], self.dt, -self.limits['thrust_max'], self.limits['thrust_max'], i_max=2.0)
+        self.pid_yaw = PID(gains['yaw']['Kp'] * 1.0, 0.0, gains['yaw']['Kd'], self.dt, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         # Konstanta Fisika dan Matriks Mixer
         self.g = self.params['g']
@@ -119,10 +124,12 @@ class PIDHinfNode(Node):
         self.x_cmd, self.y_cmd, self.z_cmd = self.formation_x, self.formation_y, self.formation_z
         self.yaw_cmd = np.radians(0.0)
         self.target_pose_received = False
-        # Velocity feedforward dari mid-level ORCA (default nol)
+        # Velocity feedforward dari mid-level ORCA
         self.vx_cmd = 0.0
         self.vy_cmd = 0.0
-        self.k_ff = 0.07  # Feedforward gain: 1 m/s → 0.07 rad (~4°) tambahan pitch/roll
+        self.k_ff = 0.15  # Feedforward gain: 1 m/s → 0.15 rad (~8.6°) pitch/roll untuk tracking gesit
+        self.yaw_rate_cmd = 0.0
+        self.k_ff_yaw = 0.5 * self.params['iz']  # Feedforward gain: yaw_rate → torque (Nm/(rad/s))
 
         # State Pre-filter (Low-Pass Filter) untuk referensi [posisi, kecepatan]
         self.filt_x = [0.0, 0.0]
@@ -130,8 +137,8 @@ class PIDHinfNode(Node):
         self.filt_z = [0.0, 0.0]
         self.filt_yaw = [0.0, 0.0]
         
-        self.w_n_sq = 12.25      # omega_n = 3.5 rad/s (respons cepat, presisi, dan stabil tanpa lag berlebih)
-        self.two_zeta_wn = 6.65  # 2 * 0.95 * 3.50
+        self.w_n_sq = 64.0       # omega_n = 8.0 rad/s (responsif cepat, meminimalkan lag pelacakan kecepatan)
+        self.two_zeta_wn = 15.2  # 2 * 0.95 * 8.0
 
         # Konfigurasi Log Directory
         self.declare_parameter('log_dir', os.getcwd())
@@ -329,8 +336,11 @@ class PIDHinfNode(Node):
         self.pid_yaw.dt = dt_control
 
         if z < 0.15:
+            self.pid_x_out.integral = 0.0
+            self.pid_y_out.integral = 0.0
             self.pid_x_in.integral = 0.0
             self.pid_y_in.integral = 0.0
+            self.pid_z.integral = 0.0
             self.pid_yaw.integral = 0.0
         
         x = msg.pose.pose.position.x
@@ -349,18 +359,24 @@ class PIDHinfNode(Node):
         p = msg.twist.twist.angular.x
         q_ang = msg.twist.twist.angular.y
         r_ang = msg.twist.twist.angular.z
-        
+
+        # 0. Smooth Takeoff Vertical Ramping (Maksimal 1.0 m/s untuk mencegah lonjakan thrust dan overshoot)
+        MAX_CLIMB_RATE = 1.0  # m/s
+        if not hasattr(self, 'current_z_target'):
+            self.current_z_target = 0.05
+        dz = np.clip(self.z_cmd - self.current_z_target, -MAX_CLIMB_RATE * dt_control, MAX_CLIMB_RATE * dt_control)
+        self.current_z_target += dz
+
         self.filt_x[1] += (self.w_n_sq * (self.x_cmd - self.filt_x[0]) - self.two_zeta_wn * self.filt_x[1]) * dt_control
         self.filt_x[0] += self.filt_x[1] * dt_control
         
         self.filt_y[1] += (self.w_n_sq * (self.y_cmd - self.filt_y[0]) - self.two_zeta_wn * self.filt_y[1]) * dt_control
         self.filt_y[0] += self.filt_y[1] * dt_control
         
-        self.filt_z[1] += (self.w_n_sq * (self.z_cmd - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
+        self.filt_z[1] += (self.w_n_sq * (self.current_z_target - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
         self.filt_z[0] += self.filt_z[1] * dt_control
         
         # Yaw: bypass filter second-order — gunakan yaw_cmd langsung agar tidak ada lag ganda
-        # (mid-level sudah melakukan smoothing via alpha_yaw)
         yaw_cmd_norm = (self.yaw_cmd + np.pi) % (2 * np.pi) - np.pi
         cos_yaw = math.cos(yaw)
         sin_yaw = math.sin(yaw)
@@ -371,25 +387,84 @@ class PIDHinfNode(Node):
         err_x_body =  err_x_world * cos_yaw + err_y_world * sin_yaw
         err_y_body = -err_x_world * sin_yaw + err_y_world * cos_yaw
 
+        # Kecepatan Linier Aktual dari Sensor Odometry (Twist is ALREADY in Body Frame) — Zero Phase Lag
+        vx_body_meas = vx
+        vy_body_meas = vy
+
         # Transformasi Velocity Feedforward dari World Frame ke Body Frame
         vx_body =  self.vx_cmd * cos_yaw + self.vy_cmd * sin_yaw
         vy_body = -self.vx_cmd * sin_yaw + self.vy_cmd * cos_yaw
 
+        # Frame-Invariant Vector Integrator (World Frame Integration -> Body Frame Projection)
+        if not hasattr(self, 'integral_x_world'):
+            self.integral_x_world = 0.0
+            self.integral_y_world = 0.0
+
+        if z >= 0.15 and abs(err_x_world) < 0.25 and abs(err_y_world) < 0.25:
+            self.integral_x_world += err_x_world * dt_control
+            self.integral_y_world += err_y_world * dt_control
+            self.integral_x_world = float(np.clip(self.integral_x_world, -0.4, 0.4))
+            self.integral_y_world = float(np.clip(self.integral_y_world, -0.4, 0.4))
+        else:
+            self.integral_x_world = 0.0
+            self.integral_y_world = 0.0
+
+        integral_x_body =  self.integral_x_world * cos_yaw + self.integral_y_world * sin_yaw
+        integral_y_body = -self.integral_x_world * sin_yaw + self.integral_y_world * cos_yaw
+
+        i_term_x = self.pid_x_out.Ki * integral_x_body
+        i_term_y = self.pid_y_out.Ki * integral_y_body
+
+        # Pitch (theta) Outer Loop — Derivative on Measurement
+        theta_ref_raw = (self.pid_x_out.Kp * err_x_body + i_term_x - self.pid_x_out.Kd * vx_body_meas) + self.k_ff * vx_body
+
         max_angle_takeoff = max(math.radians(2.0), self.limits['angle_max'] * min(z / 0.5, 1.0))
-        
-        # Pitch (theta) mengontrol gerakan Body X, Roll (phi) mengontrol gerakan Body Y
-        theta_ref_raw = self.pid_x_out.compute(err_x_body, reset_derivative=reset_derivative) + self.k_ff * vx_body
         theta_ref = np.clip(theta_ref_raw, -max_angle_takeoff, max_angle_takeoff)
+
+        # Roll (phi) Outer Loop — Derivative on Measurement
+        phi_ref_raw = (self.pid_y_out.Kp * err_y_body + i_term_y - self.pid_y_out.Kd * vy_body_meas) - self.k_ff * vy_body
+
+        phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
+
+        # 1. Angle Slew Rate Limiter (Maksimal perubahan 300 deg/s untuk respon gesit tanpa hunting)
+        MAX_ANGLE_RATE = math.radians(300.0)
+        if not hasattr(self, 'prev_theta_ref'):
+            self.prev_theta_ref = 0.0
+            self.prev_phi_ref = 0.0
+
+        d_theta = np.clip(theta_ref - self.prev_theta_ref, -MAX_ANGLE_RATE * dt_control, MAX_ANGLE_RATE * dt_control)
+        theta_ref = self.prev_theta_ref + d_theta
+        self.prev_theta_ref = theta_ref
+
+        d_phi = np.clip(phi_ref - self.prev_phi_ref, -MAX_ANGLE_RATE * dt_control, MAX_ANGLE_RATE * dt_control)
+        phi_ref = self.prev_phi_ref + d_phi
+        self.prev_phi_ref = phi_ref
+
+        # 2. Attitude Safety Recovery Cutoff: jika sudut > 30 deg, paksa level out dan reset integral
+        if abs(phi) > math.radians(30.0) or abs(theta) > math.radians(30.0):
+            theta_ref = 0.0
+            phi_ref = 0.0
+            self.pid_x_out.integral = 0.0
+            self.pid_y_out.integral = 0.0
+            self.prev_theta_ref = 0.0
+            self.prev_phi_ref = 0.0
+
         err_theta = theta_ref - theta
         uy_pid = np.clip(self.pid_x_in.Kp * err_theta - self.pid_x_in.Kd * q_ang, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
-        phi_ref_raw = self.pid_y_out.compute(err_y_body, reset_derivative=reset_derivative) - self.k_ff * vy_body
-        phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
         err_phi = phi_ref - phi
         ux_pid = np.clip(self.pid_y_in.Kp * err_phi - self.pid_y_in.Kd * p, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
+        # Altitude Outer/Inner Loop — Derivative on Measurement (D-term langsung dari vz)
         err_z = self.filt_z[0] - z
-        uz_pid = self.pid_z.compute(err_z, reset_derivative=reset_derivative) 
+        p_term_z = self.pid_z.Kp * err_z
+        if z >= 0.15:
+            self.pid_z.integral += err_z * dt_control
+            if self.pid_z.i_max < np.inf:
+                self.pid_z.integral = float(np.clip(self.pid_z.integral, -self.pid_z.i_max, self.pid_z.i_max))
+        i_term_z = self.pid_z.Ki * self.pid_z.integral
+        d_term_z = -self.pid_z.Kd * vz
+        uz_pid = np.clip(p_term_z + i_term_z + d_term_z, -self.limits['thrust_max'], self.limits['thrust_max'])
         
         # Angle-Thrust Compensation (compensates for vertical force loss due to tilt)
         cos_phi = math.cos(phi)
@@ -403,7 +478,19 @@ class PIDHinfNode(Node):
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
+        # Dynamic Torque Desaturation (Thrust Priority > Attitude Torques)
+        # Menjamin seluruh motor selalu berada pada rentang aktif 250 - 1050 rad/s tanpa pernah mati (0 rad/s)
         w_sq_cmd = self.M_inv @ U_cmd
+        w_floor_sq = 250.0**2
+        w_ceil_sq = 1050.0**2
+        if np.min(w_sq_cmd) < w_floor_sq or np.max(w_sq_cmd) > w_ceil_sq:
+            for scale in [0.85, 0.70, 0.50, 0.30, 0.10, 0.0]:
+                U_cmd_scaled = np.array([u_thrust, ux_pid * scale, uy_pid * scale, uyaw_pid * scale])
+                w_sq_test = self.M_inv @ U_cmd_scaled
+                if np.min(w_sq_test) >= w_floor_sq and np.max(w_sq_test) <= w_ceil_sq:
+                    w_sq_cmd = w_sq_test
+                    break
+
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
         w_cmd = np.clip(w_cmd, self.w_min, self.w_max)
         
@@ -465,9 +552,8 @@ class PIDHinfNode(Node):
         qy = msg.pose.orientation.y
         qz = msg.pose.orientation.z
         qw = msg.pose.orientation.w
-        if abs(qw) < 0.9999 or abs(qz) > 1e-6:
-            _, _, yaw_target = self.euler_from_quaternion(qx, qy, qz, qw)
-            self.yaw_cmd = yaw_target
+        _, _, yaw_target = self.euler_from_quaternion(qx, qy, qz, qw)
+        self.yaw_cmd = yaw_target
 
     def target_velocity_callback(self, msg):
         """Terima kecepatan ORCA dari mid-level sebagai velocity feedforward."""
