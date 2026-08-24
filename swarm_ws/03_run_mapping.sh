@@ -14,7 +14,7 @@ echo "=== [TERMINAL 3] Memeriksa koneksi drone (Terminal 2) ==="
 if ! ros2 topic list 2>/dev/null | grep -q "/iris_1/odometry"; then
     echo ""
     echo "⚠️  PERINGATAN: Drone (/iris_1/odometry) belum terdeteksi!"
-    echo "   Pastikan TERMINAL 1 (./run_world.sh) dan TERMINAL 2 (./run_drones.sh) sudah berjalan."
+    echo "   Pastikan TERMINAL 1 (./01_run_world.sh) dan TERMINAL 2 (./02_run_drones.sh) sudah berjalan."
     echo ""
     exit 1
 fi

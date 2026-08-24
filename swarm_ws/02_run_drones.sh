@@ -51,7 +51,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -h|--help)
-            echo "Usage: ./run_drones.sh [OPTIONS]"
+            echo "Usage: ./02_run_drones.sh [OPTIONS]"
             echo "Options:"
             echo "  --lqr                Gunakan kontroler PID-LQR (default)"
             echo "  --hinf               Gunakan kontroler PID-Hinf"
@@ -72,7 +72,7 @@ if ! gz topic -l 2>/dev/null | grep -q "/world/swarm_world"; then
     echo ""
     echo "⚠️  PERINGATAN: Gazebo World (/world/swarm_world) belum aktif!"
     echo "   Silakan jalankan TERMINAL 1 terlebih dahulu:"
-    echo "   $ ./run_world.sh"
+    echo "   $ ./01_run_world.sh"
     echo ""
     exit 1
 fi
@@ -122,13 +122,14 @@ echo ""
 echo "========================================================================="
 echo "  🚀 [TERMINAL 2] SPAWN DRONE & AUTO-TAKEOFF KE Z = 2.0 METER"
 echo "  Drone: iris_1 ($NUM_DRONES drone) | Kontroler: $CONTROLLER_NAME ($CONTROLLER)"
-echo "  Posisi Spawn: ($SPAWN_X, $SPAWN_Y, 0.01m) -> Target Hover: ($SPAWN_X, $SPAWN_Y, 2.00m)"
+echo "  Posisi Spawn: (${SPAWN_X}, ${SPAWN_Y}, 0.01m) -> Target Hover: (${SPAWN_X}, ${SPAWN_Y}, 2.00m)"
 echo "========================================================================="
 echo ""
 
 ros2 launch swarm_sim spawn_drones_launch.py \
-    num_drones:=$NUM_DRONES controller:=$CONTROLLER results_base:=single_agent \
-    spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y &
+    num_drones:=$NUM_DRONES controller:=$CONTROLLER \
+    spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y \
+    results_base:=single_agent &
 DRONES_PID=$!
 
 echo "Menunggu drone lepas landas & hover stabil di Z = 2.0m..."
@@ -146,9 +147,9 @@ echo "  ✅ DRONE TELAH MENGUDARA & HOVER STABIL DI Z = 2.0m!"
 echo ""
 echo "  👉 Sekarang buka TERMINAL 3 untuk menjalankan misi pemetaan:"
 echo "     cd $WS_DIR"
-echo "     ./run_mapping.sh --yaw-follow    # (Hidung aktif hadap arah terbang)"
+echo "     ./03_run_mapping.sh --yaw-follow    # (Hidung aktif hadap arah terbang)"
 echo "     # atau"
-echo "     ./run_mapping.sh --fixed-yaw     # (Orientasi tetap 0°)"
+echo "     ./03_run_mapping.sh --fixed-yaw     # (Orientasi tetap 0°)"
 echo ""
 echo "  ℹ️  Terminal 2 ini dapat dibiarkan terus berjalan."
 echo "     Jika Anda tekan Ctrl+C di terminal ini, drone akan di-despawn dari Gazebo."

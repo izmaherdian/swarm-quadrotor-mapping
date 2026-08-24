@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-WS_DIR="$(cd "$(dirname "$0")" && pwd)"
+WS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source /opt/ros/lyrical/setup.bash
 source "$WS_DIR/install/setup.bash"
 

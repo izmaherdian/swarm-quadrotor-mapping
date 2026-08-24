@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-WS_DIR="$(cd "$(dirname "$0")" && pwd)"
+WS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source /opt/ros/lyrical/setup.bash
 if [ -f "$WS_DIR/../.venv/bin/activate" ]; then
     source "$WS_DIR/../.venv/bin/activate"
@@ -32,14 +32,14 @@ for pid in $(ps aux | grep -E "gz.sim|ros2 launch|ros_gz|spawn|controller|ai_iri
     kill -9 "$pid" 2>/dev/null || true
 done
 sleep 2
-rm -f /tmp/sim_single_hinf.log
+rm -f /tmp/sim_single_lqr.log
 
 echo "=== Build swarm_high_level, swarm_mid_level, swarm_low_level & swarm_sim ==="
 colcon build --packages-select swarm_high_level swarm_mid_level swarm_low_level 2>&1 | tail -4
 colcon build --packages-select swarm_sim 2>&1 | tail -3
 
 echo "=== Clean old CSVs ==="
-rm -f "$WS_DIR/src/swarm_sim/results/single_agent/pid_hinf/"*.csv
+rm -f "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv
 
 cleanup() {
     trap - EXIT INT TERM
@@ -52,38 +52,38 @@ cleanup() {
         kill -9 "$pid" 2>/dev/null || true
     done
     echo ""
-    echo "=== CSV hasil Single Agent (PID-H_inf) tersimpan di: ==="
-    echo "  $WS_DIR/src/swarm_sim/results/single_agent/pid_hinf/"
+    echo "=== CSV hasil Single Agent (PID-LQR) tersimpan di: ==="
+    echo "  $WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"
     echo ""
-    ls -lh "$WS_DIR/src/swarm_sim/results/single_agent/pid_hinf/"*.csv 2>/dev/null || echo "  (tidak ada CSV)"
+    ls -lh "$WS_DIR/src/swarm_sim/results/single_agent/pid_lqr/"*.csv 2>/dev/null || echo "  (tidak ada CSV)"
     echo ""
-    echo "Done (Single-Agent PID-H_inf Selesai)."
+    echo "Done (Single-Agent PID-LQR Selesai)."
 }
 trap cleanup EXIT INT TERM
 
-echo "=== Launch Gazebo sim + PID-H_inf Controller (RViz: $RVIZ_FLAG, Headless: $HEADLESS_FLAG) ==="
+echo "=== Launch Gazebo sim + PID-LQR Controller (RViz: $RVIZ_FLAG, Headless: $HEADLESS_FLAG) ==="
 nohup ros2 launch swarm_sim sim_launch.py \
-    num_drones:=1 controller:=pid_hinf_node \
+    num_drones:=1 controller:=pid_lqr_node \
     headless:=$HEADLESS_FLAG rviz:=$RVIZ_FLAG \
-    results_base:=single_agent > /tmp/sim_single_hinf.log 2>&1 &
+    results_base:=single_agent > /tmp/sim_single_lqr.log 2>&1 &
 SIM_PID=$!
 echo "  sim PID=$SIM_PID"
 
 echo "=== Wait for ORCA & Simulation initialized ==="
 for i in $(seq 1 30); do
-    if grep -q "initialized" /tmp/sim_single_hinf.log 2>/dev/null; then
+    if grep -q "initialized" /tmp/sim_single_lqr.log 2>/dev/null; then
         echo "  Simulation & ORCA ready after ${i}s"
         break
     fi
     sleep 1
 done
-if ! grep -q "initialized" /tmp/sim_single_hinf.log 2>/dev/null; then
-    echo "  ERROR: Simulasi tidak pernah initialized. Cek /tmp/sim_single_hinf.log"
+if ! grep -q "initialized" /tmp/sim_single_lqr.log 2>/dev/null; then
+    echo "  ERROR: Simulasi tidak pernah initialized. Cek /tmp/sim_single_lqr.log"
     exit 1
 fi
 
 echo "========================================================================="
-echo "  🚀 SIMULASI SIAP — Single Drone (iris_1) [Pengendali: PID-H_inf]"
+echo "  🚀 SIMULASI SIAP — Single Drone (iris_1) [Pengendali: PID-LQR]"
 echo "  Spawn di (-5.5, -5.5, 2.0) | RViz2: $RVIZ_FLAG"
 echo ""
 echo "  Buka TERMINAL BARU, lalu jalankan:"

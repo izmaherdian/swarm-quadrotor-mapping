@@ -112,8 +112,8 @@ echo "  Biarkan terminal ini tetap berjalan (TIDAK PERLU DI-RESTART)."
 echo ""
 echo "  👉 Selanjutnya buka TERMINAL 2 dan jalankan:"
 echo "     cd $WS_DIR"
-echo "     ./run_drones.sh"
-echo "========================================================================="
+echo "     ./02_run_drones.sh"
+echo "==============================================================================="
 echo ""
 
 # Tunggu sampai pengguna menekan Ctrl+C

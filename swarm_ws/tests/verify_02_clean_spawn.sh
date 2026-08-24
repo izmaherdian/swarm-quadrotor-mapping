@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-WS_DIR="$(cd "$(dirname "$0")" && pwd)"
+WS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source /opt/ros/lyrical/setup.bash
 if [ -f "$WS_DIR/../.venv/bin/activate" ]; then
     source "$WS_DIR/../.venv/bin/activate"
@@ -28,14 +28,14 @@ sleep 1
 
 # 2. Jalankan Terminal 1 (World Headless untuk test)
 echo "🌍 [1] Memulai Terminal 1 (Gazebo World)..."
-./run_world.sh --headless > "$WORLD_LOG" 2>&1 &
+$WS_DIR/01_run_world.sh --headless > "$WORLD_LOG" 2>&1 &
 WORLD_PID=$!
 
 sleep 4
 
 # 3. Jalankan Terminal 2 (Spawn Drones dengan smart pre-check)
 echo "🚀 [2] Memulai Terminal 2 (Spawn Drone iris_1)..."
-./run_drones.sh --lqr --spawn-x 1.0 --spawn-y 1.0 > "$DRONES_LOG" 2>&1 &
+$WS_DIR/02_run_drones.sh --lqr --spawn-x 1.0 --spawn-y 1.0 > "$DRONES_LOG" 2>&1 &
 DRONES_PID=$!
 
 echo "Menunggu 10 detik..."

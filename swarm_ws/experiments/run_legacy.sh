@@ -4,7 +4,7 @@ set -e
 echo "Memulai proses Build & Run Swarm Drone..."
 
 cd "$(dirname "$0")"
-WS_DIR="$PWD"
+WS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 pkill -9 -f "install/swarm_mid_level|install/swarm_low_level|install/swarm_sim|ros_gz_sim|parameter_bridge" 2>/dev/null || true
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-WS_DIR="$(cd "$(dirname "$0")" && pwd)"
+WS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 source /opt/ros/lyrical/setup.bash
 if [ -f "$WS_DIR/../.venv/bin/activate" ]; then
     source "$WS_DIR/../.venv/bin/activate"
@@ -32,7 +32,7 @@ trap cleanup_all EXIT INT TERM
 
 echo ""
 echo "=== 2. [UJI TERMINAL 1] Menjalankan Gazebo World (Persistent) ==="
-./run_world.sh --headless > /tmp/t1_world.log 2>&1 &
+$WS_DIR/01_run_world.sh --headless > /tmp/t1_world.log 2>&1 &
 T1_PID=$!
 
 echo "Menunggu Gazebo World siap di Terminal 1..."
@@ -46,7 +46,7 @@ done
 
 echo ""
 echo "=== 3. [UJI TERMINAL 2] Menjalankan Spawning Drone & Auto-Takeoff (PID-LQR) ==="
-./run_drones.sh --lqr > /tmp/t2_drones.log 2>&1 &
+$WS_DIR/02_run_drones.sh --lqr > /tmp/t2_drones.log 2>&1 &
 T2_PID=$!
 
 echo "Menunggu drone lepas landas & mengunci posisi hover..."
@@ -64,7 +64,7 @@ done
 
 echo ""
 echo "=== 4. [UJI TERMINAL 3] Menjalankan Misi Pemetaan (Yaw Follow) ==="
-./run_mapping.sh --yaw-follow > /tmp/t3_mapping.log 2>&1 &
+$WS_DIR/03_run_mapping.sh --yaw-follow > /tmp/t3_mapping.log 2>&1 &
 T3_PID=$!
 
 echo "Memantau pemetaan berjalan (Baris 1 -> Baris 2)..."
