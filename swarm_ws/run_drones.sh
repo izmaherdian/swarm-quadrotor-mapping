@@ -15,6 +15,8 @@ export GZ_SIM_RESOURCE_PATH="$WS_DIR/src/swarm_sim/models"
 CONTROLLER="pid_lqr_node"
 CONTROLLER_NAME="PID-LQR"
 NUM_DRONES=1
+SPAWN_X="-5.5"
+SPAWN_Y="-5.5"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -31,6 +33,32 @@ while [[ $# -gt 0 ]]; do
         --drones)
             NUM_DRONES="$2"
             shift 2
+            ;;
+        --spawn-x)
+            SPAWN_X="$2"
+            shift 2
+            ;;
+        --spawn-y)
+            SPAWN_Y="$2"
+            shift 2
+            ;;
+        --random-spawn|--random)
+            # Generate random X dan Y antara -4.50 sampai +4.50
+            SPAWN_X=$(python3 -c "import random; print(f'{random.uniform(-4.5, 4.5):.2f}')")
+            SPAWN_Y=$(python3 -c "import random; print(f'{random.uniform(-4.5, 4.5):.2f}')")
+            echo "🎲 [RANDOM SPAWN] Posisi Acak Terpilih: (${SPAWN_X}, ${SPAWN_Y})"
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: ./run_drones.sh [OPTIONS]"
+            echo "Options:"
+            echo "  --lqr                Gunakan kontroler PID-LQR (default)"
+            echo "  --hinf               Gunakan kontroler PID-Hinf"
+            echo "  --spawn-x <X>        Posisi X awal spawn (default: -5.5)"
+            echo "  --spawn-y <Y>        Posisi Y awal spawn (default: -5.5)"
+            echo "  --random-spawn       Pilih posisi spawn secara acak dalam arena [-4.5, 4.5]"
+            echo "  --drones <N>         Jumlah drone (default: 1)"
+            exit 0
             ;;
         *)
             shift
@@ -87,11 +115,13 @@ echo ""
 echo "========================================================================="
 echo "  🚀 [TERMINAL 2] SPAWN DRONE & AUTO-TAKEOFF KE Z = 2.0 METER"
 echo "  Drone: iris_1 ($NUM_DRONES drone) | Kontroler: $CONTROLLER_NAME ($CONTROLLER)"
+echo "  Posisi Spawn: ($SPAWN_X, $SPAWN_Y, 0.01m) -> Target Hover: ($SPAWN_X, $SPAWN_Y, 2.00m)"
 echo "========================================================================="
 echo ""
 
 ros2 launch swarm_sim spawn_drones_launch.py \
-    num_drones:=$NUM_DRONES controller:=$CONTROLLER results_base:=single_agent &
+    num_drones:=$NUM_DRONES controller:=$CONTROLLER results_base:=single_agent \
+    spawn_x:=$SPAWN_X spawn_y:=$SPAWN_Y &
 DRONES_PID=$!
 
 echo "Menunggu drone lepas landas & hover stabil di Z = 2.0m..."

@@ -41,12 +41,16 @@ cleanup() {
     trap - EXIT INT TERM
     echo ""
     echo "=== [TERMINAL 1] Menutup Simulasi Gazebo & RViz2 ==="
-    if [ -n "$WORLD_PID" ]; then
-        kill "$WORLD_PID" 2>/dev/null || true
+    if [ -n "$GZ_PID" ]; then
+        kill "$GZ_PID" 2>/dev/null || true
     fi
-    for pid in $(ps aux | grep -E "gz.sim|ros2 launch.*world_launch|rviz2|global_clock_bridge" | grep -v grep | awk '{print $2}'); do
+    if [ -n "$RVIZ_PID" ]; then
+        kill "$RVIZ_PID" 2>/dev/null || true
+    fi
+    for pid in $(ps aux | grep -E "gz sim|gz-sim|rviz2|parameter_bridge.*clock|static_tf_world_publisher" | grep -v grep | awk '{print $2}'); do
         kill -9 "$pid" 2>/dev/null || true
     done
+    echo "✅ Gazebo Sim dan RViz2 telah ditutup bersih."
     echo "Done (Terminal 1 Ditutup)."
 }
 trap cleanup EXIT INT TERM
@@ -58,11 +62,36 @@ echo "  Dunia: empty.world (Arena 12x12m) | RViz2: $RVIZ_FLAG | Headless: $HEADL
 echo "========================================================================="
 echo ""
 
-ros2 launch swarm_sim world_launch.py \
-    headless:=$HEADLESS_FLAG rviz:=$RVIZ_FLAG &
-WORLD_PID=$!
+# 1. Global Clock Bridge
+ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock \
+    --ros-args -r __node:=global_clock_bridge >/dev/null 2>&1 &
+BRIDGE_PID=$!
 
-echo "Menunggu Gazebo Sim siap..."
+# 2. Static Transform Publisher
+ros2 run tf2_ros static_transform_publisher \
+    --x 0 --y 0 --z 0 --yaw 0 --pitch 0 --roll 0 \
+    --frame-id world --child-frame-id swarm_world \
+    --ros-args -r __node:=static_tf_world_publisher >/dev/null 2>&1 &
+TF_PID=$!
+
+# 3. Gazebo Simulation World
+WORLD_FILE="$WS_DIR/install/swarm_sim/share/swarm_sim/worlds/empty.world"
+if [ "$HEADLESS_FLAG" = "true" ]; then
+    gz sim -r -s "$WORLD_FILE" &
+    GZ_PID=$!
+else
+    gz sim -r "$WORLD_FILE" &
+    GZ_PID=$!
+fi
+
+# 4. RViz2 GUI
+if [ "$RVIZ_FLAG" = "true" ]; then
+    RVIZ_CONFIG="$WS_DIR/install/swarm_sim/share/swarm_sim/rviz/swarm.rviz"
+    rviz2 -d "$RVIZ_CONFIG" &
+    RVIZ_PID=$!
+fi
+
+echo "Menunggu Gazebo Sim dan RViz2 siap dimuat..."
 for i in $(seq 1 30); do
     if gz topic -l 2>/dev/null | grep -q "/world/swarm_world"; then
         echo "✅ Gazebo Sim World (/world/swarm_world) aktif & siap setelah ${i}s!"
@@ -70,6 +99,10 @@ for i in $(seq 1 30); do
     fi
     sleep 1
 done
+
+if [ "$RVIZ_FLAG" = "true" ]; then
+    echo "✅ Jendela RViz2 aktif!"
+fi
 
 echo ""
 echo "========================================================================="
@@ -82,4 +115,9 @@ echo "     ./run_drones.sh"
 echo "========================================================================="
 echo ""
 
-wait "$WORLD_PID"
+# Tunggu sampai pengguna menekan Ctrl+C
+if [ -n "$GZ_PID" ]; then
+    wait "$GZ_PID"
+else
+    wait
+fi

@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
 """
 ===============================================================================
-  TEST MAPPING — Pure Continuous Boustrophedon Mapping Coordinator (v4)
+  TEST MAPPING — Pure Continuous Boustrophedon Mapping Coordinator (v5)
 ===============================================================================
-Arsitektur Pure Continuous Trajectory (100% cmd_vel):
+Fitur Utama v5:
+  1. ARBITRARY / RANDOM SPAWN SUPPORT & SMART TRANSIT:
+     - Drone dapat di-spawn di koordinat mana pun dalam arena.
+     - Jika jarak ke titik awal Baris 1 (-5.50, -5.50) > 0.25m, node otomatis masuk
+       ke state TRANSIT_TO_START.
+     - Hidung drone aktif berputar menghadap arah target transit:
+       psi = atan2(y_start - y_drone, x_start - x_drone).
+     - Setelah sampai di titik start, hidung berputar selaras ke 0.0° sebelum
+       memulai sapuan Baris 1.
 
-  GARIS LURUS (Sweep X: -5.50m <-> +5.50m):
-    - Topik /iris_1/cmd_vel (Twist)
-    - Actual-position tracking: ref_pos selalu mengunci 0.45m di depan drone nyata
-    - Kecepatan kontinu mulus v=0.60 m/s (tanpa micro-pause yang memicu jerk)
-    - Deselerasi linear halus pada 1.5m terakhir mendekati ujung baris
-    - Gain Kp=0.90 untuk koreksi posisi lateral dan longitudinal
+  2. ALWAYS DYNAMIC YAW FOLLOW:
+     - Sepanjang seluruh tahapan misi (transit, sweep lurus, belokan sudut, dan
+       langkah vertikal), hidung drone selalu aktif menghadap arah vektor terbang.
+     - Rate limit wz = 60°/s untuk stabilitas aerodinamika & bebas jerk.
 
-  LANGKAH VERTIKAL (Step Y: Spacing 1.20m):
-    - 100% cmd_vel kontinu halus v=0.35 m/s, Lead point 0.35m
-    - Kp=0.90 mengunci sumbu X agar tetap tegak lurus di sudut
-    - Deselerasi halus mendekati titik awal baris baru
+  3. HIGH-LEVEL CLOSED-LOOP WAITING (ANTI-TINGGAL):
+     - Kemajuan waypoint high-level selalu terikat secara closed-loop dengan
+       posisi nyata drone (Cross-Track & Along-Track progress gating).
+     - Jika drone melambat atau terhalang, high-level MENUNGGU posisi riil drone
+       dan tidak akan pernah meninggalkan drone.
 
-  CORNER SETTLING:
-    - Jeda diam total 0.5s di setiap sudut sebelum dan sesudah langkah vertikal
-
-  ORCA OBSTACLE COMPLIANCE:
-    - Jika ada obstacle, mid-level ORCA otomatis menghindar
-    - Setelah obstacle terlewati, gain Kp menarik drone kembali ke jalur mapping
+  4. CONTINUOUS SMOOTH 100% CMD_VEL TRACKING:
+     - Kecepatan kontinu nominal v=0.60 m/s pada baris lurus, v=0.35 m/s pada langkah vertikal.
+     - Deselerasi linear mulus di ujung baris tanpa memicu lonjakan kontroler.
 
 Grid: 10 baris, spacing 1.20m, Y: -5.50 -> 5.30, X: -5.50 -> 5.50
 Visualisasi: RViz2 /mapping/markers (boundary, path, active ref, tracking vector,
@@ -65,9 +69,10 @@ class PureContinuousMappingNode(Node):
         self.num_rows = len(self.y_rows)
         self.line_len = abs(self.sweep_x_max - self.sweep_x_min)  # 11.0m
 
-        # ── Tuning Kecepatan & Kontrol (Persis test_trajectory_2.py) ──
+        # ── Tuning Kecepatan & Kontrol ────────────────────────────────
         self.nominal_speed = 0.60       # m/s sweep lurus mulus
         self.step_speed = 0.35          # m/s langkah vertikal halus
+        self.transit_speed = 0.60       # m/s transit ke titik start
         self.kp_track = 0.90            # gain proporsional tracking
         self.max_cmd_speed = 0.95       # saturasi kecepatan sweep
         self.max_step_speed = 0.55      # saturasi kecepatan vertikal
@@ -80,8 +85,8 @@ class PureContinuousMappingNode(Node):
         self.dx = (self.x_max - self.x_min) / self.grid_n
         self.dy = (self.y_max - self.y_min) / self.grid_n
 
-        # ── Yaw Mode Configuration ('fixed' atau 'follow_path') ──────
-        self.declare_parameter('yaw_mode', 'fixed')
+        # ── Yaw Mode Configuration (Default: follow_path) ────────────
+        self.declare_parameter('yaw_mode', 'follow_path')
         self.yaw_mode = self.get_parameter('yaw_mode').get_parameter_value().string_value
         import sys
         for arg in sys.argv:
@@ -91,8 +96,9 @@ class PureContinuousMappingNode(Node):
                 self.yaw_mode = 'fixed'
 
         # ── State Machine ────────────────────────────────────────────
-        #   wait_odom -> wait_takeoff -> sweeping_row -> delay_at_corner_end
-        #   -> stepping_vertical -> delay_at_new_row -> sweeping_row -> ... -> done
+        #   wait_odom -> wait_takeoff -> [transit_to_start -> align_start_yaw]
+        #   -> sweeping_row -> delay_at_corner_end -> stepping_vertical
+        #   -> delay_at_new_row -> sweeping_row -> ... -> done
         self.drone_pos = np.array([-5.50, -5.50, 2.00], dtype=np.float32)
         self.drone_yaw = 0.0
         self.odom_received = False
@@ -115,7 +121,7 @@ class PureContinuousMappingNode(Node):
         self.timer_viz = self.create_timer(0.10, self.publish_rviz_markers)
 
         self.get_logger().info(
-            f'Pure Continuous Mapping v4 Siap! [Yaw Mode: {self.yaw_mode.upper()}] '
+            f'Pure Continuous Mapping v5 Siap! [Yaw Mode: {self.yaw_mode.upper()}] '
             f'({self.num_rows} Baris, v_sweep={self.nominal_speed:.2f}m/s, '
             f'Y=[{float(self.y_rows[0]):.2f} -> {float(self.y_rows[-1]):.2f}])'
         )
@@ -193,25 +199,118 @@ class PureContinuousMappingNode(Node):
         if self.state == 'wait_odom':
             return
 
-        # 0. Menunggu Takeoff
+        # 0. Menunggu Takeoff & Evaluasi Titik Awal
         if self.state == 'wait_takeoff':
             self.publish_twist(0.0, 0.0, 0.0)
             self.takeoff_timer -= 1
             if self.takeoff_timer <= 0:
+                x_start = self.sweep_x_min
+                y_start = float(self.y_rows[0])
+                dist_to_start = math.sqrt((float(self.drone_pos[0]) - x_start)**2 + (float(self.drone_pos[1]) - y_start)**2)
+                
+                if dist_to_start > 0.25:
+                    self.state = 'transit_to_start'
+                    self.get_logger().info(
+                        f'Takeoff selesai di ({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f})! '
+                        f'Jarak ke titik awal Baris 1 ({x_start:.2f}, {y_start:.2f}): {dist_to_start:.2f}m. '
+                        f'Memulai Smart Transit...'
+                    )
+                else:
+                    self.state = 'align_start_yaw'
+                    self.delay_remaining = self.corner_delay_ticks
+                    self.get_logger().info(
+                        f'Takeoff selesai di titik awal ({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f}). '
+                        f'Menyelaraskan heading ke 0.0°...'
+                    )
+            return
+
+        # ─────────────────────────────────────────────────────────────
+        # 1. TRANSIT TO START — Terbang langsung ke (-5.5, -5.5) dengan Yaw Hadap Transit
+        # ─────────────────────────────────────────────────────────────
+        if self.state == 'transit_to_start':
+            x_start = self.sweep_x_min
+            y_start = float(self.y_rows[0])
+            dx = x_start - float(self.drone_pos[0])
+            dy = y_start - float(self.drone_pos[1])
+            dist = math.sqrt(dx**2 + dy**2)
+
+            # Target yaw aktif menghadap langsung ke arah vektor titik start
+            target_yaw = math.atan2(dy, dx)
+            wz_cmd = self.compute_wz(target_yaw)
+
+            # Profil kecepatan halus dengan deselerasi pada 1.5m terakhir
+            if dist > 1.5:
+                v_nom = self.transit_speed
+            elif dist > 0.15:
+                v_nom = max(0.20, self.transit_speed * (dist / 1.5))
+            else:
+                v_nom = 0.0
+
+            # World-frame velocity command (Unit vector * nominal speed + Kp proportional)
+            if dist > 1e-3:
+                v_cmd_x = v_nom * (dx / dist) + self.kp_track * dx
+                v_cmd_y = v_nom * (dy / dist) + self.kp_track * dy
+            else:
+                v_cmd_x = self.kp_track * dx
+                v_cmd_y = self.kp_track * dy
+
+            spd = math.sqrt(v_cmd_x**2 + v_cmd_y**2)
+            if spd > self.max_cmd_speed:
+                v_cmd_x = (v_cmd_x / spd) * self.max_cmd_speed
+                v_cmd_y = (v_cmd_y / spd) * self.max_cmd_speed
+
+            # Transformasi ke Body Frame
+            cos_y = math.cos(self.drone_yaw)
+            sin_y = math.sin(self.drone_yaw)
+            v_body_x =  v_cmd_x * cos_y + v_cmd_y * sin_y
+            v_body_y = -v_cmd_x * sin_y + v_cmd_y * cos_y
+            self.publish_twist(v_body_x, v_body_y, wz_cmd)
+
+            self.ref_pos = np.array([x_start, y_start], dtype=np.float32)
+
+            # Telemetri setiap 1 detik
+            if self.step_count % 10 == 0:
+                self.get_logger().info(
+                    f'  [TRANSIT] Pos: ({self.drone_pos[0]:5.2f}, {self.drone_pos[1]:5.2f}) | '
+                    f'Target: ({x_start:5.2f}, {y_start:5.2f}) | Sisa: {dist:4.2f}m | '
+                    f'Yaw: {math.degrees(self.drone_yaw):+5.1f}° -> Target: {math.degrees(target_yaw):+5.1f}°'
+                )
+
+            # Cek ketercapaian titik awal
+            if dist < 0.18:
+                self.get_logger().info(
+                    f'  -> Tiba di Titik Start Baris 1 ({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f})! '
+                    f'Menyelaraskan heading ke arah sapuan Baris 1 (0.0°)...'
+                )
+                self.publish_twist(0.0, 0.0, 0.0)
+                self.state = 'align_start_yaw'
+                self.delay_remaining = self.corner_delay_ticks
+            return
+
+        # ─────────────────────────────────────────────────────────────
+        # 2. ALIGN START YAW — Penyelarasan orientasi ke 0.0° sebelum Baris 1
+        # ─────────────────────────────────────────────────────────────
+        if self.state == 'align_start_yaw':
+            target_yaw = 0.0  # Baris 1 selalu bergerak ke +X (East, 0.0 rad)
+            wz_cmd = self.compute_wz(target_yaw)
+            self.publish_twist(0.0, 0.0, wz_cmd)
+            self.delay_remaining -= 1
+
+            yaw_diff = math.atan2(math.sin(target_yaw - self.drone_yaw), math.cos(target_yaw - self.drone_yaw))
+            if self.delay_remaining <= 0 and abs(yaw_diff) < math.radians(8.0):
                 self.state = 'sweeping_row'
                 self.row_idx = 0
-                go_right = True
                 x_start = self.sweep_x_min
-                x_end = self.sweep_x_max
-                y_curr = float(self.y_rows[0])
+                x_end   = self.sweep_x_max
+                y_curr  = float(self.y_rows[0])
                 self.get_logger().info(
-                    f'Takeoff selesai! Memulai Baris 1/{self.num_rows}: '
+                    f'Heading selaras ({math.degrees(self.drone_yaw):.1f}°)! Memulai Baris 1/{self.num_rows}: '
                     f'Sweep ({x_start:.2f} -> {x_end:.2f}, Y={y_curr:.2f}) [Continuous cmd_vel]'
                 )
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 1. SWEEPING ROW — Continuous smooth cmd_vel tracking
+        # 3. SWEEPING ROW — Closed-Loop Tracking dengan Anti-Tinggal
         # ─────────────────────────────────────────────────────────────
         if self.state == 'sweeping_row':
             go_right = (self.row_idx % 2 == 0)
@@ -225,24 +324,28 @@ class PureContinuousMappingNode(Node):
             wz_cmd = self.compute_wz(target_yaw)
 
             actual_prog = self.get_actual_progress_x()
+            e_y_current = y_curr - float(self.drone_pos[1])
 
-            # Lead point referensi selalu memimpin 0.45m di depan posisi nyata drone
-            s_target = min(self.line_len, actual_prog + self.lead_dist_x)
+            # Progress Gating: Jika deviasi lateral > 0.25m, jangan dorong X ke depan (tunggu drone merapat)
+            if abs(e_y_current) > 0.25:
+                s_target = actual_prog
+                ff_scale = 0.30  # Reduksi feedforward X agar drone fokus koreksi lateral
+            else:
+                s_target = min(self.line_len, actual_prog + self.lead_dist_x)
+                dist_to_end_line = self.line_len - actual_prog
+                if dist_to_end_line > 1.5:
+                    ff_scale = 1.0
+                elif dist_to_end_line > 0.1:
+                    ff_scale = dist_to_end_line / 1.5
+                else:
+                    ff_scale = 0.0
+
             ref_x = x_start + s_target * dir_x
             ref_y = y_curr
             self.ref_pos = np.array([ref_x, ref_y], dtype=np.float32)
 
             e_x = ref_x - float(self.drone_pos[0])
             e_y = ref_y - float(self.drone_pos[1])
-
-            # Deselerasi linear pada 1.5m terakhir mendekati ujung baris
-            dist_to_end_line = self.line_len - actual_prog
-            if dist_to_end_line > 1.5:
-                ff_scale = 1.0
-            elif dist_to_end_line > 0.1:
-                ff_scale = dist_to_end_line / 1.5
-            else:
-                ff_scale = 0.0
 
             v_ff_x = self.nominal_speed * dir_x * ff_scale
             v_ff_y = 0.0
@@ -273,9 +376,10 @@ class PureContinuousMappingNode(Node):
                     f'Err: ({e_x:+5.3f}, {e_y:+5.3f}) | Yaw: {math.degrees(self.drone_yaw):+5.1f}° | Cov: {pct:4.1f}%'
                 )
 
-            # Cek ketercapaian ujung baris
+            # Cek ketercapaian ujung baris (Gated dengan toleransi posisi nyata)
             dist_to_end = abs(float(self.drone_pos[0]) - x_end)
-            if dist_to_end < 0.20 or dist_to_end_line < 0.15:
+            dist_to_end_line = self.line_len - actual_prog
+            if (dist_to_end < 0.22 or dist_to_end_line < 0.15) and abs(e_y_current) < 0.20:
                 pct = self.get_coverage_percentage()
                 self.get_logger().info(
                     f'  -> Ujung Baris {self.row_idx + 1}/{self.num_rows} tercapai '
@@ -288,20 +392,22 @@ class PureContinuousMappingNode(Node):
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 2. DELAY AT CORNER END — Jeda & rotasi yaw ke +90 deg (arah +Y)
+        # 4. DELAY AT CORNER END — Jeda & rotasi in-place ke +90 deg (+Y)
         # ─────────────────────────────────────────────────────────────
         if self.state == 'delay_at_corner_end':
             target_yaw = math.pi / 2.0  # +90° menghadap arah langkah vertikal (+Y)
             wz_cmd = self.compute_wz(target_yaw)
             self.publish_twist(0.0, 0.0, wz_cmd)
             self.delay_remaining -= 1
-            if self.delay_remaining <= 0:
+
+            yaw_diff = math.atan2(math.sin(target_yaw - self.drone_yaw), math.cos(target_yaw - self.drone_yaw))
+            if self.delay_remaining <= 0 and abs(yaw_diff) < math.radians(8.0):
                 if self.row_idx >= self.num_rows - 1:
                     self.state = 'done'
                     pct = self.get_coverage_percentage()
                     self.get_logger().info(
                         f'========================================================================\n'
-                        f'  PEMETAAN SELESAI! Seluruh {self.num_rows} Baris Tuntas Sempurna.\n'
+                        f'  🎉 PEMETAAN SELESAI! Seluruh {self.num_rows} Baris Tuntas Sempurna.\n'
                         f'  Total Luas Ter-Cover: {pct:.1f}%\n'
                         f'========================================================================'
                     )
@@ -314,7 +420,7 @@ class PureContinuousMappingNode(Node):
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 3. STEPPING VERTICAL — Continuous smooth cmd_vel
+        # 5. STEPPING VERTICAL — Continuous smooth cmd_vel ke baris berikutnya
         # ─────────────────────────────────────────────────────────────
         if self.state == 'stepping_vertical':
             go_right = (self.row_idx % 2 == 0)
@@ -368,7 +474,7 @@ class PureContinuousMappingNode(Node):
 
             # Cek ketercapaian titik awal baris baru
             dist_to_target_y = abs(float(self.drone_pos[1]) - y_target)
-            if dist_to_target_y < 0.15 or dist_to_end_y < 0.10:
+            if (dist_to_target_y < 0.15 or dist_to_end_y < 0.10) and abs(e_x) < 0.20:
                 self.get_logger().info(
                     f'  -> Titik awal Baris {self.row_idx + 2} tercapai ({self.drone_pos[0]:.2f}, {self.drone_pos[1]:.2f})! '
                     f'Jeda settling {self.corner_delay_ticks * 0.1:.1f}s'
@@ -379,7 +485,7 @@ class PureContinuousMappingNode(Node):
             return
 
         # ─────────────────────────────────────────────────────────────
-        # 4. DELAY AT NEW ROW — Settling & rotasi yaw ke baris baru
+        # 6. DELAY AT NEW ROW — Settling & rotasi in-place ke arah baris baru
         # ─────────────────────────────────────────────────────────────
         if self.state == 'delay_at_new_row':
             next_go_right = ((self.row_idx + 1) % 2 == 0)
@@ -387,7 +493,9 @@ class PureContinuousMappingNode(Node):
             wz_cmd = self.compute_wz(target_yaw)
             self.publish_twist(0.0, 0.0, wz_cmd)
             self.delay_remaining -= 1
-            if self.delay_remaining <= 0:
+
+            yaw_diff = math.atan2(math.sin(target_yaw - self.drone_yaw), math.cos(target_yaw - self.drone_yaw))
+            if self.delay_remaining <= 0 and abs(yaw_diff) < math.radians(8.0):
                 self.row_idx += 1
                 self.state = 'sweeping_row'
                 go_right = (self.row_idx % 2 == 0)
@@ -400,7 +508,7 @@ class PureContinuousMappingNode(Node):
                 )
             return
 
-        # 5. Selesai Misi
+        # 7. Selesai Misi
         if self.state == 'done':
             self.publish_twist(0.0, 0.0, 0.0)
             return

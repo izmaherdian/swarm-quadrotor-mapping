@@ -36,15 +36,30 @@ def generate_launch_description():
         default_value='single_agent',
         description='Subfolder di results/ untuk menyimpan CSV (e.g. single_agent, multi_agent)'
     )
+    spawn_x_arg = DeclareLaunchArgument(
+        'spawn_x',
+        default_value='-5.5',
+        description='Posisi X awal spawn iris_1'
+    )
+    spawn_y_arg = DeclareLaunchArgument(
+        'spawn_y',
+        default_value='-5.5',
+        description='Posisi Y awal spawn iris_1'
+    )
 
     pkg_share = get_package_share_directory('swarm_sim')
     ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
     
     _results_base = 'single_agent'
+    _spawn_x = '-5.5'
+    _spawn_y = '-5.5'
     for arg in sys.argv:
         if arg.startswith('results_base:='):
             _results_base = arg.split(':=', 1)[1]
-            break
+        elif arg.startswith('spawn_x:='):
+            _spawn_x = arg.split(':=', 1)[1]
+        elif arg.startswith('spawn_y:='):
+            _spawn_y = arg.split(':=', 1)[1]
     base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', _results_base)
     config_dir = os.path.join(ws_root, 'src', 'swarm_low_level', 'config')
 
@@ -105,8 +120,8 @@ def generate_launch_description():
                 break
 
         if _num_drones_int == 1:
-            x_pos_str = '-5.5'
-            y_pos_str = '-5.5'
+            x_pos_str = _spawn_x
+            y_pos_str = _spawn_y
         elif _num_drones_int == 2:
             x_pos_str = '-6.0' if i == 1 else '6.0'
             y_pos_str = '0.0'
@@ -186,6 +201,8 @@ def generate_launch_description():
         controller_arg,
         use_mid_level_arg,
         results_base_arg,
+        spawn_x_arg,
+        spawn_y_arg,
     ] + swarm_nodes
 
     return LaunchDescription(launch_entities)
