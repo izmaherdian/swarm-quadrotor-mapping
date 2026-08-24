@@ -76,16 +76,24 @@ if ! gz topic -l 2>/dev/null | grep -q "/world/swarm_world"; then
     exit 1
 fi
 
+despawn_active_drones() {
+    local models
+    models=$(gz model --list 2>/dev/null || true)
+    for i in $(seq 1 7); do
+        if echo "$models" | grep -q "iris_${i}"; then
+            gz service -s /world/swarm_world/remove --reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout 500 --req "name: \"iris_${i}\", type: 2" >/dev/null 2>&1 || true
+        fi
+    done
+}
+
 echo "=== [TERMINAL 2] Bersihkan sisa proses kontroler & bridge lama ==="
 for pid in $(ps aux | grep -E "spawn_drones_launch|pid_lqr_node|pid_hinf_node|collision_avoidance_node|tf_prefix_node|bridge_iris" | grep -v grep | awk '{print $2}'); do
     kill -9 "$pid" 2>/dev/null || true
 done
 sleep 1
 
-# Hapus model iris lama jika masih ada di Gazebo
-for i in $(seq 1 7); do
-    gz service -s /world/swarm_world/remove --reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout 500 --req "name: \"iris_${i}\", type: 2" >/dev/null 2>&1 || true
-done
+# Hapus model iris lama hanya jika memang ada di Gazebo
+despawn_active_drones
 
 echo "=== [TERMINAL 2] Build paket kontroler & simulasi ==="
 colcon build --packages-select swarm_low_level swarm_mid_level swarm_sim 2>&1 | tail -4
@@ -103,9 +111,7 @@ cleanup() {
     done
     
     # Despawn model dari Gazebo agar dunia kembali bersih
-    for i in $(seq 1 7); do
-        gz service -s /world/swarm_world/remove --reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout 500 --req "name: \"iris_${i}\", type: 2" >/dev/null 2>&1 || true
-    done
+    despawn_active_drones
     echo "✅ Model drone berhasil di-despawn bersih dari Gazebo."
     echo "Done (Terminal 2 Ditutup)."
 }
