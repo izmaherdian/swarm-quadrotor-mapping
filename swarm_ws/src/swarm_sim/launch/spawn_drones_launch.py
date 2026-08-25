@@ -111,20 +111,35 @@ def generate_launch_description():
         
         # 2. Dynamic Model Spawning into Running Gazebo World
         _num_drones_int = 1
+        _spawn_x1 = None
+        _spawn_y1 = None
+        _spawn_x2 = None
+        _spawn_y2 = None
         for _a in sys.argv:
             if _a.startswith('num_drones:='):
                 try:
                     _num_drones_int = int(_a.split(':=', 1)[1])
                 except ValueError:
                     pass
-                break
+            elif _a.startswith('spawn_x1:='):
+                _spawn_x1 = _a.split(':=', 1)[1]
+            elif _a.startswith('spawn_y1:='):
+                _spawn_y1 = _a.split(':=', 1)[1]
+            elif _a.startswith('spawn_x2:='):
+                _spawn_x2 = _a.split(':=', 1)[1]
+            elif _a.startswith('spawn_y2:='):
+                _spawn_y2 = _a.split(':=', 1)[1]
 
         if _num_drones_int == 1:
-            x_pos_str = _spawn_x
-            y_pos_str = _spawn_y
+            x_pos_str = _spawn_x1 if _spawn_x1 is not None else _spawn_x
+            y_pos_str = _spawn_y1 if _spawn_y1 is not None else _spawn_y
         elif _num_drones_int == 2:
-            x_pos_str = '-6.0' if i == 1 else '6.0'
-            y_pos_str = '0.0'
+            if i == 1:
+                x_pos_str = _spawn_x1 if _spawn_x1 is not None else '-6.0'
+                y_pos_str = _spawn_y1 if _spawn_y1 is not None else '0.0'
+            else:
+                x_pos_str = _spawn_x2 if _spawn_x2 is not None else '6.0'
+                y_pos_str = _spawn_y2 if _spawn_y2 is not None else '0.0'
         else:
             x_pos_str = '0.0'
             y_pos_str = str(float((i - 4.0) * spacing))
@@ -175,7 +190,8 @@ def generate_launch_description():
             name=f'ai_iris_{i}',
             parameters=[
                 {'drone_id': i},
-                {'max_speed': 1.0}
+                {'max_speed': 1.0},
+                {'num_drones': LaunchConfiguration('num_drones')}
             ],
             condition=mid_level_condition,
             output='screen'

@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry, Path
 from actuator_msgs.msg import Actuators
-from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped
+from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist
 from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
@@ -147,6 +147,7 @@ class PIDHinfNode(Node):
         self.subscription = self.create_subscription(Odometry, 'odometry', self.odom_callback, 10)
         self.target_sub = self.create_subscription(PoseStamped, 'target_pose', self.target_pose_callback, 10)
         self.vel_sub = self.create_subscription(TwistStamped, 'target_velocity', self.target_velocity_callback, 10)
+        self.cmd_vel_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, 10)
         self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
         self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
         self.path_pub = self.create_publisher(Path, 'actual_path', 10)
@@ -352,6 +353,7 @@ class PIDHinfNode(Node):
         qz = msg.pose.pose.orientation.z
         qw = msg.pose.pose.orientation.w
         phi, theta, yaw = self.euler_from_quaternion(qx, qy, qz, qw)
+        self.last_yaw = yaw
         
         vx = msg.twist.twist.linear.x
         vy = msg.twist.twist.linear.y
@@ -559,6 +561,28 @@ class PIDHinfNode(Node):
         """Terima kecepatan ORCA dari mid-level sebagai velocity feedforward."""
         self.vx_cmd = float(msg.twist.linear.x)
         self.vy_cmd = float(msg.twist.linear.y)
+
+    def cmd_vel_callback(self, msg):
+        """Terima perintah Twist langsung (Body Frame) dari node mapping/planner."""
+        vx_b = float(msg.linear.x)
+        vy_b = float(msg.linear.y)
+        wz_b = float(msg.angular.z)
+
+        yaw_curr = getattr(self, 'last_yaw', 0.0)
+        cos_y = math.cos(yaw_curr)
+        sin_y = math.sin(yaw_curr)
+        vx_w = vx_b * cos_y - vy_b * sin_y
+        vy_w = vx_b * sin_y + vy_b * cos_y
+
+        self.vx_cmd = vx_w
+        self.vy_cmd = vy_w
+        self.yaw_rate_cmd = wz_b
+
+        dt_cmd = 0.05
+        self.x_cmd += self.vx_cmd * dt_cmd
+        self.y_cmd += self.vy_cmd * dt_cmd
+        self.yaw_cmd += wz_b * dt_cmd
+        self.target_pose_received = True
 
     def destroy_node(self):
         self.csv_file.close()

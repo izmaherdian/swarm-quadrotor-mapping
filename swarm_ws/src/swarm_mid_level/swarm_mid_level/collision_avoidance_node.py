@@ -180,7 +180,7 @@ class CollisionAvoidanceNode(Node):
         self.max_speed = self.get_parameter('max_speed').value
         self.target_z_height = self.get_parameter('target_z_height').value
         self.dt = self.get_parameter('dt').value
-        self.num_drones = self.get_parameter('num_drones').value
+        self.num_drones = int(self.get_parameter('num_drones').value)
         self.safety_radius = self.get_parameter('safety_radius').value
         self.time_horizon = self.get_parameter('time_horizon').value
         self.lookahead_damping = 0.0
@@ -288,7 +288,7 @@ class CollisionAvoidanceNode(Node):
             qy = msg.pose.pose.orientation.y
             qz = msg.pose.pose.orientation.z
             qw = msg.pose.pose.orientation.w
-            yaw_nbr = self.euler_from_quaternion(qx, qy, qz, qw)
+            _, _, yaw_nbr = self.euler_from_quaternion(qx, qy, qz, qw)
 
             # Konversi kecepatan V2V tetangga dari Body Frame ke World Frame
             cos_y = math.cos(yaw_nbr)
@@ -365,7 +365,7 @@ class CollisionAvoidanceNode(Node):
 
     def cmd_vel_callback(self, msg: Twist):
         self.cmd_vel_input = msg
-        self.cmd_vel_timeout = 5  # active for 0.5s (5 ticks @ 10Hz)
+        self.cmd_vel_timeout = 25  # active for 0.50s (25 ticks @ 50Hz)
         self.waypoint_received = True
 
     def control_loop(self):
@@ -397,17 +397,21 @@ class CollisionAvoidanceNode(Node):
             self.target_waypoint = np.array([self.current_pos[0], self.current_pos[1]], dtype=np.float32)
             body_vx = float(self.cmd_vel_input.linear.x)
             body_vy = float(self.cmd_vel_input.linear.y)
-            yaw_rate_cmd = float(self.cmd_vel_input.angular.z)
-
-            # Update yaw angle smooth directly from commanded yaw_rate
-            self.yaw_smooth += yaw_rate_cmd * self.dt
-            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
             # Rotate body velocity to world frame using current yaw
             cos_y = math.cos(self.current_yaw)
             sin_y = math.sin(self.current_yaw)
             world_vx = body_vx * cos_y - body_vy * sin_y
             world_vy = body_vx * sin_y + body_vy * cos_y
+
+            # Smooth Yaw Follow: align heading to actual world motion vector
+            speed_xy = math.hypot(world_vx, world_vy)
+            if speed_xy > 0.15:
+                des_yaw = math.atan2(world_vy, world_vx)
+                yaw_diff = (des_yaw - self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
+                max_turn_step = 2.5 * self.dt  # smooth turning rate limit (~140 deg/s)
+                self.yaw_smooth += np.clip(yaw_diff * 4.5 * self.dt, -max_turn_step, max_turn_step)
+                self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
             pref_vel = np.array([world_vx, world_vy], dtype=np.float32)
             dist_to_target = 5.0  # nominal distance for obstacle scaling
@@ -638,10 +642,10 @@ class CollisionAvoidanceNode(Node):
             self.pos_ref[0] += out_vx * self.dt
             self.pos_ref[1] += out_vy * self.dt
 
-            # Tether pos_ref to current_pos to avoid runaway reference (1.20m dynamic lead window)
+            # Tether pos_ref to current_pos to avoid runaway reference (1.00m tuned lead window for fast, zero-overshoot flight)
             tracking_err = float(np.linalg.norm(self.pos_ref - self.current_pos[:2]))
-            if tracking_err > 1.20:
-                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (1.20 / tracking_err)
+            if tracking_err > 1.00:
+                self.pos_ref = self.current_pos[:2] + (self.pos_ref - self.current_pos[:2]) * (1.00 / tracking_err)
 
             target_pose = PoseStamped()
             target_pose.header.stamp = self.get_clock().now().to_msg()

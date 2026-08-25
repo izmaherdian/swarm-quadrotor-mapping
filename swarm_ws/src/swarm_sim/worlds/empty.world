@@ -102,5 +102,563 @@
       </link>
     </model>
 
+    <!-- GUI TOP-VIEW CAMERA PRESET (Z=38m looking down, +Y North UP, +X East RIGHT) -->
+    <gui fullscreen="0">
+      <camera name="user_camera">
+        <pose>0.0 0.0 38.0 0.0 1.5708 1.5708</pose>
+        <view_controller>orbit</view_controller>
+      </camera>
+    </gui>
+
+    <!-- ARENA 30x30m GRID (1m x 1m BLOCKS) & PERIMETER BORDER -->
+    <model name="arena_30x30_grid">
+      <static>true</static>
+      <link name="grid_link">
+        <!-- COMPASS NORTH ARROW INDICATOR (+Y) -->
+        <visual name="compass_north_arrow">
+          <pose>0.0 16.5 0.03 0 0 0</pose>
+          <geometry><box><size>0.6 1.8 0.04</size></box></geometry>
+          <material>
+            <ambient>0.9 0.1 0.1 1</ambient>
+            <diffuse>0.9 0.1 0.1 1</diffuse>
+          </material>
+        </visual>
+        <visual name="compass_north_tip">
+          <pose>0.0 17.6 0.03 0 0 0.7854</pose>
+          <geometry><box><size>0.8 0.8 0.04</size></box></geometry>
+          <material>
+            <ambient>1.0 0.2 0.2 1</ambient>
+            <diffuse>1.0 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- COMPASS SOUTH INDICATOR (-Y) -->
+        <visual name="compass_south_bar">
+          <pose>0.0 -16.5 0.03 0 0 0</pose>
+          <geometry><box><size>0.6 1.2 0.04</size></box></geometry>
+          <material>
+            <ambient>0.2 0.4 0.9 1</ambient>
+            <diffuse>0.2 0.4 0.9 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- COMPASS EAST INDICATOR (+X) -->
+        <visual name="compass_east_bar">
+          <pose>16.5 0.0 0.03 0 0 0</pose>
+          <geometry><box><size>1.2 0.6 0.04</size></box></geometry>
+          <material>
+            <ambient>0.2 0.8 0.3 1</ambient>
+            <diffuse>0.2 0.8 0.3 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- COMPASS WEST INDICATOR (-X) -->
+        <visual name="compass_west_bar">
+          <pose>-16.5 0.0 0.03 0 0 0</pose>
+          <geometry><box><size>1.2 0.6 0.04</size></box></geometry>
+          <material>
+            <ambient>0.8 0.7 0.1 1</ambient>
+            <diffuse>0.8 0.7 0.1 1</diffuse>
+          </material>
+        </visual>
+
+        <visual name="border_north">
+          <pose>0.0 15.0 0.01 0 0 0</pose>
+          <geometry><box><size>30.2 0.15 0.02</size></box></geometry>
+          <material>
+            <ambient>0.9 0.2 0.2 1</ambient>
+            <diffuse>0.9 0.2 0.2 1</diffuse>
+          </material>
+        </visual>
+        <visual name="border_south">
+          <pose>0.0 -15.0 0.01 0 0 0</pose>
+          <geometry><box><size>30.2 0.15 0.02</size></box></geometry>
+          <material>
+            <ambient>0.2 0.4 0.9 1</ambient>
+            <diffuse>0.2 0.4 0.9 1</diffuse>
+          </material>
+        </visual>
+        <visual name="border_east">
+          <pose>15.0 0.0 0.01 0 0 0</pose>
+          <geometry><box><size>0.15 30.2 0.02</size></box></geometry>
+          <material>
+            <ambient>0.2 0.8 0.3 1</ambient>
+            <diffuse>0.2 0.8 0.3 1</diffuse>
+          </material>
+        </visual>
+        <visual name="border_west">
+          <pose>-15.0 0.0 0.01 0 0 0</pose>
+          <geometry><box><size>0.15 30.2 0.02</size></box></geometry>
+          <material>
+            <ambient>0.8 0.7 0.1 1</ambient>
+            <diffuse>0.8 0.7 0.1 1</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_1">
+          <pose>-14 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_1">
+          <pose>0.0 -14 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_2">
+          <pose>-13 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_2">
+          <pose>0.0 -13 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_3">
+          <pose>-12 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_3">
+          <pose>0.0 -12 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_4">
+          <pose>-11 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_4">
+          <pose>0.0 -11 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_5">
+          <pose>-10 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_5">
+          <pose>0.0 -10 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_6">
+          <pose>-9 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_6">
+          <pose>0.0 -9 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_7">
+          <pose>-8 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_7">
+          <pose>0.0 -8 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_8">
+          <pose>-7 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_8">
+          <pose>0.0 -7 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_9">
+          <pose>-6 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_9">
+          <pose>0.0 -6 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_10">
+          <pose>-5 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_10">
+          <pose>0.0 -5 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_11">
+          <pose>-4 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_11">
+          <pose>0.0 -4 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_12">
+          <pose>-3 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_12">
+          <pose>0.0 -3 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_13">
+          <pose>-2 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_13">
+          <pose>0.0 -2 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_14">
+          <pose>-1 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_14">
+          <pose>0.0 -1 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_15">
+          <pose>0 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_15">
+          <pose>0.0 0 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_16">
+          <pose>1 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_16">
+          <pose>0.0 1 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_17">
+          <pose>2 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_17">
+          <pose>0.0 2 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_18">
+          <pose>3 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_18">
+          <pose>0.0 3 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_19">
+          <pose>4 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_19">
+          <pose>0.0 4 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_20">
+          <pose>5 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_20">
+          <pose>0.0 5 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_21">
+          <pose>6 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_21">
+          <pose>0.0 6 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_22">
+          <pose>7 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_22">
+          <pose>0.0 7 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_23">
+          <pose>8 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_23">
+          <pose>0.0 8 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_24">
+          <pose>9 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_24">
+          <pose>0.0 9 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_25">
+          <pose>10 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_25">
+          <pose>0.0 10 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_26">
+          <pose>11 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_26">
+          <pose>0.0 11 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_27">
+          <pose>12 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_27">
+          <pose>0.0 12 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_28">
+          <pose>13 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_28">
+          <pose>0.0 13 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_29">
+          <pose>14 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.02 30.0 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_29">
+          <pose>0.0 14 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.02 0.01</size></box></geometry>
+          <material>
+            <ambient>0.65 0.65 0.70 0.8</ambient>
+            <diffuse>0.65 0.65 0.70 0.8</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
   </world>
 </sdf>

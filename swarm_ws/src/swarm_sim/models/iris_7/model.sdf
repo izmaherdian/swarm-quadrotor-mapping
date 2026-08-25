@@ -183,7 +183,7 @@
       <actuator_number>0</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <rotorVelocitySlowdownSim>2</rotorVelocitySlowdownSim>
     </plugin>
 
     <!-- PLUGIN: MOTOR 1 (Rear Left - CCW) -->
@@ -201,7 +201,7 @@
       <actuator_number>1</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <rotorVelocitySlowdownSim>2</rotorVelocitySlowdownSim>
     </plugin>
 
     <!-- PLUGIN: MOTOR 2 (Front Left - CW) -->
@@ -219,7 +219,7 @@
       <actuator_number>2</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <rotorVelocitySlowdownSim>2</rotorVelocitySlowdownSim>
     </plugin>
 
     <!-- PLUGIN: MOTOR 3 (Rear Right - CW) -->
@@ -237,7 +237,7 @@
       <actuator_number>3</actuator_number>
       <rotorDragCoefficient>0.000175</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
-      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <rotorVelocitySlowdownSim>2</rotorVelocitySlowdownSim>
     </plugin>
   </model>
 </sdf>

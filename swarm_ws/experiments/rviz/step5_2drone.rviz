@@ -1,0 +1,189 @@
+Panels:
+- Class: rviz_common/Displays
+  Help Height: 78
+  Name: Displays
+  Property Tree Widget:
+    Expanded:
+    - /Grid1
+    - /Mapping_Markers1
+    - /Drone_1_Visual1
+    - /Drone_2_Visual1
+    - /Drone_1_Actual_Path1
+    - /Drone_2_Actual_Path1
+    Splitter Ratio: 0.5
+- Class: rviz_common/Selection
+  Name: Selection
+- Class: rviz_common/Views
+  Expanded:
+  - /Current View1
+  Name: Views
+  Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ''
+  Displays:
+  - Alpha: 0.5
+    Cell Size: 1
+    Class: rviz_default_plugins/Grid
+    Color: 160; 160; 164
+    Enabled: true
+    Line Style:
+      Line Width: 0.03
+      Value: Lines
+    Name: Grid
+    Normal Cell Count: 0
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Plane: XY
+    Plane Cell Count: 20
+    Reference Frame: <Fixed Frame>
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Mapping_Markers
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /mapping/markers
+    Value: true
+  - Class: rviz_default_plugins/Path
+    Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 255; 40; 40
+    Enabled: true
+    Head Diameter: 0.1
+    Head Length: 0.15
+    Length: 0.3
+    Line Style: Lines
+    Line Width: 0.03
+    Name: Drone_1_Actual_Path
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 255; 85; 255
+    Pose Style: None
+    Radius: 0.03
+    Shaft Diameter: 0.05
+    Shaft Length: 0.1
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_1/actual_path
+    Value: true
+  - Class: rviz_default_plugins/Path
+    Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 255; 140; 0
+    Enabled: true
+    Head Diameter: 0.1
+    Head Length: 0.15
+    Length: 0.3
+    Line Style: Lines
+    Line Width: 0.03
+    Name: Drone_2_Actual_Path
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 255; 85; 255
+    Pose Style: None
+    Radius: 0.03
+    Shaft Diameter: 0.05
+    Shaft Length: 0.1
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_2/actual_path
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_1_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_1/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Drone_2_Visual
+    Namespaces: {}
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_2/marker_visual
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 0; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 1
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_1/lidar_scan
+    Use Rainbow: false
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 127; 0
+    Color Transformer: FlatColor
+    Enabled: true
+    Name: Lidar Drone 2
+    Position Transformer: XYZ
+    Selectable: true
+    Size (Pixels): 5
+    Style: Points
+    Topic:
+      Depth: 5
+      Durability Policy: Volatile
+      Filter size: 10
+      History Policy: Keep Last
+      Reliability Policy: Best Effort
+      Value: /iris_2/lidar_scan
+    Use Rainbow: false
+    Value: true
+  Enabled: true
+  Fixed Frame: world
+  Frame Rate: 30
+  Name: root
+  Tools:
+  - Class: rviz_default_plugins/Interact
+  - Class: rviz_default_plugins/MoveCamera
+  - Class: rviz_default_plugins/Select
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 15.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 2.0
+      Name: Current View
+      Pitch: 0.6
+      Yaw: 0.8
