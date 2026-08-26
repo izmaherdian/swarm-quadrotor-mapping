@@ -66,7 +66,7 @@ echo "2️⃣  Melakukan Spawn 7 Drone Quadrotor & Low-Level Flight Controller..
 ros2 launch swarm_sim spawn_drones_launch.py \
     num_drones:=7 \
     controller:=pid_lqr_node \
-    use_mid_level:=false \
+    use_mid_level:=true \
     spawn_x1:="-9.0" spawn_y1:="-9.0" \
     spawn_x2:="0.0"  spawn_y2:="-9.0" \
     spawn_x3:="9.0"  spawn_y3:="-9.0" \
@@ -89,11 +89,11 @@ done
 # 4. Jalankan RViz2
 if [ -f "$RVIZ_CONFIG" ]; then
     echo "3️⃣  Membuka RViz2 Visualizer..."
-    rviz2 -d "$RVIZ_CONFIG" &
+    rviz2 -d "$RVIZ_CONFIG" --ros-args -p use_sim_time:=true &
 fi
 sleep 2
 
 # 5. Jalankan Node Pemetaan Voronoi & Boustrophedon
 echo "4️⃣  Menjalankan Algoritma Pemetaan Voronoi Swarm..."
 echo "========================================================================="
-python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py"
+python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" --ros-args -p use_sim_time:=true

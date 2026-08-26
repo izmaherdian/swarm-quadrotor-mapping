@@ -486,12 +486,19 @@ class PIDHinfNode(Node):
         w_floor_sq = 250.0**2
         w_ceil_sq = 1050.0**2
         if np.min(w_sq_cmd) < w_floor_sq or np.max(w_sq_cmd) > w_ceil_sq:
-            for scale in [0.85, 0.70, 0.50, 0.30, 0.10, 0.0]:
-                U_cmd_scaled = np.array([u_thrust, ux_pid * scale, uy_pid * scale, uyaw_pid * scale])
-                w_sq_test = self.M_inv @ U_cmd_scaled
+            for scale_y in [0.70, 0.40, 0.20, 0.0]:
+                U_cmd_test = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid * scale_y])
+                w_sq_test = self.M_inv @ U_cmd_test
                 if np.min(w_sq_test) >= w_floor_sq and np.max(w_sq_test) <= w_ceil_sq:
                     w_sq_cmd = w_sq_test
                     break
+            else:
+                for scale in [0.85, 0.70, 0.50, 0.30, 0.10, 0.0]:
+                    U_cmd_scaled = np.array([u_thrust, ux_pid * scale, uy_pid * scale, 0.0])
+                    w_sq_test = self.M_inv @ U_cmd_scaled
+                    if np.min(w_sq_test) >= w_floor_sq and np.max(w_sq_test) <= w_ceil_sq:
+                        w_sq_cmd = w_sq_test
+                        break
 
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
         w_cmd = np.clip(w_cmd, self.w_min, self.w_max)
@@ -578,11 +585,13 @@ class PIDHinfNode(Node):
         self.vy_cmd = vy_w
         self.yaw_rate_cmd = wz_b
 
-        dt_cmd = 0.05
-        self.x_cmd += self.vx_cmd * dt_cmd
-        self.y_cmd += self.vy_cmd * dt_cmd
-        self.yaw_cmd += wz_b * dt_cmd
-        self.target_pose_received = True
+        # Integrasikan kecepatan ke target posisi x_cmd, y_cmd, yaw_cmd hanya jika target_pose belum aktif
+        if not self.target_pose_received:
+            dt_cmd = 0.05
+            self.x_cmd += self.vx_cmd * dt_cmd
+            self.y_cmd += self.vy_cmd * dt_cmd
+            self.yaw_cmd += wz_b * dt_cmd
+            self.target_pose_received = True
 
     def destroy_node(self):
         self.csv_file.close()

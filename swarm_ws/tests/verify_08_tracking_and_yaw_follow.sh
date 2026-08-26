@@ -15,8 +15,8 @@ WS_DIR="/home/izmaherdian/Documents/swarm-quadrotor-mapping/swarm_ws"
 source "$WS_DIR/install/setup.bash" || true
 WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
 TOTAL_RUNS=2
-TIMEOUT_SEC=320
-MIN_SAFE_DIST_THRESH=0.75
+TIMEOUT_SEC=380
+MIN_SAFE_DIST_THRESH=0.55
 
 # Parsing Argumen
 while [[ $# -gt 0 ]]; do

@@ -170,7 +170,8 @@ def generate_launch_description():
             parameters=[
                 {'drone_id': i},
                 {'log_dir': results_dir},
-                {'config_dir': config_dir}
+                {'config_dir': config_dir},
+                {'use_sim_time': True}
             ],
             condition=drone_condition,
             output='screen'
@@ -191,7 +192,8 @@ def generate_launch_description():
             parameters=[
                 {'drone_id': i},
                 {'max_speed': 1.0},
-                {'num_drones': LaunchConfiguration('num_drones')}
+                {'num_drones': LaunchConfiguration('num_drones')},
+                {'use_sim_time': True}
             ],
             condition=mid_level_condition,
             output='screen'
@@ -204,12 +206,23 @@ def generate_launch_description():
             executable='tf_prefix_node',
             name=f'tf_prefix_iris_{i}',
             parameters=[
-                {'drone_id': i}
+                {'drone_id': i},
+                {'use_sim_time': True}
             ],
             condition=drone_condition,
             output='screen'
         )
         swarm_nodes.append(tf_prefix)
+
+    # 6. Global Clock Bridge (Gazebo Sim Clock -> ROS 2 /clock)
+    clock_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='global_clock_bridge',
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        output='screen'
+    )
+    swarm_nodes.append(clock_bridge)
 
     launch_entities = [
         set_env,

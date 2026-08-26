@@ -257,6 +257,8 @@ class DroneAgent:
 class Swarm7DroneVoronoiMappingNode(Node):
     def __init__(self):
         super().__init__('swarm_7drone_voronoi_mapping_node')
+        if not self.has_parameter('use_sim_time'):
+            self.declare_parameter('use_sim_time', True)
 
         # ── Parameter Wilayah Arena 30x30m (Active Map: 28x28m) ──────
         self.x_min, self.x_max = -15.0, 15.0
@@ -360,10 +362,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
         return roll, pitch, yaw
 
     def compute_wz(self, current_yaw, target_yaw):
-        """Hitung laju yaw (rad/s) mulus dengan batas 80 deg/s untuk mencegah gyroscopic tilt."""
+        """Hitung laju yaw (rad/s) mulus dengan batas 40 deg/s untuk putaran anggun dan stabil di sudut."""
         diff = math.atan2(math.sin(target_yaw - current_yaw), math.cos(target_yaw - current_yaw))
-        MAX_WZ = math.radians(80.0)  # Max 80 deg/s
-        return float(np.clip(2.4 * diff, -MAX_WZ, MAX_WZ))
+        MAX_WZ = math.radians(40.0)  # Max 40 deg/s (~0.70 rad/s)
+        return float(np.clip(1.2 * diff, -MAX_WZ, MAX_WZ))
 
     def odom_callback(self, did, msg):
         agent = self.agents[did]
@@ -733,8 +735,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
                 yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                # Berhenti diam (min 0.3s = 6 ticks) & TUNGGU sampai yaw selaras (< 8.0°) dan TIDAK ADA konflik perbatasan
-                if not has_yield_conflict and ((agent.delay_timer >= 6 and yaw_diff < math.radians(8.0)) or agent.delay_timer >= 100):
+                # Berhenti diam (min 1.25s = 25 ticks) & TUNGGU sampai yaw selaras (< 6.0°) dan TIDAK ADA konflik perbatasan
+                if not has_yield_conflict and ((agent.delay_timer >= 25 and yaw_diff < math.radians(6.0)) or agent.delay_timer >= 120):
                     agent.state = 'stepping_vertical'
                     agent.step_timer = 0
                     agent.delay_timer = 0
@@ -799,8 +801,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
                 yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                # Berhenti diam (min 0.3s = 6 ticks) & TUNGGU sampai yaw selaras (< 8.0°) sebelum mulai sapuan baris
-                if (agent.delay_timer >= 6 and yaw_diff < math.radians(8.0)) or agent.delay_timer >= 50:
+                # Berhenti diam (min 1.25s = 25 ticks) & TUNGGU sampai yaw selaras (< 6.0°) sebelum mulai sapuan baris
+                if (agent.delay_timer >= 25 and yaw_diff < math.radians(6.0)) or agent.delay_timer >= 120:
                     agent.row_idx += 1
                     agent.state = 'sweeping_row'
                     agent.delay_timer = 0
@@ -826,7 +828,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     agent.state = 'done'
                     agent.ref_pos = agent.centroid.copy()
                     agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
-                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
+                    self.publish_twist(did, 0.0, 0.0, wz_cmd)
                     self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Pusat Voronoi! Menghadap UTARA (+90.0°).')
                     continue
 

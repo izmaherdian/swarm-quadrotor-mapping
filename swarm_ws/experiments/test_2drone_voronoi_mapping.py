@@ -66,6 +66,8 @@ class DroneAgentState:
 class TwoDroneVoronoiMappingNode(Node):
     def __init__(self):
         super().__init__('two_drone_voronoi_mapping_node')
+        if not self.has_parameter('use_sim_time'):
+            self.declare_parameter('use_sim_time', True)
 
         # ── Parameter Arena & Grid ───────────────────────────────────
         self.x_min, self.x_max = -6.0, 6.0
@@ -91,9 +93,9 @@ class TwoDroneVoronoiMappingNode(Node):
         self.lead_dist_x     = 0.45   # m lookahead
         self.kp_pos_x        = 0.85   # gain koreksi posisi X
         self.kp_pos_y        = 1.10   # gain koreksi lateral Y
-        self.kp_yaw          = 1.80   # gain orientasi yaw
-        self.max_wz          = 1.05   # rad/s (~60 deg/s)
-        self.corner_delay_ticks = 15  # 1.5 detik settling di sudut
+        self.kp_yaw          = 1.20   # gain orientasi yaw mulus
+        self.max_wz          = math.radians(40.0)   # rad/s (~40 deg/s)
+        self.corner_delay_ticks = 25  # 2.5 detik settling di sudut (10Hz)
 
         # Sensor Coverage
         self.sensor_radius = 0.85     # meter

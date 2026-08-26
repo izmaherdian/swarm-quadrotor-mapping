@@ -631,6 +631,8 @@ class CollisionAvoidanceNode(Node):
             # Quadrotor bergerak bebas di bidang (vx, vy) tanpa perlu memutar hidung.
             # Ini menghilangkan 100% gangguan gyroskopik dan cross-coupling roll-pitch saat sweep.
             yaw_rate = float(self.cmd_vel_input.angular.z) if (hasattr(self, 'cmd_vel_input') and self.cmd_vel_input is not None) else 0.0
+            self.yaw_smooth += yaw_rate * self.dt
+            self.yaw_smooth = (self.yaw_smooth + np.pi) % (2 * np.pi) - np.pi
 
             half_yaw = self.yaw_smooth * 0.5
             qw = float(np.cos(half_yaw))

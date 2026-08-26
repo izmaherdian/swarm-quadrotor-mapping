@@ -152,8 +152,8 @@ class PIDHinfSolver:
         Ayaw = np.array([[0, 1], [0, 0]])
         Byaw = np.array([[0], [1/Iz]])
         Cyaw = np.array([[1, 0]])
-        Q_yaw = np.diag([1.0, 5.0])
-        R_yaw = 1.0
+        Q_yaw = np.diag([1.0, 4.0])
+        R_yaw = 4.0
         Kp, Ki, Kd = self.solve_pid_hinf(Ayaw, Byaw, Cyaw, Q_yaw, R_yaw, gamma_in)
         gains['yaw'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
