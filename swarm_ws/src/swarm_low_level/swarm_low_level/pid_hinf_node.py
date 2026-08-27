@@ -1,8 +1,10 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
+from tf2_ros import TransformBroadcaster
 from nav_msgs.msg import Odometry, Path
 from actuator_msgs.msg import Actuators
-from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist
+from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist, TransformStamped
 from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
@@ -151,6 +153,7 @@ class PIDHinfNode(Node):
         self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
         self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
         self.path_pub = self.create_publisher(Path, 'actual_path', 10)
+        self.tf_broadcaster = TransformBroadcaster(self)
             
         self.get_logger().info("=========================================")
         self.get_logger().info(f"OTAK PID-HINF iris_{did} AKTIF! Misi: Melayang di Z=2.0m")
@@ -171,13 +174,13 @@ class PIDHinfNode(Node):
 
     def publish_drone_marker(self, x, y, z, roll, pitch, yaw, q_msg, vx=0.0, vy=0.0, vz=0.0):
         color_map = {
-            1: (1.0, 0.15, 0.15),  # Iris 1: Vibrant Red
-            2: (1.0, 0.60, 0.0),   # Iris 2: Vibrant Orange
-            3: (1.0, 0.95, 0.1),   # Iris 3: Yellow
-            4: (0.1, 0.95, 0.2),   # Iris 4: Green
-            5: (0.1, 0.85, 1.0),   # Iris 5: Cyan
-            6: (0.3, 0.45, 1.0),   # Iris 6: Blue
-            7: (0.9, 0.20, 1.0)    # Iris 7: Purple
+            1: (0.00, 0.75, 0.65),  # Iris 1: Teal / Toska
+            2: (1.0, 0.60, 0.0),    # Iris 2: Vibrant Orange
+            3: (1.0, 0.95, 0.1),    # Iris 3: Yellow
+            4: (0.1, 0.95, 0.2),    # Iris 4: Green
+            5: (0.1, 0.85, 1.0),    # Iris 5: Cyan
+            6: (0.3, 0.45, 1.0),    # Iris 6: Blue
+            7: (0.9, 0.20, 1.0)     # Iris 7: Purple
         }
         r_c, g_c, b_c = color_map.get(self.drone_id, (1.0, 1.0, 1.0))
         now_msg = self.get_clock().now().to_msg()
@@ -256,6 +259,7 @@ class PIDHinfNode(Node):
         m_arrow.id = 2
         m_arrow.type = Marker.ARROW
         m_arrow.action = Marker.ADD
+        m_arrow.lifetime = Duration(nanoseconds=int(0.15 * 1e9)).to_msg()
         m_arrow.points = [p_start, p_end]
         m_arrow.scale.x = 0.04  # Diameter batang panah
         m_arrow.scale.y = 0.10  # Diameter kepala panah
@@ -532,14 +536,25 @@ class PIDHinfNode(Node):
                                       w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
         self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation, vx, vy, vz)
 
-        # Update and publish trajectory path trail
+        # Broadcast TF: world -> iris_{self.drone_id}/base_link
+        tf_stamped = TransformStamped()
+        tf_stamped.header.stamp = msg.header.stamp
+        tf_stamped.header.frame_id = 'world'
+        tf_stamped.child_frame_id = f'iris_{self.drone_id}/base_link'
+        tf_stamped.transform.translation.x = float(x)
+        tf_stamped.transform.translation.y = float(y)
+        tf_stamped.transform.translation.z = float(z)
+        tf_stamped.transform.rotation = msg.pose.pose.orientation
+        self.tf_broadcaster.sendTransform(tf_stamped)
+
+        # Update and publish trajectory path trail (Hanya jika posisi bergeser >= 0.15m)
         if not hasattr(self, 'path_msg'):
             self.path_msg = Path()
             self.path_msg.header.frame_id = 'world'
-            self.last_path_pub_time = 0.0
+            self.last_path_pos = None
 
-        if (current_time - self.last_path_pub_time) >= 0.08:
-            self.last_path_pub_time = current_time
+        if self.last_path_pos is None or (math.hypot(x - self.last_path_pos[0], y - self.last_path_pos[1]) >= 0.15):
+            self.last_path_pos = (x, y)
             pose_stamped = PoseStamped()
             pose_stamped.header = msg.header
             pose_stamped.header.frame_id = 'world'

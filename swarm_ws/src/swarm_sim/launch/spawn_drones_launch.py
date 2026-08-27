@@ -92,12 +92,10 @@ def generate_launch_description():
             f'/model/iris_{i}/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
             f'/iris_{i}/command/motor_speed@actuator_msgs/msg/Actuators]gz.msgs.Actuators',
             f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan',
-            f'/model/iris_{i}/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
         ]
         bridge_remaps = [
             (f'/model/iris_{i}/odometry', f'/iris_{i}/odometry'),
             (f'/world/swarm_world/model/iris_{i}/link/base_link/sensor/gpu_lidar/scan', f'/iris_{i}/lidar_scan'),
-            (f'/model/iris_{i}/pose', '/tf'),
         ]
         swarm_nodes.append(Node(
             package='ros_gz_bridge',
@@ -206,19 +204,7 @@ def generate_launch_description():
         )
         swarm_nodes.append(ai_node)
         
-        # 5. TF Prefix Node
-        tf_prefix = Node(
-            package='swarm_low_level',
-            executable='tf_prefix_node',
-            name=f'tf_prefix_iris_{i}',
-            parameters=[
-                {'drone_id': i},
-                {'use_sim_time': True}
-            ],
-            condition=drone_condition,
-            output='screen'
-        )
-        swarm_nodes.append(tf_prefix)
+
 
     # 6. Global Clock Bridge (Gazebo Sim Clock -> ROS 2 /clock)
     clock_bridge = Node(
@@ -229,6 +215,15 @@ def generate_launch_description():
         output='screen'
     )
     swarm_nodes.append(clock_bridge)
+
+    # 7. Static Transform Publisher (world -> swarm_world)
+    tf_world_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_tf_world_publisher',
+        arguments=['--x', '0', '--y', '0', '--z', '0', '--yaw', '0', '--pitch', '0', '--roll', '0', '--frame-id', 'world', '--child-frame-id', 'swarm_world']
+    )
+    swarm_nodes.append(tf_world_node)
 
     launch_entities = [
         set_env,

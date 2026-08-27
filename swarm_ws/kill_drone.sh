@@ -53,10 +53,11 @@ for id in "${VALID_IDS[@]}"; do
     pkill -9 -f "tf_prefix_iris_${id}" 2>/dev/null || true
 done
 
-# 2. Kirim sinyal event darurat ke node koordinator via Python ROS 2 publisher (Instant, non-blocking)
+# 2. Kirim sinyal event darurat ke node koordinator via Python ROS 2 publisher (Reliable DDS Handshake)
 echo -e "   📡 Mempublikasikan sinyal kegagalan ke ${BOLD}/swarm/kill_drone${NC}..."
 python3 -c "
 import sys
+import time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int32MultiArray
@@ -66,9 +67,18 @@ node = Node('kill_drone_cli_node')
 pub = node.create_publisher(Int32MultiArray, '/swarm/kill_drone', 10)
 msg = Int32MultiArray()
 msg.data = [int(x) for x in sys.argv[1:]]
-for _ in range(5):
+
+# Tunggu discovery DDS subscriber maksimal 1 detik
+for _ in range(20):
+    if pub.get_subscription_count() > 0:
+        break
+    rclpy.spin_once(node, timeout_sec=0.05)
+
+for _ in range(10):
     pub.publish(msg)
-    rclpy.spin_once(node, timeout_sec=0.03)
+    rclpy.spin_once(node, timeout_sec=0.05)
+
+time.sleep(0.1)
 node.destroy_node()
 rclpy.shutdown()
 " "${VALID_IDS[@]}"

@@ -37,6 +37,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 import rclpy
 from rclpy.node import Node
+from rclpy.duration import Duration
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist, TwistStamped, Point, PoseStamped
 from nav_msgs.msg import Odometry, Path
@@ -301,7 +302,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         # ── 7 Drone Swarm Initialization ─────────────────────────────
         self.drone_colors = [
-            (1.00, 0.15, 0.15),  # Drone 1: Merah
+            (0.00, 0.75, 0.65),  # Drone 1: Teal / Hijau Toska
             (1.00, 0.55, 0.00),  # Drone 2: Oranye
             (1.00, 0.85, 0.00),  # Drone 3: Kuning
             (0.00, 1.00, 0.30),  # Drone 4: Hijau
@@ -516,9 +517,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
     # ── Update Grid Cakupan (Coverage) ───────────────────────────────
 
     def update_coverage(self):
-        """Memperbarui matriks okupansi sensor FoV (R=0.95m) untuk semua drone."""
-        for agent in self.agents.values():
+        """Memperbarui matriks okupansi sensor FoV (R=0.95m) hanya saat drone aktif melakukan pemetaan."""
+        for did, agent in self.agents.items():
+            if not agent.is_alive or agent.state == 'dead':
+                continue
             if not agent.odom_received or agent.pos[2] < 0.8:
+                continue
+
+            # Hanya catat coverage saat drone sedang aktif menyapu baris pemetaan
+            # (BUKAN saat takeoff, pivot transit, transit ke titik awal, atau align start yaw)
+            if agent.state not in ('sweeping_row', 'delay_at_corner_end', 'stepping_vertical', 'delay_at_new_row', 'sweeping_recovery'):
                 continue
 
             cx_idx = int((agent.pos[0] - self.x_min) / self.dx)
@@ -659,9 +667,20 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         # 4. Hapus riwayat coverage di dalam seluruh sel mati
         for poly in all_dead_polys:
-            poly_path = MplPath(np.array(poly, dtype=float))
-            for i in range(self.grid_n):
-                for j in range(self.grid_n):
+            poly_arr = np.array(poly, dtype=float)
+            if len(poly_arr) < 3:
+                continue
+            if np.linalg.norm(poly_arr[0] - poly_arr[-1]) > 1e-4:
+                poly_arr = np.vstack([poly_arr, poly_arr[0]])
+            poly_path = MplPath(poly_arr)
+            min_x_p, min_y_p = np.min(poly_arr, axis=0) - 0.2
+            max_x_p, max_y_p = np.max(poly_arr, axis=0) + 0.2
+            i_min_p = max(0, int((min_x_p - self.x_min) / self.dx))
+            i_max_p = min(self.grid_n, int((max_x_p - self.x_min) / self.dx) + 1)
+            j_min_p = max(0, int((min_y_p - self.y_min) / self.dy))
+            j_max_p = min(self.grid_n, int((max_y_p - self.y_min) / self.dy) + 1)
+            for i in range(i_min_p, i_max_p):
+                for j in range(j_min_p, j_max_p):
                     cell_x = self.x_min + (i + 0.5) * self.dx
                     cell_y = self.y_min + (j + 0.5) * self.dy
                     if poly_path.contains_point([cell_x, cell_y]):
@@ -1457,12 +1476,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_north_arrow.scale.x = 0.25  # Shaft diameter
         m_north_arrow.scale.y = 0.60  # Head diameter
         m_north_arrow.scale.z = 0.80  # Head length
-        m_north_arrow.color = ColorRGBA(r=1.0, g=0.15, b=0.15, a=1.0)
+        m_north_arrow.color = ColorRGBA(r=0.85, g=0.85, b=0.85, a=0.90)
         ma.markers.append(m_north_arrow)
 
         # Label Teks Mata Angin & Staging Base Pad
         compass_labels = [
-            (2, "NORTH (+Y)", 0.0, 18.2, 0.3, (1.0, 0.2, 0.2)),
+            (2, "NORTH (+Y)", 0.0, 18.2, 0.3, (0.85, 0.85, 0.85)),
             (3, "SOUTH (-Y)", 0.0, -19.8, 0.3, (0.3, 0.5, 1.0)),
             (4, "EAST (+X)", 16.2, 0.0, 0.3, (0.2, 0.9, 0.3)),
             (5, "WEST (-X)", -16.2, 0.0, 0.3, (0.9, 0.8, 0.2)),
@@ -1664,6 +1683,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 m_carrot.pose.position.x = float(agent.ref_pos[0])
                 m_carrot.pose.position.y = float(agent.ref_pos[1])
                 m_carrot.pose.position.z = float(self.cruise_alt)
+                m_carrot.pose.orientation.w = 1.0
                 m_carrot.scale.x = 0.22
                 m_carrot.scale.y = 0.22
                 m_carrot.scale.z = 0.22
@@ -1679,6 +1699,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     m_fov.id = 30 + did
                     m_fov.type = Marker.LINE_STRIP
                     m_fov.action = Marker.ADD
+                    m_fov.pose.orientation.w = 1.0
                     m_fov.scale.x = 0.04
                     m_fov.color = ColorRGBA(r=r, g=g, b=b, a=0.7)
 
@@ -1691,7 +1712,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         m_fov.points.append(pt)
                     ma.markers.append(m_fov)
 
-                # Panah Arah Heading Real-Time (Orientasi Arah Hadap Drone)
+                # Panah Arah Heading Real-Time (Orientasi Arah Hadap Drone - Real-Time Lifetime)
                 m_arrow = Marker()
                 m_arrow.header.frame_id = 'world'
                 m_arrow.header.stamp = stamp
@@ -1699,20 +1720,21 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 m_arrow.id = 50 + did
                 m_arrow.type = Marker.ARROW
                 m_arrow.action = Marker.ADD
+                m_arrow.lifetime = Duration(nanoseconds=int(0.15 * 1e9)).to_msg()
                 
                 p_start = Point()
                 p_start.x, p_start.y, p_start.z = px, py, pz
                 p_end = Point()
-                arrow_len = 0.70
+                arrow_len = 0.55
                 p_end.x = float(px + arrow_len * math.cos(agent.yaw))
                 p_end.y = float(py + arrow_len * math.sin(agent.yaw))
                 p_end.z = pz
 
                 m_arrow.points = [p_start, p_end]
-                m_arrow.scale.x = 0.08  # Shaft diameter
-                m_arrow.scale.y = 0.15  # Head diameter
-                m_arrow.scale.z = 0.18  # Head length
-                m_arrow.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+                m_arrow.scale.x = 0.06  # Shaft diameter
+                m_arrow.scale.y = 0.14  # Head diameter
+                m_arrow.scale.z = 0.16  # Head length
+                m_arrow.color = ColorRGBA(r=float(r), g=float(g), b=float(b), a=1.0)
                 ma.markers.append(m_arrow)
 
             # Drone Center Hub Sphere (Badan Utama Drone di tanah)
@@ -1726,6 +1748,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_hub.pose.position.x = px
             m_hub.pose.position.y = py
             m_hub.pose.position.z = max(0.05, pz)
+            m_hub.pose.orientation.w = 1.0
             m_hub.scale.x = 0.35
             m_hub.scale.y = 0.35
             m_hub.scale.z = 0.15
@@ -1746,6 +1769,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_tag.pose.position.x = px
             m_tag.pose.position.y = py
             m_tag.pose.position.z = max(0.05, pz) + 0.40
+            m_tag.pose.orientation.w = 1.0
             m_tag.scale.z = 0.38
             if is_dead:
                 m_tag.color = ColorRGBA(r=1.0, g=0.2, b=0.2, a=1.0)
@@ -1773,33 +1797,43 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_hud.pose.position.x = 0.0
         m_hud.pose.position.y = 15.50
         m_hud.pose.position.z = 1.0
+        m_hud.pose.orientation.w = 1.0
         m_hud.scale.z = 0.70
         m_hud.color = ColorRGBA(r=0.2, g=1.0, b=0.4, a=1.0)
         m_hud.text = f'Coverage: {cov:.1f}% | 7 Drones 2D Voronoi Mapping (30x30m)'
         ma.markers.append(m_hud)
 
-        # 6. Grid Cakupan Hijau Padat & Rapat (Numpy Vectorized Fast Extraction)
-        if self.step_count % 4 == 0:
-            m_grid = Marker()
-            m_grid.header.frame_id = 'world'
-            m_grid.header.stamp = stamp
-            m_grid.ns = 'coverage_footprint'
-            m_grid.id = 100
-            m_grid.type = Marker.CUBE_LIST
-            m_grid.action = Marker.ADD
-            m_grid.scale.x = float(self.dx * 1.02)
-            m_grid.scale.y = float(self.dy * 1.02)
-            m_grid.scale.z = 0.015
-            m_grid.color = ColorRGBA(r=0.10, g=0.90, b=0.25, a=0.35)
+        # 6. Grid Cakupan Hijau Padat, Kontras & Bebas Z-Fighting (Numpy Vectorized Fast Extraction)
+        m_grid = Marker()
+        m_grid.header.frame_id = 'world'
+        m_grid.header.stamp = stamp
+        m_grid.ns = 'coverage_footprint'
+        m_grid.id = 100
+        m_grid.type = Marker.CUBE_LIST
+        m_grid.pose.position.x = 0.0
+        m_grid.pose.position.y = 0.0
+        m_grid.pose.position.z = 0.0
+        m_grid.pose.orientation.x = 0.0
+        m_grid.pose.orientation.y = 0.0
+        m_grid.pose.orientation.z = 0.0
+        m_grid.pose.orientation.w = 1.0
+        m_grid.scale.x = float(self.dx * 1.02)
+        m_grid.scale.y = float(self.dy * 1.02)
+        m_grid.scale.z = 0.04  # Tebal 4cm agar solid & tidak terpotong garis grid lantai
+        m_grid.color = ColorRGBA(r=0.08, g=0.98, b=0.28, a=0.70)  # Hijau neon cerah & kontras
 
-            indices = np.argwhere(self.cov_grid)
+        indices = np.argwhere(self.cov_grid)
+        if len(indices) > 0:
+            m_grid.action = Marker.ADD
             for idx in indices:
                 pt = Point()
                 pt.x = float(self.x_min + (idx[0] + 0.5) * self.dx)
                 pt.y = float(self.y_min + (idx[1] + 0.5) * self.dy)
-                pt.z = 0.01
+                pt.z = 0.035  # Terangkat di atas lantai Z=0 agar sangat jelas terlihat dari segala view
                 m_grid.points.append(pt)
-            ma.markers.append(m_grid)
+        else:
+            m_grid.action = Marker.DELETE
+        ma.markers.append(m_grid)
 
         self.pub_markers.publish(ma)
 

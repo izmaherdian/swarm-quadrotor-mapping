@@ -104,9 +104,14 @@ pkill -9 -f "rviz2" 2>/dev/null || true
 pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
 sleep 1
 
-# 2. Jalankan Gazebo Simulator GUI
+# 2. Jalankan Gazebo Simulator GUI dengan custom gui config
+GUI_CONFIG="$(ros2 pkg prefix swarm_sim 2>/dev/null)/share/swarm_sim/config/gazebo_gui.config"
+if [ ! -f "$GUI_CONFIG" ]; then
+    GUI_CONFIG="/home/izmaherdian/Documents/swarm-quadrotor-mapping/swarm_ws/src/swarm_sim/config/gazebo_gui.config"
+fi
+
 echo "1️⃣  Menjalankan Gazebo Simulator GUI..."
-gz sim -r "$WORLD_FILE" &
+gz sim -r --gui-config "$GUI_CONFIG" "$WORLD_FILE" &
 GZ_PID=$!
 
 echo "   ⏳ Menunggu Gazebo Engine siap..."

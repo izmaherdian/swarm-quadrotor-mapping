@@ -4,14 +4,16 @@ Panels:
   Name: Displays
   Property Tree Widget:
     Expanded:
-    - /Grid1
-    - /Drone_1_Visual1
-    - /Drone_2_Visual1
-    - /Drone_3_Visual1
-    - /Drone_4_Visual1
-    - /Drone_5_Visual1
-    - /Drone_6_Visual1
-    - /Drone_7_Visual1
+    - /Grid 30x30m1
+    - /TF Frames1
+    - /Mapping_Markers1
+    - /🟢 Drone 1 Lidar Scan (Teal)1
+    - /🟠 Drone 2 Lidar Scan (Orange)1
+    - /🟡 Drone 3 Lidar Scan (Yellow)1
+    - /🟢 Drone 4 Lidar Scan (Lime Green)1
+    - /🔵 Drone 5 Lidar Scan (Cyan)1
+    - /🔵 Drone 6 Lidar Scan (Royal Blue)1
+    - /🟣 Drone 7 Lidar Scan (Purple)1
     Splitter Ratio: 0.5
 - Class: rviz_common/Selection
   Name: Selection
@@ -23,7 +25,8 @@ Panels:
 Visualization Manager:
   Class: ''
   Displays:
-  - Alpha: 0.5
+  # ─── GLOBAL MAPPING & GRIDS ────────────────────────────────
+  - Alpha: 0.4
     Cell Size: 1
     Class: rviz_default_plugins/Grid
     Color: 160; 160; 164
@@ -31,20 +34,34 @@ Visualization Manager:
     Line Style:
       Line Width: 0.03
       Value: Lines
-    Name: Grid
+    Name: Grid 30x30m
     Normal Cell Count: 0
     Offset:
       X: 0
       Y: 0
       Z: 0
     Plane: XY
-    Plane Cell Count: 20
+    Plane Cell Count: 30
     Reference Frame: <Fixed Frame>
+    Value: true
+  - Class: rviz_default_plugins/TF
+    Enabled: true
+    Frame Timeout: 15
+    Frames:
+      All Enabled: true
+    Marker Scale: 0.35
+    Name: TF Frames
+    Show Arrows: false
+    Show Axes: false
+    Show Names: false
+    Tree: {}
+    Update Interval: 0.05
     Value: true
   - Class: rviz_default_plugins/MarkerArray
     Enabled: true
     Name: Swarm_Reference_Track
-    Namespaces: {}
+    Namespaces:
+      ref_track: true
     Queue Size: 100
     Topic:
       Depth: 5
@@ -56,7 +73,22 @@ Visualization Manager:
   - Class: rviz_default_plugins/MarkerArray
     Enabled: true
     Name: Mapping_Markers
-    Namespaces: {}
+    Namespaces:
+      arena_boundary: true
+      coverage_footprint: true
+      drone_heading_arrows: true
+      drone_hubs: true
+      drone_reference_carrots: true
+      drone_tags: true
+      hud_text: true
+      merged_dead_cells: true
+      north_arrow: true
+      planned_paths: true
+      planned_waypoints: true
+      recovery_paths: true
+      sensor_fov: true
+      voronoi_cells: true
+      voronoi_seeds: true
     Queue Size: 100
     Topic:
       Depth: 5
@@ -65,27 +97,42 @@ Visualization Manager:
       Reliability: Reliable
       Value: /mapping/markers
     Value: true
-  - Class: rviz_default_plugins/Path
-    Alpha: 1.0
+  - Class: rviz_default_plugins/MarkerArray
+    Enabled: true
+    Name: Dead_Cells_Markers
+    Namespaces:
+      dead_cells: true
+      merged_dead_cells: true
+    Queue Size: 100
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /mapping/dead_cells
+    Value: true
+
+  # ─── DRONE 1 (TEAL: 0; 190; 165) ───────────────────────────
+  - Alpha: 1.0
     Buffer Length: 1
     Class: rviz_default_plugins/Path
-    Color: 255; 40; 40
+    Color: 0; 190; 165
     Enabled: true
-    Head Diameter: 0.1
-    Head Length: 0.15
-    Length: 0.3
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
     Line Style: Lines
     Line Width: 0.03
-    Name: Drone_1_Actual_Path
+    Name: 🟢 Drone 1 Actual Path (Teal)
     Offset:
       X: 0
       Y: 0
       Z: 0
-    Pose Color: 255; 85; 255
-    Pose Style: None
-    Radius: 0.03
-    Shaft Diameter: 0.05
-    Shaft Length: 0.1
+    Pose Color: 0; 190; 165
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
     Topic:
       Depth: 5
       Durability: Volatile
@@ -93,250 +140,14 @@ Visualization Manager:
       Reliability: Reliable
       Value: /iris_1/actual_path
     Value: true
-  - Class: rviz_default_plugins/Path
-    Alpha: 1.0
-    Buffer Length: 1
-    Class: rviz_default_plugins/Path
-    Color: 255; 140; 0
-    Enabled: true
-    Head Diameter: 0.1
-    Head Length: 0.15
-    Length: 0.3
-    Line Style: Lines
-    Line Width: 0.03
-    Name: Drone_2_Actual_Path
-    Offset:
-      X: 0
-      Y: 0
-      Z: 0
-    Pose Color: 255; 85; 255
-    Pose Style: None
-    Radius: 0.03
-    Shaft Diameter: 0.05
-    Shaft Length: 0.1
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_2/actual_path
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_1_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_1/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 255; 0; 0
-    Enabled: true
-    Keep: 1000
-    Name: Drone_1_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_1/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_2_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_2/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 255; 128; 0
-    Enabled: true
-    Keep: 1000
-    Name: Drone_2_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_2/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_3_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_3/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 255; 255; 0
-    Enabled: true
-    Keep: 1000
-    Name: Drone_3_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_3/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_4_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_4/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 0; 255; 0
-    Enabled: true
-    Keep: 1000
-    Name: Drone_4_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_4/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_5_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_5/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 0; 255; 255
-    Enabled: true
-    Keep: 1000
-    Name: Drone_5_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_5/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_6_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_6/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 0; 128; 255
-    Enabled: true
-    Keep: 1000
-    Name: Drone_6_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_6/odometry
-    Value: true
-  - Class: rviz_default_plugins/MarkerArray
-    Enabled: true
-    Name: Drone_7_Visual
-    Namespaces: {}
-    Queue Size: 100
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /iris_7/marker_visual
-    Value: true
-  - Class: rviz_default_plugins/Odometry
-    Angle Tolerance: 0.1
-    Axis Length: 0.0
-    Axis Radius: 0.0
-    Color: 255; 0; 255
-    Enabled: true
-    Keep: 1000
-    Name: Drone_7_Trail
-    Position Tolerance: 0.1
-    Queue Size: 10
-    Shape: Point
-    Topic:
-      Depth: 5
-      Durability: Volatile
-      History: Keep Last
-      Reliability: Reliable
-      Value: /model/iris_7/odometry
-    Value: true
   - Class: rviz_default_plugins/LaserScan
-    Color: 255; 0; 0
+    Color: 0; 190; 165
     Color Transformer: FlatColor
+    Decay Time: 0
     Enabled: true
-    Name: Lidar Drone 1
+    Name: 🟢 Drone 1 Lidar Scan (Teal)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -349,12 +160,43 @@ Visualization Manager:
       Value: /iris_1/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 255; 127; 0
-    Color Transformer: FlatColor
+
+  # ─── DRONE 2 (ORANGE: 255; 140; 0) ─────────────────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 255; 140; 0
     Enabled: true
-    Name: Lidar Drone 2
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🟠 Drone 2 Actual Path (Orange)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 255; 140; 0
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_2/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 140; 0
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🟠 Drone 2 Lidar Scan (Orange)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -367,12 +209,43 @@ Visualization Manager:
       Value: /iris_2/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 255; 255; 0
-    Color Transformer: FlatColor
+
+  # ─── DRONE 3 (YELLOW: 255; 215; 0) ─────────────────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 255; 215; 0
     Enabled: true
-    Name: Lidar Drone 3
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🟡 Drone 3 Actual Path (Yellow)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 255; 215; 0
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_3/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 255; 215; 0
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🟡 Drone 3 Lidar Scan (Yellow)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -385,12 +258,43 @@ Visualization Manager:
       Value: /iris_3/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 0; 255; 0
-    Color Transformer: FlatColor
+
+  # ─── DRONE 4 (LIME GREEN: 0; 255; 77) ──────────────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 0; 255; 77
     Enabled: true
-    Name: Lidar Drone 4
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🟢 Drone 4 Actual Path (Lime Green)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 0; 255; 77
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_4/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 0; 255; 77
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🟢 Drone 4 Lidar Scan (Lime Green)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -403,12 +307,43 @@ Visualization Manager:
       Value: /iris_4/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 0; 255; 255
-    Color Transformer: FlatColor
+
+  # ─── DRONE 5 (CYAN: 0; 217; 255) ───────────────────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 0; 217; 255
     Enabled: true
-    Name: Lidar Drone 5
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🔵 Drone 5 Actual Path (Cyan)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 0; 217; 255
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_5/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 0; 217; 255
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🔵 Drone 5 Lidar Scan (Cyan)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -421,12 +356,43 @@ Visualization Manager:
       Value: /iris_5/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 0; 127; 255
-    Color Transformer: FlatColor
+
+  # ─── DRONE 6 (ROYAL BLUE: 77; 128; 255) ────────────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 77; 128; 255
     Enabled: true
-    Name: Lidar Drone 6
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🔵 Drone 6 Actual Path (Royal Blue)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 77; 128; 255
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_6/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 77; 128; 255
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🔵 Drone 6 Lidar Scan (Royal Blue)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -439,12 +405,43 @@ Visualization Manager:
       Value: /iris_6/lidar_scan
     Use Rainbow: false
     Value: true
-  - Class: rviz_default_plugins/LaserScan
-    Color: 255; 0; 255
-    Color Transformer: FlatColor
+
+  # ─── DRONE 7 (MAGENTA / PURPLE: 217; 64; 255) ──────────────
+  - Alpha: 1.0
+    Buffer Length: 1
+    Class: rviz_default_plugins/Path
+    Color: 217; 64; 255
     Enabled: true
-    Name: Lidar Drone 7
+    Head Diameter: 0.0
+    Head Length: 0.0
+    Length: 0.0
+    Line Style: Lines
+    Line Width: 0.03
+    Name: 🟣 Drone 7 Actual Path (Purple)
+    Offset:
+      X: 0
+      Y: 0
+      Z: 0
+    Pose Color: 217; 64; 255
+    Pose Style: 'None'
+    Radius: 0.0
+    Shaft Diameter: 0.0
+    Shaft Length: 0.0
+    Topic:
+      Depth: 5
+      Durability: Volatile
+      History: Keep Last
+      Reliability: Reliable
+      Value: /iris_7/actual_path
+    Value: true
+  - Class: rviz_default_plugins/LaserScan
+    Color: 217; 64; 255
+    Color Transformer: FlatColor
+    Decay Time: 0
+    Enabled: true
+    Name: 🟣 Drone 7 Lidar Scan (Purple)
     Position Transformer: XYZ
+    Queue Size: 10
     Selectable: true
     Size (Pixels): 5
     Style: Points
@@ -457,9 +454,12 @@ Visualization Manager:
       Value: /iris_7/lidar_scan
     Use Rainbow: false
     Value: true
+
   Enabled: true
-  Fixed Frame: world
-  Frame Rate: 30
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: world
+    Frame Rate: 30
   Name: root
   Tools:
   - Class: rviz_default_plugins/Interact
@@ -469,11 +469,239 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 15
+      Distance: 38.0
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.06
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 2
-      Name: Current View
-      Pitch: 0.6
-      Yaw: 0.8
+        X: 0.0
+        Y: -1.0
+        Z: 0.0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: 🗺️ 1. Swarm Global Mapping & Multi-Lidar (Top-Down North UP)
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: world
+      Value: Orbit (rviz_default_plugins)
+      Yaw: -1.570796
+    Saved:
+    - Class: rviz_default_plugins/Orbit
+      Distance: 38.0
+      Focal Point:
+        X: 0.0
+        Y: -1.0
+        Z: 0.0
+      Name: 🗺️ 1. Swarm Global Mapping & Multi-Lidar (Top-Down North UP)
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: world
+      Value: Orbit (rviz_default_plugins)
+      Yaw: -1.570796
+    - Class: rviz_default_plugins/Orbit
+      Distance: 36.0
+      Focal Point:
+        X: 0.0
+        Y: -1.0
+        Z: 0.0
+      Name: 🌐 2. Swarm 3D Perspective (Isometric)
+      Near Clip Distance: 0.01
+      Pitch: 0.65
+      Target Frame: world
+      Value: Orbit (rviz_default_plugins)
+      Yaw: -1.570796
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 3. Iris 1 (Teal) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_1/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 4. Iris 1 (Teal) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_1/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 5. Iris 2 (Orange) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_2/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 6. Iris 2 (Orange) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_2/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 7. Iris 3 (Yellow) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_3/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 8. Iris 3 (Yellow) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_3/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 9. Iris 4 (Green) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_4/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 10. Iris 4 (Green) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_4/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 11. Iris 5 (Cyan) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_5/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 12. Iris 5 (Cyan) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_5/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 13. Iris 6 (Blue) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_6/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 14. Iris 6 (Blue) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_6/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 15. Iris 7 (Purple) - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: iris_7/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 16. Iris 7 (Purple) - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: iris_7/base_link
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 3.5
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🚗 17. Current Fixed Frame - Chase View Forward
+      Near Clip Distance: 0.01
+      Pitch: 0.40
+      Target Frame: <Fixed Frame>
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
+    - Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 7.0
+      Focal Point:
+        X: 0.0
+        Y: 0.0
+        Z: 0.0
+      Name: 🛰️ 18. Current Fixed Frame - Top-Down Forward
+      Near Clip Distance: 0.01
+      Pitch: 1.570796
+      Target Frame: <Fixed Frame>
+      Value: ThirdPersonFollower (rviz_default_plugins)
+      Yaw: 3.14159265
