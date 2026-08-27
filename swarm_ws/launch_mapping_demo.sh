@@ -11,14 +11,15 @@ WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
 RVIZ_CONFIG="$WS_DIR/src/swarm_sim/rviz/multi_agent.rviz"
 
 # Setup ROS 2 Environment
-source /opt/ros/jazzy/setup.bash 2>/dev/null || source /opt/ros/humble/setup.bash 2>/dev/null || true
+source /opt/ros/lyrical/setup.bash 2>/dev/null || source /opt/ros/jazzy/setup.bash 2>/dev/null || source /opt/ros/humble/setup.bash 2>/dev/null || true
 source "$WS_DIR/install/setup.bash"
 
 # Export Gazebo Resource Path
 export GZ_SIM_RESOURCE_PATH="$WS_DIR/src/swarm_sim/models:$GZ_SIM_RESOURCE_PATH"
 
 echo "========================================================================="
-echo "  🚀 MEMULAI SIMULASI VISUAL SWARM 7-DRONE VORONOI MAPPING"
+echo "  🚀 MEMULAI SIMULASI VISUAL SWARM 7-DRONE VORONOI MAPPING (FAULT-TOLERANT)"
+echo "  💡 Terminal 2 Fault Injection: ./kill_drone.sh <id...> (Contoh: ./kill_drone.sh 4)"
 echo "========================================================================="
 
 # Fungsi Cleanup saat user menekan Ctrl+C
@@ -66,14 +67,14 @@ echo "2️⃣  Melakukan Spawn 7 Drone Quadrotor & Low-Level Flight Controller..
 ros2 launch swarm_sim spawn_drones_launch.py \
     num_drones:=7 \
     controller:=pid_lqr_node \
-    use_mid_level:=true \
-    spawn_x1:="-9.0" spawn_y1:="-9.0" \
-    spawn_x2:="0.0"  spawn_y2:="-9.0" \
-    spawn_x3:="9.0"  spawn_y3:="-9.0" \
-    spawn_x4:="-9.0" spawn_y4:="0.0" \
-    spawn_x5:="0.0"  spawn_y5:="0.0" \
-    spawn_x6:="9.0"  spawn_y6:="0.0" \
-    spawn_x7:="0.0"  spawn_y7:="9.0" \
+    use_mid_level:=false \
+    spawn_x1:="-3.0" spawn_y1:="-18.0" \
+    spawn_x2:="-1.0" spawn_y2:="-18.0" \
+    spawn_x3:="1.0"  spawn_y3:="-18.0" \
+    spawn_x4:="3.0"  spawn_y4:="-18.0" \
+    spawn_x5:="-2.0" spawn_y5:="-16.5" \
+    spawn_x6:="0.0"  spawn_y6:="-16.5" \
+    spawn_x7:="2.0"  spawn_y7:="-16.5" \
     results_base:=multi_agent &
 
 echo "   ⏳ Menunggu 7 drone terdeteksi aktif..."

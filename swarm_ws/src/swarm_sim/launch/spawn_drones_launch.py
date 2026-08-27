@@ -110,39 +110,44 @@ def generate_launch_description():
         ))
         
         # 2. Dynamic Model Spawning into Running Gazebo World
-        _num_drones_int = 1
-        _spawn_x1 = None
-        _spawn_y1 = None
-        _spawn_x2 = None
-        _spawn_y2 = None
+        _num_drones_int = 7
+        _spawn_coords = {}
+        for idx in range(1, 8):
+            _spawn_coords[f'x{idx}'] = None
+            _spawn_coords[f'y{idx}'] = None
+
         for _a in sys.argv:
             if _a.startswith('num_drones:='):
                 try:
                     _num_drones_int = int(_a.split(':=', 1)[1])
                 except ValueError:
                     pass
-            elif _a.startswith('spawn_x1:='):
-                _spawn_x1 = _a.split(':=', 1)[1]
-            elif _a.startswith('spawn_y1:='):
-                _spawn_y1 = _a.split(':=', 1)[1]
-            elif _a.startswith('spawn_x2:='):
-                _spawn_x2 = _a.split(':=', 1)[1]
-            elif _a.startswith('spawn_y2:='):
-                _spawn_y2 = _a.split(':=', 1)[1]
+            for idx in range(1, 8):
+                if _a.startswith(f'spawn_x{idx}:='):
+                    _spawn_coords[f'x{idx}'] = _a.split(':=', 1)[1]
+                elif _a.startswith(f'spawn_y{idx}:='):
+                    _spawn_coords[f'y{idx}'] = _a.split(':=', 1)[1]
 
-        if _num_drones_int == 1:
-            x_pos_str = _spawn_x1 if _spawn_x1 is not None else _spawn_x
-            y_pos_str = _spawn_y1 if _spawn_y1 is not None else _spawn_y
+        if _spawn_coords.get(f'x{i}') is not None and _spawn_coords.get(f'y{i}') is not None:
+            x_pos_str = _spawn_coords[f'x{i}']
+            y_pos_str = _spawn_coords[f'y{i}']
+        elif _num_drones_int == 1:
+            x_pos_str = _spawn_coords.get('x1') or _spawn_x
+            y_pos_str = _spawn_coords.get('y1') or _spawn_y
         elif _num_drones_int == 2:
-            if i == 1:
-                x_pos_str = _spawn_x1 if _spawn_x1 is not None else '-6.0'
-                y_pos_str = _spawn_y1 if _spawn_y1 is not None else '0.0'
-            else:
-                x_pos_str = _spawn_x2 if _spawn_x2 is not None else '6.0'
-                y_pos_str = _spawn_y2 if _spawn_y2 is not None else '0.0'
+            x_pos_str = _spawn_coords.get('x1') or ('-6.0' if i == 1 else '6.0')
+            y_pos_str = _spawn_coords.get('y1') or '0.0'
         else:
-            x_pos_str = '0.0'
-            y_pos_str = str(float((i - 4.0) * spacing))
+            default_positions = {
+                1: ('-3.0', '-18.0'),
+                2: ('-1.0', '-18.0'),
+                3: ('1.0',  '-18.0'),
+                4: ('3.0',  '-18.0'),
+                5: ('-2.0', '-16.5'),
+                6: ('0.0',  '-16.5'),
+                7: ('2.0',  '-16.5'),
+            }
+            x_pos_str, y_pos_str = default_positions.get(i, ('0.0', str(float((i - 4.0) * spacing))))
 
         spawn_node = Node(
             package='ros_gz_sim',
@@ -154,7 +159,8 @@ def generate_launch_description():
                 '-file', os.path.join(model_dir, f'iris_{i}', 'model.sdf'),
                 '-x', x_pos_str,
                 '-y', y_pos_str,
-                '-z', '0.01'
+                '-z', '0.01',
+                '-Y', '1.57079632679'
             ],
             condition=drone_condition,
             output='screen'

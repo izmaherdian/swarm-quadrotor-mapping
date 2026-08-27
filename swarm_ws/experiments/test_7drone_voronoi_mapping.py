@@ -41,7 +41,10 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import Twist, TwistStamped, Point, PoseStamped
 from nav_msgs.msg import Odometry, Path
 from visualization_msgs.msg import Marker, MarkerArray
-from std_msgs.msg import ColorRGBA
+from std_msgs.msg import ColorRGBA, Int32MultiArray
+from matplotlib.path import Path as MplPath
+from shapely.geometry import Polygon as SpPolygon, MultiPolygon as SpMultiPolygon
+from shapely.ops import unary_union
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -249,6 +252,11 @@ class DroneAgent:
         self.yaw_errors = []
         self.altitude_errors = []
 
+        # Fault Tolerance & Dynamic Failure Recovery State
+        self.is_alive = True
+        self.wp_flags = []  # True = rute sel sendiri, False = rute recovery
+        self.last_odom_time = None
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  NODE KOORDINATOR SWARM 7-DRONE
@@ -337,6 +345,21 @@ class Swarm7DroneVoronoiMappingNode(Node):
             )
 
         self.pub_markers = self.create_publisher(MarkerArray, '/mapping/markers', 10)
+        self.pub_dead_cells = self.create_publisher(MarkerArray, '/mapping/dead_cells', 10)
+
+        # ── Fault Tolerance & Dynamic Failure Recovery State ─────────
+        self.dead_drones = set()
+        self.merged_dead_comp_polys = []
+        self.pending_recovery_pts = []
+        self.recovery_active = False
+
+        # Topic Subscriber untuk Emergency Trigger dari Terminal 2
+        self.sub_kill = self.create_subscription(
+            Int32MultiArray,
+            '/swarm/kill_drone',
+            self.kill_drone_callback,
+            10
+        )
 
         # Timer 20 Hz (50ms) untuk Loop Kontrol dan Visualisasi Presisi Tinggi
         self.timer_control = self.create_timer(0.05, self.control_loop)
@@ -379,6 +402,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         qw = msg.pose.pose.orientation.w
         _, _, agent.yaw = self.euler_from_quaternion(qx, qy, qz, qw)
         agent.odom_received = True
+        agent.last_odom_time = self.get_clock().now()
 
         # Perbarui jejak lintasan penerbangan riil (Path)
         if agent.last_path_pos is None or np.linalg.norm(agent.pos[:2] - agent.last_path_pos[:2]) > 0.12:
@@ -397,10 +421,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
         """Menjalankan 25x Lloyd's Relaxation & Hungarian Assignment untuk 7 Drone."""
         self.get_logger().info('📐 Menjalankan Centroidal Voronoi (25x Lloyd) + Hungarian Assignment...')
 
-        # Inisialisasi generator terdistribusi simetris
+        # Inisialisasi generator terdistribusi simetris untuk partisi 3 Bawah, 1 Tengah, 3 Atas
         seed_points = [
-            np.array([-9.0, -9.0]), np.array([0.0, -9.8]), np.array([9.0, -9.0]),
-            np.array([-9.0, 7.0]), np.array([0.0, 0.0]), np.array([9.0, 7.0]), np.array([0.0, 9.8])
+            np.array([-9.0, -9.0]), np.array([0.0, -9.5]), np.array([9.0, -9.0]),  # 3 Wilayah Bawah
+            np.array([0.0, 0.0]),                                                  # 1 Wilayah Tengah
+            np.array([-9.0, 9.0]),  np.array([0.0, 9.5]),  np.array([9.0, 9.0])    # 3 Wilayah Atas
         ]
         gens = {i + 1: seed_points[i].copy() for i in range(7)}
 
@@ -433,11 +458,14 @@ class Swarm7DroneVoronoiMappingNode(Node):
         for did, agent in self.agents.items():
             pi = drone_to_gen[did]
             cell = [np.array(v, dtype=float) for v in self.bbox]
+            raw_cell = [np.array(v, dtype=float) for v in self.bbox]
             for other_did, pj in drone_to_gen.items():
                 if other_did != did:
                     cell = clip_voronoi_margin(cell, pi, pj, margin=0.45)
+                    raw_cell = clip_voronoi(raw_cell, pi, pj)
 
             agent.cell_polygon = cell
+            agent.raw_cell_polygon = raw_cell
             agent.centroid = poly_centroid(cell)
             pts = np.array(cell, dtype=float)
             y_mid = 0.5 * (pts[:, 1].min() + pts[:, 1].max())
@@ -475,6 +503,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     break
 
         for did, agent in self.agents.items():
+            agent.wp_flags = [True] * agent.num_rows
             dist_to_start = float(np.linalg.norm(agent.pos[:2] - agent.waypoints[0]))
             self.get_logger().info(
                 f'  -> [iris_{did}] Sel ({len(agent.cell_polygon)} simpul) | {agent.num_rows} Baris | '
@@ -519,6 +548,261 @@ class Swarm7DroneVoronoiMappingNode(Node):
         sub_grid = self.cov_grid[i_start:i_end, j_start:j_end]
         return float(np.mean(sub_grid) * 100.0)
 
+    # ── Fault Tolerance & Dynamic Failure Recovery Functions ─────────
+
+    def kill_drone_callback(self, msg):
+        """Menerima array ID drone yang dimatikan dari Terminal 2."""
+        killed_ids = list(msg.data)
+        newly_failed = []
+        for did in killed_ids:
+            if did in self.agents and self.agents[did].is_alive:
+                self.agents[did].is_alive = False
+                self.agents[did].state = 'dead'
+                self.dead_drones.add(did)
+                newly_failed.append(did)
+                self.publish_twist(did, 0.0, 0.0, 0.0)
+                self.get_logger().warning(f'💥 [EMERGENCY KILL] iris_{did} dimatikan! Memicu Dynamic Fault Recovery...')
+
+        if newly_failed:
+            self._handle_failure_recovery(newly_failed)
+
+    def _capture_pending_recovery(self, did):
+        """Menyelamatkan waypoint recovery yang belum sempat diselesaikan oleh drone did yang mati."""
+        agent = self.agents[did]
+        pending_lines = []
+        if agent.row_idx < agent.num_rows:
+            for r in range(agent.row_idx, agent.num_rows):
+                if r < len(agent.wp_flags) and not agent.wp_flags[r]:
+                    idx_s = r * 2
+                    idx_e = idx_s + 1
+                    if idx_e < len(agent.waypoints):
+                        pending_lines.append((agent.waypoints[idx_s], agent.waypoints[idx_e]))
+        return pending_lines
+
+    def are_polygons_adjacent(self, poly1, poly2, tol=1.10):
+        """Mengecek apakah dua poligon saling bersebelahan / menempel."""
+        if len(poly1) < 3 or len(poly2) < 3:
+            return False
+        pts1 = np.array(poly1, dtype=float)
+        pts2 = np.array(poly2, dtype=float)
+        min_d = np.min([np.linalg.norm(p1 - p2) for p1 in pts1 for p2 in pts2])
+        if min_d < tol:
+            return True
+        for i in range(len(pts1)):
+            a = pts1[i]
+            b = pts1[(i + 1) % len(pts1)]
+            ab = b - a
+            ab2 = float(np.dot(ab, ab))
+            if ab2 < 1e-6:
+                continue
+            for p in pts2:
+                t = max(0.0, min(1.0, float(np.dot(p - a, ab)) / ab2))
+                proj = a + t * ab
+                if np.linalg.norm(p - proj) < tol:
+                    return True
+        return False
+
+    def _handle_failure_recovery(self, newly_dead_ids=None):
+        """
+        KONSOLIDASI GLOBAL & DYNAMIC FAILURE RECOVERY:
+        1. Amankan orphan recovery waypoints dari drone yang mati.
+        2. Reset antrean recovery yang belum disentuh pada drone hidup.
+        3. Leburkan poligon seluruh sel mati via Shapely unary_union (Polygon / MultiPolygon).
+        4. Hapus coverage grid dalam sel mati.
+        5. Generate sapuan Lawnmower horizontal murni pada area sel mati gabungan.
+        6. Alokasikan blok baris utuh secara paralel spasial ke drone helper hidup terdekat.
+        """
+        alive_ids = [did for did, a in self.agents.items() if a.is_alive and a.state != 'dead']
+        if not alive_ids:
+            self.get_logger().error('❌ [RECOVERY] Tidak ada drone hidup tersisa di kawanan!')
+            return
+
+        # 1. Kumpulkan sisa waypoint yatim dari drone yang baru mati
+        rescued_lines = []
+        if newly_dead_ids:
+            for d in newly_dead_ids:
+                rescued = self._capture_pending_recovery(d)
+                if rescued:
+                    rescued_lines.extend(rescued)
+                    self.get_logger().info(f'  📦 [ORPHAN RESCUE] {len(rescued)} baris recovery diselamatkan dari iris_{d}.')
+
+        # 2. Reset antrean recovery yang belum disentuh pada drone hidup
+        for h in alive_ids:
+            agent = self.agents[h]
+            own_wps = []
+            own_flags = []
+            for r in range(agent.num_rows):
+                if r < len(agent.wp_flags) and agent.wp_flags[r]:
+                    idx_s = r * 2
+                    idx_e = idx_s + 1
+                    if idx_e < len(agent.waypoints):
+                        own_wps.extend([agent.waypoints[idx_s], agent.waypoints[idx_e]])
+                        own_flags.append(True)
+
+            agent.waypoints = own_wps
+            agent.wp_flags = own_flags
+            agent.num_rows = len(own_wps) // 2
+            if agent.row_idx >= agent.num_rows:
+                agent.row_idx = max(0, agent.num_rows - 1)
+
+        # 3. Kumpulkan poligon sel Voronoi seluruh drone mati dan kosongkan waypoints-nya
+        dead_drones = [did for did, a in self.agents.items() if not a.is_alive or a.state == 'dead']
+        all_dead_polys = [getattr(self.agents[d], 'raw_cell_polygon', self.agents[d].cell_polygon) for d in dead_drones if len(self.agents[d].cell_polygon) >= 3]
+        for d in dead_drones:
+            self.agents[d].waypoints = []
+            self.agents[d].wp_flags = []
+            self.agents[d].num_rows = 0
+            self.agents[d].row_idx = 0
+
+        if not all_dead_polys:
+            return
+
+        # 4. Hapus riwayat coverage di dalam seluruh sel mati
+        for poly in all_dead_polys:
+            poly_path = MplPath(np.array(poly, dtype=float))
+            for i in range(self.grid_n):
+                for j in range(self.grid_n):
+                    cell_x = self.x_min + (i + 0.5) * self.dx
+                    cell_y = self.y_min + (j + 0.5) * self.dy
+                    if poly_path.contains_point([cell_x, cell_y]):
+                        self.cov_grid[i, j] = False
+
+        # 5. Peleburan poligon via Shapely unary_union (Mendukung Polygon dan MultiPolygon)
+        try:
+            sp_polys = [SpPolygon(p).buffer(0.08) for p in all_dead_polys]
+            merged = unary_union(sp_polys).buffer(-0.08)
+            if merged.geom_type == 'Polygon':
+                comp_polys = [np.array(merged.exterior.coords, dtype=float)]
+            elif merged.geom_type == 'MultiPolygon':
+                comp_polys = [np.array(p.exterior.coords, dtype=float) for p in merged.geoms]
+            else:
+                comp_polys = all_dead_polys
+        except Exception as e:
+            self.get_logger().warning(f'Shapely merge fallback: {e}')
+            comp_polys = all_dead_polys
+
+        self.merged_dead_comp_polys = comp_polys
+
+        # 6. Generate Lawnmower lines horizontal murni untuk setiap komponen sel mati
+        all_recovery_lines = []
+        for comp in comp_polys:
+            boust_wps = generate_boustrophedon(comp, sweep_spacing=1.45, margin=0.20, start_from_top=False)
+            for k in range(0, len(boust_wps) - 1, 2):
+                all_recovery_lines.append((boust_wps[k], boust_wps[k + 1]))
+
+        if not all_recovery_lines:
+            self.get_logger().info('✅ Tidak ada area recovery yang perlu dikerjakan.')
+            return
+
+        self.get_logger().info(
+            f'📐 [DYNAMIC RECOVERY] Terbentuk {len(all_recovery_lines)} baris Lawnmower recovery '
+            f'dari {len(dead_drones)} drone gugur untuk {len(alive_ids)} drone aktif tersisa.'
+        )
+
+        # 7. Helper Selection Adaptif Sesuai Skema Proporsional:
+        # Aturan User:
+        # 1 drone mati -> dialokasikan ke 1-2 helper terdekat
+        # 2 drone mati -> wilayah digabung utuh dan dibagi ke tepat 3 helper terdekat
+        # >= 3 drone mati -> dibagi ke seluruh drone yang masih hidup
+        def get_helper_end_pos(h):
+            ag = self.agents[h]
+            if ag.state in ('done', 'return_to_centroid'):
+                return ag.pos[:2]
+            elif ag.num_rows > 0:
+                return ag.waypoints[-1]
+            return ag.pos[:2]
+
+        centroid_global = np.mean([pt for line in all_recovery_lines for pt in line], axis=0)
+
+        num_dead = len(dead_drones)
+        num_alive = len(alive_ids)
+        if num_dead == 1:
+            n_needed = 2 if len(all_recovery_lines) > 5 else 1
+            n_h = min(n_needed, num_alive)
+        elif num_dead == 2:
+            n_h = min(3, num_alive)
+        else:
+            n_h = num_alive
+
+        # Cari tetangga bersebelahan
+        adj_helpers = set()
+        for d_poly in all_dead_polys:
+            for h in alive_ids:
+                h_poly = getattr(self.agents[h], 'raw_cell_polygon', self.agents[h].cell_polygon)
+                if self.are_polygons_adjacent(d_poly, h_poly):
+                    adj_helpers.add(h)
+
+        candidates = list(adj_helpers) if adj_helpers else alive_ids
+        dists = [(h, float(np.linalg.norm(get_helper_end_pos(h) - centroid_global))) for h in candidates]
+        dists.sort(key=lambda x: x[1])
+        selected_helpers = [h for h, _ in dists[:n_h]]
+
+        if len(selected_helpers) < n_h:
+            rem = [h for h in alive_ids if h not in selected_helpers]
+            rem.sort(key=lambda h: float(np.linalg.norm(get_helper_end_pos(h) - centroid_global)))
+            selected_helpers.extend(rem[:n_h - len(selected_helpers)])
+
+        self.get_logger().info(
+            f'  👥 [HELPER ALLOCATION] Terpilih {len(selected_helpers)} drone helper: '
+            f'{[f"iris_{h}" for h in selected_helpers]} untuk menangani {len(all_recovery_lines)} baris recovery.'
+        )
+
+        # 8. Alokasi Blok Baris Utuh & Penyelarasan Paralel Spasial (Zero Path Crossing)
+        block_sz = math.ceil(len(all_recovery_lines) / len(selected_helpers))
+        blocks = [all_recovery_lines[k * block_sz : (k + 1) * block_sz] for k in range(len(selected_helpers)) if all_recovery_lines[k * block_sz : (k + 1) * block_sz]]
+
+        block_centers = [np.mean([pt for line in b for pt in line], axis=0) for b in blocks]
+        variances = np.var(block_centers, axis=0) if len(block_centers) > 1 else [0, 1]
+        axis_idx = 1 if len(variances) > 1 and variances[1] >= variances[0] else 0
+
+        sorted_blocks = [b for _, b in sorted(zip([c[axis_idx] for c in block_centers], blocks))]
+        sorted_helpers = sorted(selected_helpers, key=lambda h: get_helper_end_pos(h)[axis_idx])
+
+        # 9. Perekatan Jalur Recovery ke Masing-Masing Helper
+        for h, b in zip(sorted_helpers, sorted_blocks):
+            if not b:
+                continue
+            h_end = get_helper_end_pos(h)
+            first_line = b[0]
+            last_line = b[-1]
+            d_first = min(np.linalg.norm(h_end - first_line[0]), np.linalg.norm(h_end - first_line[1]))
+            d_last = min(np.linalg.norm(h_end - last_line[0]), np.linalg.norm(h_end - last_line[1]))
+
+            lines_in_order = list(reversed(b)) if d_last < d_first else list(b)
+            entry_line = lines_in_order[0]
+            p_left = entry_line[0] if entry_line[0][0] <= entry_line[1][0] else entry_line[1]
+            p_right = entry_line[1] if entry_line[0][0] <= entry_line[1][0] else entry_line[0]
+            start_from_left = np.linalg.norm(h_end - p_left) <= np.linalg.norm(h_end - p_right)
+
+            rec_wps_h = []
+            go_left_to_right = start_from_left
+            for l_start, l_end in lines_in_order:
+                pa = l_start if l_start[0] <= l_end[0] else l_end
+                pb = l_end if l_start[0] <= l_end[0] else l_start
+                if go_left_to_right:
+                    rec_wps_h.extend([pa, pb])
+                else:
+                    rec_wps_h.extend([pb, pa])
+                go_left_to_right = not go_left_to_right
+
+            ag = self.agents[h]
+            num_new_rows = len(rec_wps_h) // 2
+            ag.waypoints.extend(rec_wps_h)
+            ag.wp_flags.extend([False] * num_new_rows)
+            ag.num_rows = len(ag.waypoints) // 2
+
+            self.get_logger().info(
+                f'  🎯 [iris_{h}] Mendapat alokasi {num_new_rows} baris recovery '
+                f'(Total Baris: {ag.row_idx+1}/{ag.num_rows})'
+            )
+
+            # Jika drone h sudah dalam state 'done' atau 'return_to_centroid', langsung bangunkan dan kirim ke recovery
+            if ag.state in ('done', 'return_to_centroid'):
+                ag.state = 'transit_to_recovery'
+                self.get_logger().info(f'  🚀 [iris_{h}] Mengaktifkan kembali drone untuk menuju blok recovery!')
+
+        self.recovery_active = True
+
     # ── State Machine & Loop Kontrol Utama (20 Hz) ───────────────────
 
     def control_loop(self):
@@ -527,16 +811,50 @@ class Swarm7DroneVoronoiMappingNode(Node):
         if not all(a.odom_received for a in self.agents.values()):
             return
 
-        # Perbarui jarak pisah antar-drone (hanya saat terbang Z >= 0.80m)
+        # ── Watchdog Odom Timeout (> 5.0s) & Crash Detector (Z < 0.35m selama >= 10 ticks) ────
+        now_time = self.get_clock().now()
+        auto_failed = []
+        if self.voronoi_planned:
+            for did, agent in self.agents.items():
+                if agent.is_alive and agent.state != 'dead':
+                    # Deteksi crash/jatuh ke tanah (Z < 0.35m terkonfirmasi selama 10 ticks = 0.5s)
+                    if agent.odom_received and agent.state not in ('wait_takeoff', 'done'):
+                        if agent.pos[2] < 0.35:
+                            agent.crash_ticks = getattr(agent, 'crash_ticks', 0) + 1
+                        else:
+                            agent.crash_ticks = 0
+
+                        if agent.crash_ticks >= 10:
+                            agent.is_alive = False
+                            agent.state = 'dead'
+                            self.dead_drones.add(did)
+                            auto_failed.append(did)
+                            self.get_logger().error(f'🚨 [WATCHDOG CRASH] iris_{did} terdeteksi jatuh di tanah (Z={agent.pos[2]:.2f}m)!')
+
+                    # Deteksi kehilangan heartbeat odom (> 5.0s)
+                    if agent.is_alive and agent.last_odom_time is not None:
+                        dt_odom = (now_time - agent.last_odom_time).nanoseconds * 1e-9
+                        if dt_odom > 5.0 and agent.state not in ('wait_takeoff', 'done'):
+                            agent.is_alive = False
+                            agent.state = 'dead'
+                            self.dead_drones.add(did)
+                            auto_failed.append(did)
+                            self.get_logger().error(f'🚨 [WATCHDOG TIMEOUT] iris_{did} kehilangan heartbeat odom ({dt_odom:.1f}s)!')
+
+        if auto_failed:
+            self._handle_failure_recovery(auto_failed)
+
+        # Perbarui jarak pisah antar-drone (hanya saat terbang Z >= 0.80m dan masih hidup)
         for i in range(1, 8):
             for j in range(i + 1, 8):
-                if self.agents[i].pos[2] >= 0.80 and self.agents[j].pos[2] >= 0.80:
-                    p1 = self.agents[i].pos[:2]
-                    p2 = self.agents[j].pos[:2]
-                    d = float(np.linalg.norm(p1 - p2))
-                    self.agents[i].min_dist_to_others = min(self.agents[i].min_dist_to_others, d)
-                    self.agents[j].min_dist_to_others = min(self.agents[j].min_dist_to_others, d)
-                    self.global_min_dist = min(self.global_min_dist, d)
+                if self.agents[i].is_alive and self.agents[j].is_alive:
+                    if self.agents[i].pos[2] >= 0.80 and self.agents[j].pos[2] >= 0.80:
+                        p1 = self.agents[i].pos[:2]
+                        p2 = self.agents[j].pos[:2]
+                        d = float(np.linalg.norm(p1 - p2))
+                        self.agents[i].min_dist_to_others = min(self.agents[i].min_dist_to_others, d)
+                        self.agents[j].min_dist_to_others = min(self.agents[j].min_dist_to_others, d)
+                        self.global_min_dist = min(self.global_min_dist, d)
 
         # ── Zero-Interference Autonomous Takeoff Check ───────────────
         if not self.voronoi_planned:
@@ -549,34 +867,58 @@ class Swarm7DroneVoronoiMappingNode(Node):
             if takeoff_ready:
                 self.plan_centroidal_voronoi()
                 for agent in self.agents.values():
-                    agent.state = 'transit_to_start'
+                    agent.state = 'pivot_to_transit'
+                    agent.delay_timer = 0
             return
 
         self.update_coverage()
 
-        # Eksekusi state machine per drone
+        # Eksekusi state machine per drone aktif
         for did, agent in self.agents.items():
+            if not agent.is_alive or agent.state == 'dead':
+                continue
 
             # ─────────────────────────────────────────────────────────
-            # 1. TRANSIT TO START (Fase Menuju Titik Awal Sel)
+            # 1a. PIVOT TO TRANSIT (Pivot In-Place Menghadap Titik Awal Sel)
             # ─────────────────────────────────────────────────────────
-            if agent.state == 'transit_to_start':
+            if agent.state == 'pivot_to_transit':
+                start_wp = agent.waypoints[0]
+                dx = float(start_wp[0]) - float(agent.pos[0])
+                dy = float(start_wp[1]) - float(agent.pos[1])
+                target_yaw = math.atan2(dy, dx)
+                agent.target_yaw = target_yaw
+
+                wz_cmd = self.compute_wz(agent.yaw, target_yaw)
+                self.publish_twist(did, 0.0, 0.0, wz_cmd)
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
+
+                yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
+                if (agent.delay_timer >= 20 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 80:
+                    agent.state = 'transit_to_start'
+                    agent.delay_timer = 0
+                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    self.get_logger().info(f'  🚀 [iris_{did}] Hadap titik start ({math.degrees(target_yaw):.1f}°)! Terbang ke sel...')
+
+            # ─────────────────────────────────────────────────────────
+            # 1b. TRANSIT TO START (Fase Menuju Titik Awal Sel)
+            # ─────────────────────────────────────────────────────────
+            elif agent.state == 'transit_to_start':
                 start_wp = agent.waypoints[0]
                 dx = start_wp[0] - float(agent.pos[0])
                 dy = start_wp[1] - float(agent.pos[1])
                 dist_to_start = math.hypot(dx, dy)
-
-                # Coupled Carrot untuk Transit
-                lead_t = min(dist_to_start, self.lead_dist)
                 angle_to_start = math.atan2(dy, dx)
+
+                lead_t = min(dist_to_start, self.lead_dist)
                 agent.ref_pos = np.array([
                     float(agent.pos[0]) + lead_t * math.cos(angle_to_start),
                     float(agent.pos[1]) + lead_t * math.sin(angle_to_start)
                 ], dtype=np.float32)
 
-                if dist_to_start < 0.25:
+                if dist_to_start < 0.28:
                     self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Titik Start Sel ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}) | Menunggu kawanan...')
                     agent.state = 'wait_all_start'
+                    agent.delay_timer = 0
                     self.publish_twist(did, 0.0, 0.0, 0.0)
                     continue
 
@@ -586,26 +928,56 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 # Full V2V avoidance during transit
                 v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
-                self.send_world_twist(did, v_world_x, v_world_y, agent.yaw)
+                self.send_world_twist(did, v_world_x, v_world_y, angle_to_start)
 
             # ─────────────────────────────────────────────────────────
-            # 1b. WAIT ALL START (Sinkronisasi Start Bersama Antar Kawanan)
+            # 1c. WAIT ALL START (Sinkronisasi Start Bersama Antar Kawanan)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'wait_all_start':
-                # Tetap aktifkan V2V repulsion pasif jika ada drone transit lain yang melintas
                 v_x, v_y = self.apply_v2v_repulsion(did, 0.0, 0.0, is_transit=True)
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
-                # Cek apakah seluruh 7 drone telah sampai di start point masing-masing
-                all_arrived = all(a.state in ('wait_all_start', 'align_start_yaw', 'sweeping_row', 'delay_at_corner_end', 'stepping_vertical', 'delay_at_new_row', 'done') for a in self.agents.values())
+                alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
+                all_arrived = len(alive_agents) > 0 and all(a.state in ('wait_all_start', 'align_start_yaw', 'sweeping_row', 'delay_at_corner_end', 'stepping_vertical', 'delay_at_new_row', 'transit_to_recovery', 'done') for a in alive_agents)
                 if all_arrived:
                     agent.state = 'align_start_yaw'
-                    agent.delay_timer = self.corner_settle_ticks
+                    agent.delay_timer = 0
                     self.publish_twist(did, 0.0, 0.0, 0.0)
-                    self.get_logger().info(f'  🏁 [iris_{did}] Semua Drone Siap di Sel Masing-masing! Menyelaraskan heading...')
+                    self.get_logger().info(f'  🏁 [iris_{did}] Semua Drone Siap di Sel Masing-masing! Menyelaraskan heading baris 1...')
 
             # ─────────────────────────────────────────────────────────
-            # 2. ALIGN START YAW (Pivot In-Place ke Baris 1)
+            # 1d. TRANSIT TO RECOVERY (Fase Menuju Titik Awal Blok Recovery)
+            # ─────────────────────────────────────────────────────────
+            elif agent.state == 'transit_to_recovery':
+                next_start = agent.waypoints[(agent.row_idx + 1) * 2]
+                dx = float(next_start[0]) - float(agent.pos[0])
+                dy = float(next_start[1]) - float(agent.pos[1])
+                dist_to_start = math.hypot(dx, dy)
+                angle_to_start = math.atan2(dy, dx)
+
+                lead_t = min(dist_to_start, self.lead_dist)
+                agent.ref_pos = np.array([
+                    float(agent.pos[0]) + lead_t * math.cos(angle_to_start),
+                    float(agent.pos[1]) + lead_t * math.sin(angle_to_start)
+                ], dtype=np.float32)
+
+                if dist_to_start < 0.28:
+                    agent.state = 'delay_at_new_row'
+                    agent.delay_timer = 0
+                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Titik Start Blok Recovery ({next_start[0]:.2f}, {next_start[1]:.2f})!')
+                    continue
+
+                v_mag = min(self.transit_speed, max(0.40, 2.0 * dist_to_start))
+                v_world_x = v_mag * math.cos(angle_to_start) + np.clip(1.2 * dx, -0.40, 0.40)
+                v_world_y = v_mag * math.sin(angle_to_start) + np.clip(1.2 * dy, -0.40, 0.40)
+
+                # V2V avoidance aktif selama perjalanan melintasi arena
+                v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
+                self.send_world_twist(did, v_world_x, v_world_y, angle_to_start)
+
+            # ─────────────────────────────────────────────────────────
+            # 2. ALIGN START YAW (Pivot In-Place ke Baris 1 - Sama Seperti Corner)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'align_start_yaw':
                 wp_start = agent.waypoints[0]
@@ -617,16 +989,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 wz_cmd = self.compute_wz(agent.yaw, target_yaw)
                 self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                agent.delay_timer -= 1
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
                 yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                if agent.delay_timer <= 0 or (agent.delay_timer <= 4 and yaw_diff < math.radians(8.0)):
+                # Diam di tempat & selaraskan heading persis seperti manuver belokan corner
+                if (agent.delay_timer >= 25 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 100:
                     agent.state = 'sweeping_row'
                     agent.row_idx = 0
-                    self.get_logger().info(f'  🚀 [iris_{did}] Heading Selaras ({math.degrees(agent.yaw):.1f}°)! Memulai Baris 1/{agent.num_rows}')
+                    agent.delay_timer = 0
+                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    self.get_logger().info(f'  🚀 [iris_{did}] Heading Baris 1 Terkunci ({math.degrees(target_yaw):.1f}°)! Memulai Baris 1/{agent.num_rows}')
 
             # ─────────────────────────────────────────────────────────
-            # 3. SWEEPING ROW (Critically Damped Tracking & Longitudinal Yield)
+            # 3. SWEEPING ROW (Critically Damped Tracking & Zero Overshoot)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'sweeping_row':
                 idx_start = agent.row_idx * 2
@@ -634,7 +1009,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 if idx_end >= len(agent.waypoints):
                     agent.state = 'return_to_centroid'
-                    self.get_logger().info(f'🎉 [iris_{did}] PEMETAAN SEL TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
+                    self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
                     continue
 
                 wp_start = agent.waypoints[idx_start]
@@ -648,7 +1023,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 u_line = line_vec / line_len
                 pos_rel = agent.pos[:2] - wp_start
-                
+
                 # Progres AKTUAL drone fisik di sepanjang garis sapuan
                 actual_prog = max(0.0, min(line_len, float(np.dot(pos_rel, u_line))))
                 e_lat = float(pos_rel[1] * u_line[0] - pos_rel[0] * u_line[1])
@@ -667,7 +1042,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 dist_to_end = line_len - actual_prog
                 dist_to_end_pt = float(np.linalg.norm(agent.pos[:2] - wp_end))
 
-                # Cek ketercapaian ujung baris (Snapping & Hard Stop)
+                # Cek ketercapaian ujung baris (Snapping & Hard Stop 0.0% Overshoot)
                 # Syarat: harus sudah melewati 40% panjang baris agar tidak salah picu di titik awal
                 if actual_prog > 0.40 * line_len and (dist_to_end <= 0.25 or dist_to_end_pt < 0.26):
                     overshoot_dist = max(0.0, float(np.dot(pos_rel, u_line)) - line_len)
@@ -675,18 +1050,28 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     agent.overshoot_list.append(overshoot_pct)
                     agent.max_overshoot = max(agent.max_overshoot, overshoot_pct)
 
+                    is_rec_row = (agent.row_idx < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx])
+                    tag_type = "RECOVERY" if is_rec_row else "SEL ASLI"
+
                     self.get_logger().info(
-                        f'  -> [iris_{did}] Ujung Baris {agent.row_idx+1}/{agent.num_rows} '
+                        f'  -> [iris_{did}] Ujung Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] '
                         f'tercapai ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}) | Overshoot: {overshoot_pct:.2f}% ({overshoot_dist:.2f}m)'
                     )
                     self.publish_twist(did, 0.0, 0.0, 0.0)
 
                     if agent.row_idx + 1 >= agent.num_rows:
                         agent.state = 'return_to_centroid'
-                        self.get_logger().info(f'🎉 [iris_{did}] PEMETAAN SEL TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
+                        self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
                     else:
-                        agent.state = 'delay_at_corner_end'
-                        agent.delay_timer = 0
+                        next_is_rec = (agent.row_idx + 1 < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx + 1])
+                        curr_is_own = (agent.row_idx < len(agent.wp_flags)) and agent.wp_flags[agent.row_idx]
+
+                        if curr_is_own and next_is_rec:
+                            agent.state = 'transit_to_recovery'
+                            self.get_logger().info(f'🔄 [iris_{did}] Sel sendiri tuntas! Memulai transit ke Blok Recovery...')
+                        else:
+                            agent.state = 'delay_at_corner_end'
+                            agent.delay_timer = 0
                     continue
 
                 # CRITICALLY DAMPED FEEDFORWARD RAMP-DOWN pada 0.80m terakhir
@@ -699,7 +1084,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 # MAPPING ISOLATION: 100% fokus sapuan baris lurus tanpa interferensi
                 v_ff = (self.nominal_speed * ff_scale) * u_line
-                
+
                 # Feedback controller: Koreksi lateral orthogonal (Cross-track)
                 v_corr_lat = -np.clip(self.kp_track * e_lat, -0.45, 0.45) * np.array([-u_line[1], u_line[0]])
 
@@ -716,10 +1101,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 # Cek jika ada drone tetangga di perbatasan yang sedang belok / dekat (< 1.25m)
                 has_yield_conflict = False
                 for other_id, other_agent in self.agents.items():
-                    if other_id != did and other_agent.odom_received and other_agent.pos[2] >= 0.80:
+                    if other_id != did and other_agent.is_alive and other_agent.odom_received and other_agent.pos[2] >= 0.80:
                         dist_neighbor = float(np.linalg.norm(agent.pos[:2] - other_agent.pos[:2]))
                         if dist_neighbor < 1.25:
-                            # Jika drone tetangga sedang melangkah vertikal atau memiliki prioritas (did > other_id), tahan di sudut
                             if other_agent.state in ('stepping_vertical', 'sweeping_row') or (other_agent.state in ('delay_at_corner_end', 'delay_at_new_row') and did > other_id):
                                 has_yield_conflict = True
                                 break
@@ -747,7 +1131,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             elif agent.state == 'stepping_vertical':
                 min_step_dist = float('inf')
                 for other_id, other_agent in self.agents.items():
-                    if other_id != did and other_agent.odom_received and other_agent.pos[2] >= 0.80:
+                    if other_id != did and other_agent.is_alive and other_agent.odom_received and other_agent.pos[2] >= 0.80:
                         d_ij = float(np.linalg.norm(agent.pos[:2] - other_agent.pos[:2]))
                         min_step_dist = min(min_step_dist, d_ij)
 
@@ -806,10 +1190,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     agent.row_idx += 1
                     agent.state = 'sweeping_row'
                     agent.delay_timer = 0
-                    self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} (Heading: {math.degrees(agent.yaw):.1f}°)')
+                    is_rec = (agent.row_idx < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx])
+                    tag_type = "RECOVERY" if is_rec else "SEL ASLI"
+                    self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] (Heading: {math.degrees(agent.yaw):.1f}°)')
 
             # ─────────────────────────────────────────────────────────
-            # 7. RETURN TO CENTROID (Kembali ke Pusat Sel Voronoi)
+            # 7. RETURN TO CENTROID (Kembali ke Pusat Sel Voronoi Asli)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'return_to_centroid':
                 dx = float(agent.centroid[0]) - float(agent.pos[0])
@@ -858,30 +1244,39 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 f'📊 [STATUS] Cov: {cov:5.1f}% | d_min: {self.global_min_dist:4.2f}m | {states_summary}'
             )
 
-            # Cek jika seluruh 7 drone telah tuntas atau cakupan mencapai 97.0%
-            all_done = all(a.state == 'done' for a in self.agents.values())
-            if (cov >= 97.0 or all_done) and not self.mission_completed:
+            alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
+            all_alive_done = len(alive_agents) > 0 and all(a.state == 'done' for a in alive_agents)
+
+            # Cek jika seluruh drone aktif telah tuntas atau cakupan mencapai 97.0%
+            if (cov >= 97.0 or all_alive_done) and not self.mission_completed:
                 self.mission_completed = True
                 self.get_logger().info(
                     f'🏆 [SWARM SUCCESS] Target Coverage {cov:.1f}% Tercapai! '
                     f'Jarak Terdekat (d_min): {self.global_min_dist:.2f}m | MISI TUNTAS!'
                 )
                 self.get_logger().info('====================================================================================================')
-                self.get_logger().info('  📊 EVALUASI KUANTITATIF TRAJECTORY TRACKING & KINERJA SWARM 7-DRONE')
+                self.get_logger().info('  📊 EVALUASI KUANTITATIF TRAJECTORY TRACKING & KINERJA SWARM 7-DRONE (FAULT-TOLERANT)')
                 self.get_logger().info('====================================================================================================')
-                self.get_logger().info('| Drone  | Cross-Track Avg | Cross-Track RMS | Max CT Error | Overshoot Avg | Overshoot Max | Yaw Error Avg | Status |')
-                self.get_logger().info('|--------|-----------------|-----------------|--------------|---------------|---------------|---------------|--------|')
+                self.get_logger().info('| Drone  | Role / State   | Cross-Track RMS | Max CT Error | Overshoot Max | Yaw Error Avg | Status |')
+                self.get_logger().info('|--------|----------------|-----------------|--------------|---------------|---------------|--------|')
                 for d_id, a in self.agents.items():
-                    ct_avg = float(np.mean(a.cross_track_errors) * 100.0) if a.cross_track_errors else 0.0
-                    ct_rms = float(np.sqrt(np.mean(np.square(a.cross_track_errors))) * 100.0) if a.cross_track_errors else 0.0
-                    ct_max = float(a.max_cross_track_err * 100.0)
-                    ov_avg = float(np.mean(a.overshoot_list)) if a.overshoot_list else 0.0
-                    ov_max = float(a.max_overshoot)
-                    yaw_avg = float(np.mean(a.yaw_errors)) if a.yaw_errors else 0.0
-                    status = "PASS ✅" if ov_max <= 0.01 and ct_max < 25.0 else "WARN ⚠️"
-                    self.get_logger().info(
-                        f'| iris_{d_id} | {ct_avg:13.2f}cm | {ct_rms:13.2f}cm | {ct_max:10.2f}cm | {ov_avg:11.2f}% | {ov_max:11.2f}% | {yaw_avg:11.2f}° | {status} |'
-                    )
+                    if not a.is_alive or a.state == 'dead':
+                        role_str = "DEAD 💥"
+                        status_str = "FAIL ❌ (Killed)"
+                        self.get_logger().info(
+                            f'| iris_{d_id} | {role_str:14s} |        N/A      |      N/A     |      N/A      |      N/A      | {status_str} |'
+                        )
+                    else:
+                        is_helper = any(not f for f in a.wp_flags)
+                        role_str = "HELPER 🛡️" if is_helper else "SURVIVOR ✈️"
+                        ct_rms = float(np.sqrt(np.mean(np.square(a.cross_track_errors))) * 100.0) if a.cross_track_errors else 0.0
+                        ct_max = float(a.max_cross_track_err * 100.0)
+                        ov_max = float(a.max_overshoot)
+                        yaw_avg = float(np.mean(a.yaw_errors)) if a.yaw_errors else 0.0
+                        status_str = "PASS ✅" if ov_max <= 0.01 and ct_max < 25.0 else "WARN ⚠️"
+                        self.get_logger().info(
+                            f'| iris_{d_id} | {role_str:14s} | {ct_rms:13.2f}cm | {ct_max:10.2f}cm | {ov_max:11.2f}% | {yaw_avg:11.2f}° | {status_str} |'
+                        )
                 self.get_logger().info('====================================================================================================')
 
     # ── Gaya Tolak V2V (Hanya Aktif Saat Transit, Wait, & Done Yield) ──
@@ -1057,12 +1452,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_north_arrow.color = ColorRGBA(r=1.0, g=0.15, b=0.15, a=1.0)
         ma.markers.append(m_north_arrow)
 
-        # Label Teks Mata Angin
+        # Label Teks Mata Angin & Staging Base Pad
         compass_labels = [
             (2, "NORTH (+Y)", 0.0, 18.2, 0.3, (1.0, 0.2, 0.2)),
-            (3, "SOUTH (-Y)", 0.0, -16.2, 0.3, (0.3, 0.5, 1.0)),
+            (3, "SOUTH (-Y)", 0.0, -19.8, 0.3, (0.3, 0.5, 1.0)),
             (4, "EAST (+X)", 16.2, 0.0, 0.3, (0.2, 0.9, 0.3)),
             (5, "WEST (-X)", -16.2, 0.0, 0.3, (0.9, 0.8, 0.2)),
+            (6, "📍 BASE / LAUNCH PAD", 0.0, -15.5, 0.2, (0.8, 0.8, 0.8)),
         ]
         for lid, text, lx, ly, lz, (lr, lg, lb) in compass_labels:
             m_lbl = Marker()
@@ -1075,18 +1471,27 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_lbl.pose.position.x = float(lx)
             m_lbl.pose.position.y = float(ly)
             m_lbl.pose.position.z = float(lz)
-            m_lbl.scale.z = 0.75
+            m_lbl.scale.z = 0.75 if lid != 6 else 0.55
             m_lbl.color = ColorRGBA(r=float(lr), g=float(lg), b=float(lb), a=1.0)
             m_lbl.text = text
             ma.markers.append(m_lbl)
 
         # 3. Poligon Sel 2D Voronoi & Rute Rencana Boustrophedon 3D (Z = 2.00m)
         if self.voronoi_planned:
+            # Batas Poligon Sel Voronoi (Drone Hidup) & Hapus Sel Individual Drone Mati
             for did, agent in self.agents.items():
-                r, g, b = agent.color
+                is_dead = (not agent.is_alive or agent.state == 'dead')
 
-                # Batas Poligon Sel Voronoi
-                if len(agent.cell_polygon) >= 3:
+                if is_dead:
+                    # Hapus sel individual drone mati agar tidak muncul sekat di area gabungan
+                    m_del = Marker()
+                    m_del.header.frame_id = 'world'
+                    m_del.header.stamp = stamp
+                    m_del.ns = 'voronoi_cells'
+                    m_del.id = 10 + did
+                    m_del.action = Marker.DELETE
+                    ma.markers.append(m_del)
+                elif len(agent.cell_polygon) >= 3:
                     m_poly = Marker()
                     m_poly.header.frame_id = 'world'
                     m_poly.header.stamp = stamp
@@ -1095,6 +1500,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     m_poly.type = Marker.LINE_STRIP
                     m_poly.action = Marker.ADD
                     m_poly.scale.x = 0.06
+                    r, g, b = agent.color
                     m_poly.color = ColorRGBA(r=r, g=g, b=b, a=0.9)
 
                     for p in agent.cell_polygon + [agent.cell_polygon[0]]:
@@ -1103,17 +1509,84 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         m_poly.points.append(pt)
                     ma.markers.append(m_poly)
 
-                # Jalur Rencana Boustrophedon 3D (Sejajar Ketinggian Terbang Drone Z=2.0m)
-                if len(agent.waypoints) >= 2:
-                    m_plan = Marker()
-                    m_plan.header.frame_id = 'world'
-                    m_plan.header.stamp = stamp
-                    m_plan.ns = 'planned_paths'
-                    m_plan.id = 20 + did
-                    m_plan.type = Marker.LINE_STRIP
-                    m_plan.action = Marker.ADD
-                    m_plan.scale.x = 0.05
-                    m_plan.color = ColorRGBA(r=r, g=g, b=b, a=0.75)
+            # Poligon Gabungan Sel Mati (Merged Dead Cells - Tanpa Garis Sekat di Dalam)
+            if hasattr(self, 'merged_dead_comp_polys') and self.merged_dead_comp_polys:
+                for c_idx, comp in enumerate(self.merged_dead_comp_polys):
+                    if len(comp) >= 3:
+                        m_comp = Marker()
+                        m_comp.header.frame_id = 'world'
+                        m_comp.header.stamp = stamp
+                        m_comp.ns = 'merged_dead_cells'
+                        m_comp.id = 500 + c_idx
+                        m_comp.type = Marker.LINE_STRIP
+                        m_comp.action = Marker.ADD
+                        m_comp.scale.x = 0.14  # Garis tebal merah untuk batas luar area gugur gabungan
+                        m_comp.color = ColorRGBA(r=1.0, g=0.15, b=0.15, a=0.95)
+                        pts_list = list(comp)
+                        if np.linalg.norm(pts_list[0] - pts_list[-1]) > 0.01:
+                            pts_list.append(pts_list[0])
+                        for p in pts_list:
+                            pt = Point()
+                            pt.x, pt.y, pt.z = float(p[0]), float(p[1]), 0.05
+                            m_comp.points.append(pt)
+                        ma.markers.append(m_comp)
+
+                # Hapus sisa slot ID jika ada komponen berkurang
+                for c_idx in range(len(self.merged_dead_comp_polys), 10):
+                    m_del = Marker()
+                    m_del.header.frame_id = 'world'
+                    m_del.header.stamp = stamp
+                    m_del.ns = 'merged_dead_cells'
+                    m_del.id = 500 + c_idx
+                    m_del.action = Marker.DELETE
+                    ma.markers.append(m_del)
+            else:
+                for c_idx in range(10):
+                    m_del = Marker()
+                    m_del.header.frame_id = 'world'
+                    m_del.header.stamp = stamp
+                    m_del.ns = 'merged_dead_cells'
+                    m_del.id = 500 + c_idx
+                    m_del.action = Marker.DELETE
+                    ma.markers.append(m_del)
+
+            # Jalur Rencana Boustrophedon 3D (Waypoints Asli vs Recovery)
+            for did, agent in self.agents.items():
+                is_dead = (not agent.is_alive or agent.state == 'dead')
+
+                # Jalur Rencana Boustrophedon 3D (Waypoints Asli vs Recovery)
+                if is_dead or len(agent.waypoints) < 2:
+                    # Hapus secara eksplisit seluruh garis lintasan Boustrophedon & waypoints drone mati dari RViz
+                    for ns, mid in [('planned_paths', 20 + did), ('recovery_paths', 300 + did), ('planned_waypoints', 80 + did)]:
+                        m_del = Marker()
+                        m_del.header.frame_id = 'world'
+                        m_del.header.stamp = stamp
+                        m_del.ns = ns
+                        m_del.id = mid
+                        m_del.action = Marker.DELETE
+                        ma.markers.append(m_del)
+                else:
+                    r, g, b = agent.color
+
+                    m_plan_own = Marker()
+                    m_plan_own.header.frame_id = 'world'
+                    m_plan_own.header.stamp = stamp
+                    m_plan_own.ns = 'planned_paths'
+                    m_plan_own.id = 20 + did
+                    m_plan_own.type = Marker.LINE_STRIP
+                    m_plan_own.action = Marker.ADD
+                    m_plan_own.scale.x = 0.05
+                    m_plan_own.color = ColorRGBA(r=r, g=g, b=b, a=0.75)
+
+                    m_plan_rec = Marker()
+                    m_plan_rec.header.frame_id = 'world'
+                    m_plan_rec.header.stamp = stamp
+                    m_plan_rec.ns = 'recovery_paths'
+                    m_plan_rec.id = 300 + did
+                    m_plan_rec.type = Marker.LINE_STRIP
+                    m_plan_rec.action = Marker.ADD
+                    m_plan_rec.scale.x = 0.09  # Tebal bercahaya untuk rute recovery
+                    m_plan_rec.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
 
                     m_wps = Marker()
                     m_wps.header.frame_id = 'world'
@@ -1127,13 +1600,29 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     m_wps.scale.z = 0.12
                     m_wps.color = ColorRGBA(r=r, g=g, b=b, a=0.90)
 
-                    for wp in agent.waypoints:
-                        pt = Point()
-                        pt.x, pt.y, pt.z = float(wp[0]), float(wp[1]), float(self.cruise_alt)
-                        m_plan.points.append(pt)
-                        m_wps.points.append(pt)
+                    for r_i in range(agent.num_rows):
+                        idx_s = r_i * 2
+                        idx_e = idx_s + 1
+                        if idx_e < len(agent.waypoints):
+                            is_own_row = (r_i < len(agent.wp_flags)) and agent.wp_flags[r_i]
+                            wp_a = agent.waypoints[idx_s]
+                            wp_b = agent.waypoints[idx_e]
 
-                    ma.markers.append(m_plan)
+                            pt_a = Point()
+                            pt_a.x, pt_a.y, pt_a.z = float(wp_a[0]), float(wp_a[1]), float(self.cruise_alt)
+                            pt_b = Point()
+                            pt_b.x, pt_b.y, pt_b.z = float(wp_b[0]), float(wp_b[1]), float(self.cruise_alt)
+
+                            if is_own_row:
+                                m_plan_own.points.extend([pt_a, pt_b])
+                            else:
+                                m_plan_rec.points.extend([pt_a, pt_b])
+                            m_wps.points.extend([pt_a, pt_b])
+
+                    if len(m_plan_own.points) > 0:
+                        ma.markers.append(m_plan_own)
+                    if len(m_plan_rec.points) > 0:
+                        ma.markers.append(m_plan_rec)
                     ma.markers.append(m_wps)
 
         # 4. Moving Carrot Reference Spheres, Drone Body Hub, FoV, and Tags
@@ -1141,47 +1630,84 @@ class Swarm7DroneVoronoiMappingNode(Node):
             if not agent.odom_received:
                 continue
 
+            is_dead = (not agent.is_alive or agent.state == 'dead')
             r, g, b = agent.color
             px, py, pz = float(agent.pos[0]), float(agent.pos[1]), float(agent.pos[2])
 
-            # REAL-TIME DYNAMIC MOVING REFERENCE CARROT SPHERE (Z = 2.00m)
-            m_carrot = Marker()
-            m_carrot.header.frame_id = 'world'
-            m_carrot.header.stamp = stamp
-            m_carrot.ns = 'drone_reference_carrots'
-            m_carrot.id = 200 + did
-            m_carrot.type = Marker.SPHERE
-            m_carrot.action = Marker.ADD
-            m_carrot.pose.position.x = float(agent.ref_pos[0])
-            m_carrot.pose.position.y = float(agent.ref_pos[1])
-            m_carrot.pose.position.z = float(self.cruise_alt)
-            m_carrot.scale.x = 0.22
-            m_carrot.scale.y = 0.22
-            m_carrot.scale.z = 0.22
-            m_carrot.color = ColorRGBA(r=r, g=g, b=b, a=0.95)
-            ma.markers.append(m_carrot)
+            if is_dead:
+                # Hapus carrot, FoV, dan arrow heading dari RViz untuk drone mati
+                for ns, mid in [('drone_reference_carrots', 200 + did), ('sensor_fov', 30 + did), ('drone_heading_arrows', 50 + did)]:
+                    m_del = Marker()
+                    m_del.header.frame_id = 'world'
+                    m_del.header.stamp = stamp
+                    m_del.ns = ns
+                    m_del.id = mid
+                    m_del.action = Marker.DELETE
+                    ma.markers.append(m_del)
+            else:
+                # REAL-TIME DYNAMIC MOVING REFERENCE CARROT SPHERE (Hanya untuk drone hidup)
+                m_carrot = Marker()
+                m_carrot.header.frame_id = 'world'
+                m_carrot.header.stamp = stamp
+                m_carrot.ns = 'drone_reference_carrots'
+                m_carrot.id = 200 + did
+                m_carrot.type = Marker.SPHERE
+                m_carrot.action = Marker.ADD
+                m_carrot.pose.position.x = float(agent.ref_pos[0])
+                m_carrot.pose.position.y = float(agent.ref_pos[1])
+                m_carrot.pose.position.z = float(self.cruise_alt)
+                m_carrot.scale.x = 0.22
+                m_carrot.scale.y = 0.22
+                m_carrot.scale.z = 0.22
+                m_carrot.color = ColorRGBA(r=r, g=g, b=b, a=0.95)
+                ma.markers.append(m_carrot)
 
-            # Lingkaran FoV Sensor di Tanah
-            m_fov = Marker()
-            m_fov.header.frame_id = 'world'
-            m_fov.header.stamp = stamp
-            m_fov.ns = 'sensor_fov'
-            m_fov.id = 30 + did
-            m_fov.type = Marker.LINE_STRIP
-            m_fov.action = Marker.ADD
-            m_fov.scale.x = 0.04
-            m_fov.color = ColorRGBA(r=r, g=g, b=b, a=0.7)
+                # Lingkaran FoV Sensor di Tanah (Hanya untuk drone aktif melayang Z >= 0.80m)
+                if pz >= 0.80:
+                    m_fov = Marker()
+                    m_fov.header.frame_id = 'world'
+                    m_fov.header.stamp = stamp
+                    m_fov.ns = 'sensor_fov'
+                    m_fov.id = 30 + did
+                    m_fov.type = Marker.LINE_STRIP
+                    m_fov.action = Marker.ADD
+                    m_fov.scale.x = 0.04
+                    m_fov.color = ColorRGBA(r=r, g=g, b=b, a=0.7)
 
-            for deg in range(0, 361, 15):
-                rad = math.radians(deg)
-                pt = Point()
-                pt.x = float(px + self.sensor_radius * math.cos(rad))
-                pt.y = float(py + self.sensor_radius * math.sin(rad))
-                pt.z = 0.08
-                m_fov.points.append(pt)
-            ma.markers.append(m_fov)
+                    for deg in range(0, 361, 15):
+                        rad = math.radians(deg)
+                        pt = Point()
+                        pt.x = float(px + self.sensor_radius * math.cos(rad))
+                        pt.y = float(py + self.sensor_radius * math.sin(rad))
+                        pt.z = 0.08
+                        m_fov.points.append(pt)
+                    ma.markers.append(m_fov)
 
-            # Drone Center Hub Sphere (Badan Utama Drone)
+                # Panah Arah Heading Real-Time (Orientasi Arah Hadap Drone)
+                m_arrow = Marker()
+                m_arrow.header.frame_id = 'world'
+                m_arrow.header.stamp = stamp
+                m_arrow.ns = 'drone_heading_arrows'
+                m_arrow.id = 50 + did
+                m_arrow.type = Marker.ARROW
+                m_arrow.action = Marker.ADD
+                
+                p_start = Point()
+                p_start.x, p_start.y, p_start.z = px, py, pz
+                p_end = Point()
+                arrow_len = 0.70
+                p_end.x = float(px + arrow_len * math.cos(agent.yaw))
+                p_end.y = float(py + arrow_len * math.sin(agent.yaw))
+                p_end.z = pz
+
+                m_arrow.points = [p_start, p_end]
+                m_arrow.scale.x = 0.08  # Shaft diameter
+                m_arrow.scale.y = 0.15  # Head diameter
+                m_arrow.scale.z = 0.18  # Head length
+                m_arrow.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+                ma.markers.append(m_arrow)
+
+            # Drone Center Hub Sphere (Badan Utama Drone di tanah)
             m_hub = Marker()
             m_hub.header.frame_id = 'world'
             m_hub.header.stamp = stamp
@@ -1191,38 +1717,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_hub.action = Marker.ADD
             m_hub.pose.position.x = px
             m_hub.pose.position.y = py
-            m_hub.pose.position.z = pz
-            m_hub.scale.x = 0.30
-            m_hub.scale.y = 0.30
-            m_hub.scale.z = 0.12
-            m_hub.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
+            m_hub.pose.position.z = max(0.05, pz)
+            m_hub.scale.x = 0.35
+            m_hub.scale.y = 0.35
+            m_hub.scale.z = 0.15
+            if is_dead:
+                m_hub.color = ColorRGBA(r=0.9, g=0.1, b=0.1, a=0.95)
+            else:
+                m_hub.color = ColorRGBA(r=r, g=g, b=b, a=1.0)
             ma.markers.append(m_hub)
 
-            # Panah Arah Heading Real-Time (Orientasi Arah Hadap Drone)
-            m_arrow = Marker()
-            m_arrow.header.frame_id = 'world'
-            m_arrow.header.stamp = stamp
-            m_arrow.ns = 'drone_heading_arrows'
-            m_arrow.id = 50 + did
-            m_arrow.type = Marker.ARROW
-            m_arrow.action = Marker.ADD
-            
-            p_start = Point()
-            p_start.x, p_start.y, p_start.z = px, py, pz
-            p_end = Point()
-            arrow_len = 0.70
-            p_end.x = float(px + arrow_len * math.cos(agent.yaw))
-            p_end.y = float(py + arrow_len * math.sin(agent.yaw))
-            p_end.z = pz
-
-            m_arrow.points = [p_start, p_end]
-            m_arrow.scale.x = 0.08  # Shaft diameter
-            m_arrow.scale.y = 0.15  # Head diameter
-            m_arrow.scale.z = 0.18  # Head length
-            m_arrow.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
-            ma.markers.append(m_arrow)
-
-            # Name Tag Minimalis
+            # Name Tag Minimalis & Status Indikator
             m_tag = Marker()
             m_tag.header.frame_id = 'world'
             m_tag.header.stamp = stamp
@@ -1232,10 +1737,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_tag.action = Marker.ADD
             m_tag.pose.position.x = px
             m_tag.pose.position.y = py
-            m_tag.pose.position.z = pz + 0.35
-            m_tag.scale.z = 0.32
-            m_tag.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.9)
-            m_tag.text = f'iris_{did}'
+            m_tag.pose.position.z = max(0.05, pz) + 0.40
+            m_tag.scale.z = 0.38
+            if is_dead:
+                m_tag.color = ColorRGBA(r=1.0, g=0.2, b=0.2, a=1.0)
+                m_tag.text = f'iris_{did} [DEAD]'
+            else:
+                is_helper = any(not f for f in agent.wp_flags)
+                tag_label = " [HELPER]" if is_helper else ""
+                m_tag.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.9)
+                m_tag.text = f'iris_{did}{tag_label}'
             ma.markers.append(m_tag)
 
             # Publikasi Jalur Terbang Riil (Actual Path)
