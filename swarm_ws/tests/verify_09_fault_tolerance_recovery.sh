@@ -42,10 +42,27 @@ MAX_TIMEOUT_SEC=1000
 TRIGGER1_COV=18.0
 TRIGGER2_COV=32.0
 MIN_SAFE_DIST_THRESH=0.50  # meter
+CONTROLLER="pid_lqr_node"
+CONTROLLER_LABEL="PID-LQR (Baseline)"
 
 # Parsing Argumen CLI
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --pid-lqr|-lqr)
+      CONTROLLER="pid_lqr_node"
+      CONTROLLER_LABEL="PID-LQR (Baseline)"
+      shift
+      ;;
+    --pid-hinf|-hinf|--pid-h-infinity)
+      CONTROLLER="pid_hinf_node"
+      CONTROLLER_LABEL="PID-H-Infinity (Robust)"
+      shift
+      ;;
+    --controller)
+      CONTROLLER="$2"
+      CONTROLLER_LABEL="$2"
+      shift 2
+      ;;
     --timeout)
       TIMEOUT_SEC="$2"
       shift 2
@@ -70,6 +87,7 @@ done
 
 echo "========================================================================="
 echo "  🧪 [TEST 09] DYNAMIC FAULT TOLERANCE & SEQUENTIAL CASCADING RECOVERY"
+echo "  🎮 Kontroler Low-Level: [${CONTROLLER_LABEL}]"
 echo "  Skenario: Matikan Drone 4 (@${TRIGGER1_COV}% Cov) lalu Drone 2 (@${TRIGGER2_COV}% Cov)"
 echo "  Batas Waktu Awal: ${TIMEOUT_SEC}s (Max Auto-Extend: ${MAX_TIMEOUT_SEC}s)"
 echo "  Kriteria Sukses: Coverage >= 90% | Overshoot 0.00% | RMS <= 15cm"
@@ -126,7 +144,7 @@ fi
 # 4. Spawning 7 Drones & Kontroler Low-Level
 ros2 launch swarm_sim spawn_drones_launch.py \
     num_drones:=7 \
-    controller:=pid_lqr_node \
+    controller:="$CONTROLLER" \
     use_mid_level:=false \
     spawn_x1:="$SX1" spawn_y1:="$SY1" \
     spawn_x2:="$SX2" spawn_y2:="$SY2" \

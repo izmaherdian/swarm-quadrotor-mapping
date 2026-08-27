@@ -2,6 +2,11 @@
 # ==============================================================================
 # Script 1-Klik Launch Simulasi Visual 7-Drone Voronoi Mapping
 # Gazebo GUI + RViz2 + 7-Drone Spawner + Voronoi Mapping Node
+#
+# Pilihan Mode Kontroler Low-Level:
+#   ./launch_mapping_demo.sh            # Default: Mode PID-LQR
+#   ./launch_mapping_demo.sh --pid-lqr  # Mode PID-LQR (Optimal Control)
+#   ./launch_mapping_demo.sh --pid-hinf # Mode PID-H-Infinity (Robust Control)
 # ==============================================================================
 
 set -e
@@ -17,8 +22,57 @@ source "$WS_DIR/install/setup.bash"
 # Export Gazebo Resource Path
 export GZ_SIM_RESOURCE_PATH="$WS_DIR/src/swarm_sim/models:$GZ_SIM_RESOURCE_PATH"
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Default Mode: PID-LQR
+CONTROLLER="pid_lqr_node"
+CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
+CONTROLLER_COLOR="$CYAN"
+
+# Parsing Argumen CLI
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --pid-lqr|-lqr)
+      CONTROLLER="pid_lqr_node"
+      CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
+      CONTROLLER_COLOR="$CYAN"
+      shift
+      ;;
+    --pid-hinf|-hinf|--pid-h-infinity)
+      CONTROLLER="pid_hinf_node"
+      CONTROLLER_TITLE="PID-H-Infinity (Robust Disturbance Attenuation)"
+      CONTROLLER_COLOR="$MAGENTA"
+      shift
+      ;;
+    -h|--help)
+      echo -e "${BOLD}Penggunaan:${NC}"
+      echo "  ./launch_mapping_demo.sh            # Default: Mode PID-LQR"
+      echo "  ./launch_mapping_demo.sh --pid-lqr  # Jalankan dengan Kontroler PID-LQR"
+      echo "  ./launch_mapping_demo.sh --pid-hinf # Jalankan dengan Kontroler PID-H-Infinity"
+      echo ""
+      echo -e "${BOLD}Opsi:${NC}"
+      echo "  --pid-lqr, -lqr     Menggunakan kontroler low-level PID-LQR"
+      echo "  --pid-hinf, -hinf   Menggunakan kontroler low-level PID-H-Infinity (Robust)"
+      echo "  -h, --help          Menampilkan panduan ini"
+      exit 0
+      ;;
+    *)
+      echo -e "${YELLOW}⚠️  Opsi '$1' tidak dikenal, menggunakan default PID-LQR.${NC}"
+      shift
+      ;;
+  esac
+done
+
 echo "========================================================================="
-echo "  🚀 MEMULAI SIMULASI VISUAL SWARM 7-DRONE VORONOI MAPPING (FAULT-TOLERANT)"
+echo -e "  🚀 MEMULAI SIMULASI VISUAL SWARM 7-DRONE VORONOI MAPPING"
+echo -e "  🎮 MODE KONTROLER LOW-LEVEL: ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER_TITLE]${NC}"
 echo "  💡 Terminal 2 Fault Injection: ./kill_drone.sh <id...> (Contoh: ./kill_drone.sh 4)"
 echo "========================================================================="
 
@@ -29,6 +83,7 @@ cleanup() {
     pkill -9 -f "gz sim" 2>/dev/null || true
     pkill -9 -f "spawn_drones" 2>/dev/null || true
     pkill -9 -f "pid_lqr_node" 2>/dev/null || true
+    pkill -9 -f "pid_hinf_node" 2>/dev/null || true
     pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
     pkill -9 -f "rviz2" 2>/dev/null || true
     pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
@@ -43,6 +98,7 @@ echo "🧹 Membersihkan proses lama..."
 pkill -9 -f "gz sim" 2>/dev/null || true
 pkill -9 -f "spawn_drones" 2>/dev/null || true
 pkill -9 -f "pid_lqr_node" 2>/dev/null || true
+pkill -9 -f "pid_hinf_node" 2>/dev/null || true
 pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
 pkill -9 -f "rviz2" 2>/dev/null || true
 pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
@@ -62,11 +118,11 @@ for t in $(seq 1 30); do
     sleep 0.5
 done
 
-# 3. Spawn 7 Drone Quadrotor & Controller PID-LQR
-echo "2️⃣  Melakukan Spawn 7 Drone Quadrotor & Low-Level Flight Controller..."
+# 3. Spawn 7 Drone Quadrotor & Controller Terpilih
+echo -e "2️⃣  Melakukan Spawn 7 Drone & Flight Controller ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER]${NC}..."
 ros2 launch swarm_sim spawn_drones_launch.py \
     num_drones:=7 \
-    controller:=pid_lqr_node \
+    controller:="$CONTROLLER" \
     use_mid_level:=false \
     spawn_x1:="-3.0" spawn_y1:="-18.0" \
     spawn_x2:="-1.0" spawn_y2:="-18.0" \

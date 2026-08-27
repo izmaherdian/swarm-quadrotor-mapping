@@ -23,7 +23,7 @@ Thumbs.db
 # LibreOffice lock files
 *.~lock.*
 
-# Data / hasil simulasi
+swarm_ws/*.csv
 swarm_ws/src/swarm_high_level/**/*.csv
 swarm_ws/src/swarm_high_level/**/*.png
 swarm_ws/src/swarm_high_level/**/*.log

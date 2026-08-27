@@ -802,6 +802,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 self.get_logger().info(f'  🚀 [iris_{h}] Mengaktifkan kembali drone untuk menuju blok recovery!')
 
         self.recovery_active = True
+        self.mission_completed = False
 
     # ── State Machine & Loop Kontrol Utama (20 Hz) ───────────────────
 
@@ -818,7 +819,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             for did, agent in self.agents.items():
                 if agent.is_alive and agent.state != 'dead':
                     # Deteksi crash/jatuh ke tanah (Z < 0.35m terkonfirmasi selama 10 ticks = 0.5s)
-                    if agent.odom_received and agent.state not in ('wait_takeoff', 'done'):
+                    if agent.odom_received and agent.state != 'wait_takeoff':
                         if agent.pos[2] < 0.35:
                             agent.crash_ticks = getattr(agent, 'crash_ticks', 0) + 1
                         else:
@@ -834,7 +835,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     # Deteksi kehilangan heartbeat odom (> 5.0s)
                     if agent.is_alive and agent.last_odom_time is not None:
                         dt_odom = (now_time - agent.last_odom_time).nanoseconds * 1e-9
-                        if dt_odom > 5.0 and agent.state not in ('wait_takeoff', 'done'):
+                        if dt_odom > 5.0 and agent.state != 'wait_takeoff':
                             agent.is_alive = False
                             agent.state = 'dead'
                             self.dead_drones.add(did)
@@ -1150,20 +1151,27 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 agent.step_timer = getattr(agent, 'step_timer', 0) + 1
 
-                # Snapping ketercapaian langkah atau timeout watchdog (max 3.0s = 60 ticks)
-                if dist_to_next < 0.28 or agent.step_timer >= 60:
+                # Dynamic step timeout based on distance (min 6s for short steps, proportional for long transit steps)
+                max_step_ticks = max(120, int((dist_to_next / 0.50) * 20) + 60)
+
+                # Snapping ketercapaian langkah atau timeout watchdog
+                if dist_to_next < 0.32 or agent.step_timer >= max_step_ticks:
                     agent.step_timer = 0
                     self.publish_twist(did, 0.0, 0.0, 0.0)
                     agent.state = 'delay_at_new_row'
                     agent.delay_timer = 0
                     continue
 
-                v_step_max = self.step_speed if min_step_dist > 1.20 else 0.40
+                is_long_transit = dist_to_next > 2.0
+                v_step_max = self.transit_speed if is_long_transit else (self.step_speed if min_step_dist > 1.20 else 0.40)
                 v_step = min(v_step_max, max(0.30, 1.8 * dist_to_next))
                 v_world_x = v_step * math.cos(angle_step) + np.clip(1.2 * dx, -0.35, 0.35)
                 v_world_y = v_step * math.sin(angle_step) + np.clip(1.2 * dy, -0.35, 0.35)
 
-                # Mapping Isolation: Tanpa V2V repulsion lateral
+                # V2V aktif saat transit jarak jauh lintas sel
+                if is_long_transit:
+                    v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
+
                 self.send_world_twist(did, v_world_x, v_world_y, agent.yaw)
 
             # ─────────────────────────────────────────────────────────

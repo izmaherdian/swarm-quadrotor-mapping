@@ -9,7 +9,7 @@ import csv
 import os
 import numpy as np
 import yaml
-from swarm_low_level.solver_pid_hinf import PIDHinfSolver
+from .solver_pid_hinf import PIDHinfSolver
 
 class PID:
     def __init__(self, Kp, Ki, Kd, dt, out_min=-np.inf, out_max=np.inf, i_max=np.inf):
@@ -476,7 +476,7 @@ class PIDHinfNode(Node):
         
         # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
-        uyaw_pid = np.clip(self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang, -self.limits['tau_y_max'], self.limits['tau_y_max'])
+        uyaw_pid = np.clip(self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang + self.k_ff_yaw * self.yaw_rate_cmd, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
@@ -568,6 +568,7 @@ class PIDHinfNode(Node):
         """Terima kecepatan ORCA dari mid-level sebagai velocity feedforward."""
         self.vx_cmd = float(msg.twist.linear.x)
         self.vy_cmd = float(msg.twist.linear.y)
+        self.yaw_rate_cmd = float(msg.twist.angular.z)
 
     def cmd_vel_callback(self, msg):
         """Terima perintah Twist langsung (Body Frame) dari node mapping/planner."""
@@ -575,6 +576,7 @@ class PIDHinfNode(Node):
         vy_b = float(msg.linear.y)
         wz_b = float(msg.angular.z)
 
+        # Konversi Body Frame ke World Frame untuk integrasi posisi & feedforward
         yaw_curr = getattr(self, 'last_yaw', 0.0)
         cos_y = math.cos(yaw_curr)
         sin_y = math.sin(yaw_curr)
@@ -590,7 +592,7 @@ class PIDHinfNode(Node):
             dt_cmd = 0.05
             self.x_cmd += self.vx_cmd * dt_cmd
             self.y_cmd += self.vy_cmd * dt_cmd
-            self.yaw_cmd += wz_b * dt_cmd
+            self.yaw_cmd += self.yaw_rate_cmd * dt_cmd
             self.target_pose_received = True
 
     def destroy_node(self):
