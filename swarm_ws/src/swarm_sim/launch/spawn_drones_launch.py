@@ -206,12 +206,18 @@ def generate_launch_description():
         
 
 
-    # 6. Global Clock Bridge (Gazebo Sim Clock -> ROS 2 /clock)
+    # 6. Global Clock Bridge (Gazebo Sim Clock -> ROS 2 /clock) & Dynamic Obstacle Bridges
     clock_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         name='global_clock_bridge',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        arguments=[
+            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            '/model/dynamic_obs_1/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            '/model/dynamic_obs_2/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+            '/model/dynamic_obs_1/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+            '/model/dynamic_obs_2/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+        ],
         output='screen'
     )
     swarm_nodes.append(clock_bridge)
@@ -225,11 +231,29 @@ def generate_launch_description():
     )
     swarm_nodes.append(tf_world_node)
 
+    # 8. Dryden Wind Turbulence Generator Node
+    enable_wind_arg = DeclareLaunchArgument(
+        'enable_wind',
+        default_value='false',
+        description='Aktifkan Dryden Wind Turbulence generator'
+    )
+
+    wind_node = Node(
+        package='swarm_low_level',
+        executable='dryden_wind_node',
+        name='dryden_wind_node',
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(LaunchConfiguration('enable_wind')),
+        output='screen'
+    )
+    swarm_nodes.append(wind_node)
+
     launch_entities = [
         set_env,
         num_drones_arg,
         controller_arg,
         use_mid_level_arg,
+        enable_wind_arg,
         results_base_arg,
         spawn_x_arg,
         spawn_y_arg,

@@ -23,6 +23,7 @@ setup(
             'pid_lqr_node = swarm_low_level.pid_lqr_node:main',
             'tf_prefix_node = swarm_low_level.tf_prefix_node:main',
             'pid_hinf_node = swarm_low_level.pid_hinf_node:main',
+            'dryden_wind_node = swarm_low_level.dryden_wind_node:main',
         ],
     },
 )

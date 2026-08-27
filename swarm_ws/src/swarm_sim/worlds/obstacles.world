@@ -635,5 +635,255 @@
         </visual>
       </link>
     </model>
+
+    <!-- ===================================================================== -->
+    <!-- 9 RINTANGAN STATIS (CYLINDER OBSTACLES) DI DALAM SEL VORONOI          -->
+    <!-- ===================================================================== -->
+    <!-- Sel Iris 2 (1 Obstacle) - Relokasi ke (-1.5, 9.5) jauh dari start line & diagonal -->
+    <model name="static_obs_2_1">
+      <static>true</static>
+      <pose>-1.5 9.5 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.60 0.0 1.0</ambient>
+            <diffuse>1.0 0.60 0.0 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Sel Iris 3 (2 Obstacles) -->
+    <model name="static_obs_3_1">
+      <static>true</static>
+      <pose>4.0 6.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.95 0.1 1.0</ambient>
+            <diffuse>1.0 0.95 0.1 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="static_obs_3_2">
+      <static>true</static>
+      <pose>6.5 9.5 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.95 0.1 1.0</ambient>
+            <diffuse>1.0 0.95 0.1 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Sel Iris 4 (3 Obstacles) -->
+    <model name="static_obs_4_1">
+      <static>true</static>
+      <pose>-8.0 -2.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.1 0.95 0.2 1.0</ambient>
+            <diffuse>0.1 0.95 0.2 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="static_obs_4_2">
+      <static>true</static>
+      <pose>-5.0 -7.5 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.1 0.95 0.2 1.0</ambient>
+            <diffuse>0.1 0.95 0.2 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="static_obs_4_3">
+      <static>true</static>
+      <pose>-9.5 -11.5 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.1 0.95 0.2 1.0</ambient>
+            <diffuse>0.1 0.95 0.2 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Sel Iris 5 (1 Obstacle) -->
+    <model name="static_obs_5_1">
+      <static>true</static>
+      <pose>6.0 -4.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.1 0.85 1.0 1.0</ambient>
+            <diffuse>0.1 0.85 1.0 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Sel Iris 7 (2 Obstacles) - Relokasi ke (0.0, 2.5) agar bebas dari start iris_3 (-3.5, -4.5) & silang X -->
+    <model name="static_obs_7_1">
+      <static>true</static>
+      <pose>0.0 2.5 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.9 0.20 1.0 1.0</ambient>
+            <diffuse>0.9 0.20 1.0 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="static_obs_7_2">
+      <static>true</static>
+      <pose>2.5 -9.0 2.0 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
+          <material>
+            <ambient>0.9 0.20 1.0 1.0</ambient>
+            <diffuse>0.9 0.20 1.0 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ===================================================================== -->
+    <!-- 2 RINTANGAN DINAMIS (DYNAMIC MOVING OBSTACLES) POLA SILANG "X"       -->
+    <!-- ===================================================================== -->
+    <!-- Dynamic Obstacle 1 (Diagonal 1: Kiri Atas (-10, 10) <-> Kanan Bawah (10, -10)) -->
+    <model name="dynamic_obs_1">
+      <static>false</static>
+      <pose>-10.0 10.0 2.05 0 0 0</pose>
+      <link name="link">
+        <gravity>false</gravity>
+        <kinematic>true</kinematic>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>1.0</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>1.0</iyy><iyz>0</iyz><izz>1.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.1 0.1 1.0</ambient>
+            <diffuse>1.0 0.1 0.1 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
+          </material>
+        </visual>
+      </link>
+      <plugin
+        filename="gz-sim-velocity-control-system"
+        name="gz::sim::systems::VelocityControl">
+      </plugin>
+      <plugin
+        filename="gz-sim-odometry-publisher-system"
+        name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>link</robot_base_frame>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <odom_topic>/model/dynamic_obs_1/odometry</odom_topic>
+      </plugin>
+    </model>
+
+    <!-- Dynamic Obstacle 2 (Diagonal 2: Kanan Atas (10, 10) <-> Kiri Bawah (-10, -10)) -->
+    <model name="dynamic_obs_2">
+      <static>false</static>
+      <pose>10.0 10.0 2.05 0 0 0</pose>
+      <link name="link">
+        <gravity>false</gravity>
+        <kinematic>true</kinematic>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>1.0</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>1.0</iyy><iyz>0</iyz><izz>1.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+          <material>
+            <ambient>1.0 0.5 0.0 1.0</ambient>
+            <diffuse>1.0 0.5 0.0 1.0</diffuse>
+            <specular>0.8 0.8 0.8 1.0</specular>
+          </material>
+        </visual>
+      </link>
+      <plugin
+        filename="gz-sim-velocity-control-system"
+        name="gz::sim::systems::VelocityControl">
+      </plugin>
+      <plugin
+        filename="gz-sim-odometry-publisher-system"
+        name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>link</robot_base_frame>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <odom_topic>/model/dynamic_obs_2/odometry</odom_topic>
+      </plugin>
+    </model>
+
   </world>
 </sdf>

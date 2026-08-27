@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Script 1-Klik Launch Simulasi Visual 7-Drone Voronoi Mapping
-# Gazebo GUI + RViz2 + 7-Drone Spawner + Voronoi Mapping Node
+# Script 1-Klik Launch Simulasi Visual Swarm 7-Drone Voronoi Mapping
+# Gazebo GUI + RViz2 + 7-Drone Spawner + Dryden Wind + Obstacles + Voronoi Node
+#
+# Pilihan 4 Skema Pemetaan:
+#   --scheme 1 | -s 1   : Skema 1 - Nominal Mapping (Baseline, Zero Disturbance)
+#   --scheme 2 | -s 2   : Skema 2 - Dryden Wind Turbulence Mapping (σ=2.5N, τ=0.5s)
+#   --scheme 3 | -s 3   : Skema 3 - Obstacle Avoidance (9 Statis + 2 Dinamis Pola 'X')
+#   --scheme 4 | -s 4   : Skema 4 - Combined Wind & Obstacles Disturbance Mapping
 #
 # Pilihan Mode Kontroler Low-Level:
-#   ./launch_mapping_demo.sh            # Default: Mode PID-LQR
-#   ./launch_mapping_demo.sh --pid-lqr  # Mode PID-LQR (Optimal Control)
-#   ./launch_mapping_demo.sh --pid-hinf # Mode PID-H-Infinity (Robust Control)
+#   --pid-lqr  | -lqr   : Mode PID-LQR (Optimal Linear Quadratic Regulator)
+#   --pid-hinf | -hinf  : Mode PID-H-Infinity (Robust Disturbance Attenuation)
 # ==============================================================================
 
 set -e
 
 WS_DIR="/home/izmaherdian/Documents/swarm-quadrotor-mapping/swarm_ws"
-WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
 RVIZ_CONFIG="$WS_DIR/src/swarm_sim/rviz/multi_agent.rviz"
 
 # Setup ROS 2 Environment
@@ -31,7 +35,8 @@ MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Default Mode: PID-LQR
+# Default: Skema 1 & PID-LQR
+SCHEME=1
 CONTROLLER="pid_lqr_node"
 CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
 CONTROLLER_COLOR="$CYAN"
@@ -39,6 +44,14 @@ CONTROLLER_COLOR="$CYAN"
 # Parsing Argumen CLI
 while [[ $# -gt 0 ]]; do
   case $1 in
+    --scheme|-s)
+      SCHEME="$2"
+      shift 2
+      ;;
+    --scheme=*)
+      SCHEME="${1#*=}"
+      shift
+      ;;
     --pid-lqr|-lqr)
       CONTROLLER="pid_lqr_node"
       CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
@@ -53,26 +66,71 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       echo -e "${BOLD}Penggunaan:${NC}"
-      echo "  ./launch_mapping_demo.sh            # Default: Mode PID-LQR"
-      echo "  ./launch_mapping_demo.sh --pid-lqr  # Jalankan dengan Kontroler PID-LQR"
-      echo "  ./launch_mapping_demo.sh --pid-hinf # Jalankan dengan Kontroler PID-H-Infinity"
+      echo "  ./launch_mapping_demo.sh [OPSI]"
       echo ""
-      echo -e "${BOLD}Opsi:${NC}"
+      echo -e "${BOLD}Pilihan Skema Pengujian (--scheme / -s):${NC}"
+      echo "  -s 1  : Skema 1 (Nominal / Baseline - Zero Disturbance)"
+      echo "  -s 2  : Skema 2 (Dryden Wind Turbulence Disturbances)"
+      echo "  -s 3  : Skema 3 (Obstacle Avoidance: 9 Statis + 2 Dinamis Pola 'X')"
+      echo "  -s 4  : Skema 4 (Combined: Dryden Wind + Obstacles Statis & Dinamis)"
+      echo ""
+      echo -e "${BOLD}Pilihan Kontroler Low-Level:${NC}"
       echo "  --pid-lqr, -lqr     Menggunakan kontroler low-level PID-LQR"
       echo "  --pid-hinf, -hinf   Menggunakan kontroler low-level PID-H-Infinity (Robust)"
-      echo "  -h, --help          Menampilkan panduan ini"
+      echo ""
+      echo -e "${BOLD}Contoh:${NC}"
+      echo "  ./launch_mapping_demo.sh -s 1 --pid-lqr"
+      echo "  ./launch_mapping_demo.sh -s 2 --pid-hinf"
+      echo "  ./launch_mapping_demo.sh -s 3 --pid-lqr"
+      echo "  ./launch_mapping_demo.sh -s 4 --pid-hinf"
       exit 0
       ;;
     *)
-      echo -e "${YELLOW}⚠️  Opsi '$1' tidak dikenal, menggunakan default PID-LQR.${NC}"
+      echo -e "${YELLOW}⚠️  Opsi '$1' tidak dikenal, diabaikan.${NC}"
       shift
       ;;
   esac
 done
 
+# Konfigurasi Berdasarkan Skema
+case $SCHEME in
+  1)
+    SCHEME_NAME="Skema 1: Nominal Mapping (Baseline, Zero Disturbance)"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
+    ENABLE_WIND="false"
+    ENABLE_OBSTACLES="false"
+    ;;
+  2)
+    SCHEME_NAME="Skema 2: Dryden Wind Turbulence Mapping (σ=2.5N, τ=0.5s + Gust)"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
+    ENABLE_WIND="true"
+    ENABLE_OBSTACLES="false"
+    ;;
+  3)
+    SCHEME_NAME="Skema 3: Obstacle Avoidance Mapping (9 Statis + 2 Dinamis Pola 'X')"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    ENABLE_WIND="false"
+    ENABLE_OBSTACLES="true"
+    ;;
+  4)
+    SCHEME_NAME="Skema 4: Combined Dryden Wind & Obstacles Disturbance Mapping"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    ENABLE_WIND="true"
+    ENABLE_OBSTACLES="true"
+    ;;
+  *)
+    echo -e "${RED}❌ Skema '$SCHEME' tidak valid! Pilih antara 1, 2, 3, atau 4.${NC}"
+    exit 1
+    ;;
+esac
+
 echo "========================================================================="
 echo -e "  🚀 MEMULAI SIMULASI VISUAL SWARM 7-DRONE VORONOI MAPPING"
-echo -e "  🎮 MODE KONTROLER LOW-LEVEL: ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER_TITLE]${NC}"
+echo -e "  📋 SKEMA PENGUJIAN        : ${YELLOW}${BOLD}[$SCHEME_NAME]${NC}"
+echo -e "  🎮 KONTROLER LOW-LEVEL     : ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER_TITLE]${NC}"
+echo -e "  🌍 GAZEBO WORLD            : ${BOLD}$(basename $WORLD_FILE)${NC}"
+echo -e "  🌪️  DRYDEN WIND TURBULENCE : ${BOLD}$ENABLE_WIND${NC}"
+echo -e "  🚧 RINTANGAN (OBSTACLES)  : ${BOLD}$ENABLE_OBSTACLES${NC}"
 echo "  💡 Terminal 2 Fault Injection: ./kill_drone.sh <id...> (Contoh: ./kill_drone.sh 4)"
 echo "========================================================================="
 
@@ -80,10 +138,12 @@ echo "========================================================================="
 cleanup() {
     echo ""
     echo "🛑 Menghentikan seluruh proses Gazebo, RViz2, dan ROS 2 nodes..."
+    killall -9 gz-sim-main parameter_bridge 2>/dev/null || true
     pkill -9 -f "gz sim" 2>/dev/null || true
     pkill -9 -f "spawn_drones" 2>/dev/null || true
     pkill -9 -f "pid_lqr_node" 2>/dev/null || true
     pkill -9 -f "pid_hinf_node" 2>/dev/null || true
+    pkill -9 -f "dryden_wind_node" 2>/dev/null || true
     pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
     pkill -9 -f "rviz2" 2>/dev/null || true
     pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
@@ -95,10 +155,12 @@ trap cleanup SIGINT SIGTERM EXIT
 
 # 1. Bersihkan proses lama
 echo "🧹 Membersihkan proses lama..."
+killall -9 gz-sim-main parameter_bridge 2>/dev/null || true
 pkill -9 -f "gz sim" 2>/dev/null || true
 pkill -9 -f "spawn_drones" 2>/dev/null || true
 pkill -9 -f "pid_lqr_node" 2>/dev/null || true
 pkill -9 -f "pid_hinf_node" 2>/dev/null || true
+pkill -9 -f "dryden_wind_node" 2>/dev/null || true
 pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
 pkill -9 -f "rviz2" 2>/dev/null || true
 pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
@@ -123,12 +185,13 @@ for t in $(seq 1 30); do
     sleep 0.5
 done
 
-# 3. Spawn 7 Drone Quadrotor & Controller Terpilih
+# 3. Spawn 7 Drone Quadrotor & Controller Terpilih (+ Dryden Wind jika aktif)
 echo -e "2️⃣  Melakukan Spawn 7 Drone & Flight Controller ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER]${NC}..."
 ros2 launch swarm_sim spawn_drones_launch.py \
     num_drones:=7 \
     controller:="$CONTROLLER" \
     use_mid_level:=false \
+    enable_wind:="$ENABLE_WIND" \
     spawn_x1:="-3.0" spawn_y1:="-18.0" \
     spawn_x2:="-1.0" spawn_y2:="-18.0" \
     spawn_x3:="1.0"  spawn_y3:="-18.0" \
@@ -155,7 +218,12 @@ if [ -f "$RVIZ_CONFIG" ]; then
 fi
 sleep 2
 
-# 5. Jalankan Node Pemetaan Voronoi & Boustrophedon
+# 5. Jalankan Node Pemetaan Voronoi & Boustrophedon dengan Parameter Skema
 echo "4️⃣  Menjalankan Algoritma Pemetaan Voronoi Swarm..."
 echo "========================================================================="
-python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" --ros-args -p use_sim_time:=true
+python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
+    --ros-args \
+    -p use_sim_time:=true \
+    -p scheme:="$SCHEME" \
+    -p enable_wind:="$ENABLE_WIND" \
+    -p enable_obstacles:="$ENABLE_OBSTACLES"

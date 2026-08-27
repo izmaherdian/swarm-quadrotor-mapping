@@ -4,7 +4,7 @@ from rclpy.duration import Duration
 from tf2_ros import TransformBroadcaster
 from nav_msgs.msg import Odometry, Path
 from actuator_msgs.msg import Actuators
-from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist, TransformStamped
+from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist, TransformStamped, Vector3Stamped
 from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
@@ -152,6 +152,9 @@ class PIDLQRNode(Node):
         self.target_sub = self.create_subscription(PoseStamped, 'target_pose', self.target_pose_callback, 10)
         self.vel_sub = self.create_subscription(TwistStamped, 'target_velocity', self.target_velocity_callback, 10)
         self.cmd_vel_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, 10)
+        self.wind_sub = self.create_subscription(Vector3Stamped, '/swarm/wind_disturbance', self.wind_callback, 10)
+        self.current_wind = [0.0, 0.0, 0.0]
+
         self.publisher = self.create_publisher(Actuators, 'command/motor_speed', 10)
         self.marker_pub = self.create_publisher(MarkerArray, 'marker_visual', 10)
         self.path_pub = self.create_publisher(Path, 'actual_path', 10)
@@ -168,7 +171,8 @@ class PIDLQRNode(Node):
                                   'Ref_X', 'Ref_Y', 'Ref_Z', 'Ref_Yaw',
                                   'vx', 'vy', 'vz', 'p', 'q', 'r',
                                   'T_pert', 'tau_x', 'tau_y', 'tau_z',
-                                  'RPM_0', 'RPM_1', 'RPM_2', 'RPM_3'])
+                                  'RPM_0', 'RPM_1', 'RPM_2', 'RPM_3',
+                                  'Wind_X', 'Wind_Y', 'Wind_Z'])
         
         self.start_time = None
         self.last_time = None
@@ -535,7 +539,10 @@ class PIDLQRNode(Node):
                                       self.filt_x[0], self.filt_y[0], self.filt_z[0], math.degrees(yaw_cmd_norm),
                                       vx, vy, vz, p, q_ang, r_ang,
                                       uz_pid, ux_pid, uy_pid, uyaw_pid,
-                                      w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3]])
+                                      w_cmd[0], w_cmd[1], w_cmd[2], w_cmd[3],
+                                      self.current_wind[0], self.current_wind[1], self.current_wind[2]])
+            self.csv_file.flush()
+            self.last_csv_log_time = t
         self.publish_drone_marker(x, y, z, phi, theta, yaw, msg.pose.pose.orientation, vx, vy, vz)
 
         # Broadcast TF: world -> iris_{self.drone_id}/base_link
@@ -611,6 +618,9 @@ class PIDLQRNode(Node):
             self.y_cmd += self.vy_cmd * dt_cmd
             self.yaw_cmd += self.yaw_rate_cmd * dt_cmd
             self.target_pose_received = True
+
+    def wind_callback(self, msg):
+        self.current_wind = [float(msg.vector.x), float(msg.vector.y), float(msg.vector.z)]
 
     def destroy_node(self):
         self.csv_file.close()
