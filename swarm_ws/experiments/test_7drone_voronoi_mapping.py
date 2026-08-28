@@ -1107,28 +1107,6 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         return avoid_offset_total, speed_scale_total
 
-    def get_safe_parking_pos(self, agent):
-        """Mengembalikan titik parkir aman yang terbebas dari lintasan rintangan dinamis (jarak ke diagonal >= 2.2m)."""
-        cx, cy = float(agent.centroid[0]), float(agent.centroid[1])
-        d_diag1 = abs(cx + cy) / math.sqrt(2.0)
-        d_diag2 = abs(cx - cy) / math.sqrt(2.0)
-
-        # Jika centroid terlalu dekat dengan lintasan dinamis (< 2.0m), geser ke area aman dalam selnya
-        if min(d_diag1, d_diag2) < 2.0:
-            if abs(cx) < 1.0 and abs(cy) < 1.0:
-                return np.array([0.0, 3.20], dtype=np.float32)
-            if d_diag1 < 2.0:
-                sign = 1.0 if (cx + cy) >= 0.0 else -1.0
-                shift = (2.20 - d_diag1) * math.sqrt(2.0)
-                cx += sign * shift * 0.5
-                cy += sign * shift * 0.5
-            if d_diag2 < 2.0:
-                sign = 1.0 if (cy - cx) >= 0.0 else -1.0
-                shift = (2.20 - d_diag2) * math.sqrt(2.0)
-                cx -= sign * shift * 0.5
-                cy += sign * shift * 0.5
-        return np.array([cx, cy], dtype=np.float32)
-
     def get_coverage_percentage(self):
         """Menghitung persentase cakupan di dalam area pemetaan aktif."""
         i_start = int((self.active_x_min - self.x_min) / self.dx)
@@ -1991,15 +1969,14 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] (Heading: {math.degrees(agent.yaw):.1f}°)')
 
             # ─────────────────────────────────────────────────────────
-            # 7. RETURN TO CENTROID (Kembali ke Titik Parkir Aman Sel)
+            # 7. RETURN TO CENTROID (Kembali ke Titik Pusat Sel Voronoi)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'return_to_centroid':
-                p_safe_park = self.get_safe_parking_pos(agent)
-                dx = float(p_safe_park[0]) - float(agent.pos[0])
-                dy = float(p_safe_park[1]) - float(agent.pos[1])
+                dx = float(agent.centroid[0]) - float(agent.pos[0])
+                dy = float(agent.centroid[1]) - float(agent.pos[1])
                 dist_to_c = math.hypot(dx, dy)
 
-                # Coupled Carrot bergerak menuju parking point
+                # Coupled Carrot bergerak menuju centroid
                 lead_c = min(dist_to_c, self.lead_dist)
                 ang_c = math.atan2(dy, dx)
                 agent.ref_pos = np.array([
@@ -2009,11 +1986,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 if dist_to_c < 0.30:
                     agent.state = 'done'
-                    agent.ref_pos = p_safe_park.copy()
+                    agent.ref_pos = agent.centroid.copy()
                     agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                     wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
                     self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Parkir Aman Voronoi ({p_safe_park[0]:.2f}, {p_safe_park[1]:.2f})! Menghadap UTARA (+90.0°).')
+                    self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Pusat Sel Voronoi ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f})! Menghadap UTARA (+90.0°).')
                     continue
 
                 v_back = min(self.transit_speed, max(0.40, 2.0 * dist_to_c))
@@ -2035,23 +2012,24 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
             # ─────────────────────────────────────────────────────────
-            # 8. DONE (Hover Mengunci di Parkir Aman & Menghadap Utara)
+            # 8. DONE (Hover di Centroid dengan Penghindaran Aktif)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'done':
                 agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                 wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
                 v_x, v_y = 0.0, 0.0
                 v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                p_safe_park = self.get_safe_parking_pos(agent)
                 if speed_scale <= 0.01 or np.linalg.norm(v_obs_avoid) > 0.05:
+                    # Rintangan dinamis/statis melintas -> geser menjauh sementara!
                     v_x = float(v_obs_avoid[0])
                     v_y = float(v_obs_avoid[1])
                 else:
-                    agent.ref_pos = p_safe_park.copy()
-                    dx_p = float(p_safe_park[0] - agent.pos[0])
-                    dy_p = float(p_safe_park[1] - agent.pos[1])
-                    v_x = float(np.clip(1.5 * dx_p, -0.60, 0.60))
-                    v_y = float(np.clip(1.5 * dy_p, -0.60, 0.60))
+                    # Tidak ada rintangan -> kembali mengunci lembut di pusat centroid
+                    agent.ref_pos = agent.centroid.copy()
+                    dx_c = float(agent.centroid[0] - agent.pos[0])
+                    dy_c = float(agent.centroid[1] - agent.pos[1])
+                    v_x = float(np.clip(1.5 * dx_c, -0.60, 0.60))
+                    v_y = float(np.clip(1.5 * dy_c, -0.60, 0.60))
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
         # Telemetri Terminal setiap 1 detik (20 ticks @ 20Hz)
