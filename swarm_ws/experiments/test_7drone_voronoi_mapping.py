@@ -2222,7 +2222,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         ma.markers.append(m_bound)
 
         # 2. KOMPAS MATA ANGIN (NORTH / SOUTH / EAST / WEST) DI RVIZ2
-        # Panah Besar Penunjuk UTARA (NORTH: +Y)
+        # Panah Penunjuk UTARA (NORTH: +Y) di Sudut Kiri Atas agar tidak menumpuk dengan HUD
         m_north_arrow = Marker()
         m_north_arrow.header.frame_id = 'world'
         m_north_arrow.header.stamp = stamp
@@ -2231,19 +2231,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_north_arrow.type = Marker.ARROW
         m_north_arrow.action = Marker.ADD
         p_n_start = Point()
-        p_n_start.x, p_n_start.y, p_n_start.z = 0.0, 15.2, 0.15
+        p_n_start.x, p_n_start.y, p_n_start.z = -14.0, 14.8, 0.15
         p_n_end = Point()
-        p_n_end.x, p_n_end.y, p_n_end.z = 0.0, 17.5, 0.15
+        p_n_end.x, p_n_end.y, p_n_end.z = -14.0, 16.5, 0.15
         m_north_arrow.points = [p_n_start, p_n_end]
-        m_north_arrow.scale.x = 0.25  # Shaft diameter
-        m_north_arrow.scale.y = 0.60  # Head diameter
-        m_north_arrow.scale.z = 0.80  # Head length
-        m_north_arrow.color = ColorRGBA(r=0.85, g=0.85, b=0.85, a=0.90)
+        m_north_arrow.scale.x = 0.20  # Shaft diameter
+        m_north_arrow.scale.y = 0.50  # Head diameter
+        m_north_arrow.scale.z = 0.60  # Head length
+        m_north_arrow.color = ColorRGBA(r=0.75, g=0.75, b=0.80, a=0.85)
         ma.markers.append(m_north_arrow)
 
         # Label Teks Mata Angin & Staging Base Pad
         compass_labels = [
-            (2, "NORTH (+Y)", 0.0, 18.2, 0.3, (0.85, 0.85, 0.85)),
+            (2, "N (+Y)", -14.0, 17.2, 0.3, (0.75, 0.75, 0.80)),
             (3, "SOUTH (-Y)", 0.0, -19.8, 0.3, (0.3, 0.5, 1.0)),
             (4, "EAST (+X)", 16.2, 0.0, 0.3, (0.2, 0.9, 0.3)),
             (5, "WEST (-X)", -16.2, 0.0, 0.3, (0.9, 0.8, 0.2)),
@@ -2566,11 +2566,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.path_msg.header.stamp = stamp
             self.pub_actual_path[did].publish(agent.path_msg)
 
-        # 5. Status HUD Coverage — Panel Besar & Informatif di RViz
+        # 5. Status HUD Coverage — Minimalist & Clean 2-Line Display (North Side)
         cov = self.get_coverage_percentage()
         t_elapsed = self.step_count / 20.0  # Timer @20Hz
 
-        # Hitung jumlah sel terpetakan vs total sel aktif
+        # Mapped cells vs total valid active cells
         i_s = int((self.active_x_min - self.x_min) / self.dx)
         i_e = int((self.active_x_max - self.x_min) / self.dx)
         j_s = int((self.active_y_min - self.y_min) / self.dy)
@@ -2588,75 +2588,57 @@ class Swarm7DroneVoronoiMappingNode(Node):
         sweeping_count = sum(1 for a in self.agents.values() if a.is_alive and a.state == 'sweeping_row')
 
         scheme_labels = {
-            1: "Skema 1: Nominal (Zero Disturbance)",
-            2: "Skema 2: Dryden Wind Turbulence",
-            3: "Skema 3: Obstacle Avoidance (9S + 2D)",
-            4: "Skema 4: Combined Wind & Obstacles"
+            1: "Scheme 1: Nominal",
+            2: "Scheme 2: Dryden Wind",
+            3: "Scheme 3: Obstacle Avoidance (9S + 2D)",
+            4: "Scheme 4: Combined Wind & Obstacles"
         }
         sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
-
-        # ── 5a. BANNER JUDUL SKEMA & STATUS DRONE (Utara / Y = 18.2m) ──
-        m_hud = Marker()
-        m_hud.header.frame_id = 'world'
-        m_hud.header.stamp = stamp
-        m_hud.ns = 'hud_text'
-        m_hud.id = 99
-        m_hud.type = Marker.TEXT_VIEW_FACING
-        m_hud.action = Marker.ADD
-        m_hud.pose.position.x = 0.0
-        m_hud.pose.position.y = 18.20
-        m_hud.pose.position.z = 1.0
-        m_hud.pose.orientation.w = 1.0
-        m_hud.scale.z = 0.85
-        m_hud.color = ColorRGBA(r=0.90, g=0.90, b=0.95, a=0.90)
-        m_hud.text = f'🛸 {sch_str}  |  Drone Aktif: {alive_count}/7 (Menyapu: {sweeping_count})'
-        ma.markers.append(m_hud)
-
-        # ── 5b. TEKS BESAR COVERAGE PERCENTAGE (Utara / Y = 16.6m) ──
-        m_cov_big = Marker()
-        m_cov_big.header.frame_id = 'world'
-        m_cov_big.header.stamp = stamp
-        m_cov_big.ns = 'coverage_big_pct'
-        m_cov_big.id = 97
-        m_cov_big.type = Marker.TEXT_VIEW_FACING
-        m_cov_big.action = Marker.ADD
-        m_cov_big.pose.position.x = 0.0
-        m_cov_big.pose.position.y = 16.60
-        m_cov_big.pose.position.z = 1.0
-        m_cov_big.pose.orientation.w = 1.0
-        m_cov_big.scale.z = 1.60  # Font besar & jelas terbaca dari top-view
-        if cov >= 95.0:
-            m_cov_big.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.98)  # Hijau cerah
-        elif cov >= 50.0:
-            m_cov_big.color = ColorRGBA(r=1.0, g=0.88, b=0.1, a=0.98)  # Kuning emas
-        else:
-            m_cov_big.color = ColorRGBA(r=0.2, g=0.85, b=1.0, a=0.95)  # Cyan
-        
-        # Progress bar visual sederhana
-        bar_len = 15
-        filled = int(round((cov / 100.0) * bar_len))
-        bar_str = '█' * filled + '░' * (bar_len - filled)
-        m_cov_big.text = f'COVERAGE: {cov:5.1f}%  [{bar_str}]'
-        ma.markers.append(m_cov_big)
-
-        # ── 5c. SUBTITLE METRIK DETAIL & WAKTU (Utara / Y = 15.2m) ──
-        m_cov_label = Marker()
-        m_cov_label.header.frame_id = 'world'
-        m_cov_label.header.stamp = stamp
-        m_cov_label.ns = 'coverage_label'
-        m_cov_label.id = 96
-        m_cov_label.type = Marker.TEXT_VIEW_FACING
-        m_cov_label.action = Marker.ADD
-        m_cov_label.pose.position.x = 0.0
-        m_cov_label.pose.position.y = 15.20
-        m_cov_label.pose.position.z = 1.0
-        m_cov_label.pose.orientation.w = 1.0
-        m_cov_label.scale.z = 0.70
-        m_cov_label.color = ColorRGBA(r=0.80, g=0.80, b=0.80, a=0.85)
         minutes = int(t_elapsed) // 60
         seconds = int(t_elapsed) % 60
-        m_cov_label.text = f'Sel Terpetakan: {mapped_cells}/{total_cells} sel  |  Waktu Terbang: {minutes:02d}:{seconds:02d}  |  d_min: {self.global_min_dist:.2f}m'
-        ma.markers.append(m_cov_label)
+
+        # ── Line 1: Main Coverage Progress & Time (Y = 16.5m) ──
+        m_cov_main = Marker()
+        m_cov_main.header.frame_id = 'world'
+        m_cov_main.header.stamp = stamp
+        m_cov_main.ns = 'hud_coverage'
+        m_cov_main.id = 97
+        m_cov_main.type = Marker.TEXT_VIEW_FACING
+        m_cov_main.action = Marker.ADD
+        m_cov_main.pose.position.x = 0.0
+        m_cov_main.pose.position.y = 16.50
+        m_cov_main.pose.position.z = 1.0
+        m_cov_main.pose.orientation.w = 1.0
+        m_cov_main.scale.z = 1.30
+        if cov >= 95.0:
+            m_cov_main.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.98)  # Bright green
+        elif cov >= 50.0:
+            m_cov_main.color = ColorRGBA(r=1.0, g=0.88, b=0.1, a=0.98)  # Gold
+        else:
+            m_cov_main.color = ColorRGBA(r=0.2, g=0.85, b=1.0, a=0.95)  # Cyan
+        
+        bar_len = 12
+        filled = int(round((cov / 100.0) * bar_len))
+        bar_str = '█' * filled + '░' * (bar_len - filled)
+        m_cov_main.text = f'COVERAGE: {cov:5.1f}% [{bar_str}]  |  TIME: {minutes:02d}:{seconds:02d}'
+        ma.markers.append(m_cov_main)
+
+        # ── Line 2: Scheme & Swarm Status Subtitle (Y = 15.2m) ──
+        m_cov_sub = Marker()
+        m_cov_sub.header.frame_id = 'world'
+        m_cov_sub.header.stamp = stamp
+        m_cov_sub.ns = 'hud_coverage'
+        m_cov_sub.id = 96
+        m_cov_sub.type = Marker.TEXT_VIEW_FACING
+        m_cov_sub.action = Marker.ADD
+        m_cov_sub.pose.position.x = 0.0
+        m_cov_sub.pose.position.y = 15.20
+        m_cov_sub.pose.position.z = 1.0
+        m_cov_sub.pose.orientation.w = 1.0
+        m_cov_sub.scale.z = 0.65
+        m_cov_sub.color = ColorRGBA(r=0.80, g=0.82, b=0.85, a=0.85)
+        m_cov_sub.text = f'{sch_str}  |  Drones: {alive_count}/7 Active ({sweeping_count} Sweeping)  |  Cells: {mapped_cells}/{total_cells}'
+        ma.markers.append(m_cov_sub)
 
         # 6. Grid Cakupan Hijau Padat, Kontras & Bebas Z-Fighting (Numpy Vectorized Fast Extraction)
         m_grid = Marker()
