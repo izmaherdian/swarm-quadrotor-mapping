@@ -2566,8 +2566,77 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.path_msg.header.stamp = stamp
             self.pub_actual_path[did].publish(agent.path_msg)
 
-        # 5. Status HUD Coverage Ringkas
+        # 5. Status HUD Coverage — Panel Besar & Informatif di RViz
         cov = self.get_coverage_percentage()
+        t_elapsed = self.step_count / 20.0  # Timer @20Hz
+
+        # Hitung jumlah sel terpetakan vs total sel aktif
+        i_s = int((self.active_x_min - self.x_min) / self.dx)
+        i_e = int((self.active_x_max - self.x_min) / self.dx)
+        j_s = int((self.active_y_min - self.y_min) / self.dy)
+        j_e = int((self.active_y_max - self.y_min) / self.dy)
+        sub = self.cov_grid[i_s:i_e, j_s:j_e]
+        if self.enable_obstacles and hasattr(self, 'obstacle_mask'):
+            valid_mask = ~self.obstacle_mask[i_s:i_e, j_s:j_e]
+            mapped_cells = int(np.sum(sub & valid_mask))
+            total_cells = int(np.sum(valid_mask))
+        else:
+            mapped_cells = int(np.sum(sub))
+            total_cells = sub.size
+
+        alive_count = sum(1 for a in self.agents.values() if a.is_alive and a.state != 'dead')
+        sweeping_count = sum(1 for a in self.agents.values() if a.is_alive and a.state == 'sweeping_row')
+
+        scheme_labels = {
+            1: "Skema 1: Nominal (Zero Disturbance)",
+            2: "Skema 2: Dryden Wind Turbulence",
+            3: "Skema 3: Obstacle Avoidance (9S + 2D)",
+            4: "Skema 4: Combined Wind & Obstacles"
+        }
+        sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
+
+        # ── 5a. TEKS BESAR PERSENTASE COVERAGE (tengah arena, melayang tinggi) ──
+        m_cov_big = Marker()
+        m_cov_big.header.frame_id = 'world'
+        m_cov_big.header.stamp = stamp
+        m_cov_big.ns = 'coverage_big_pct'
+        m_cov_big.id = 97
+        m_cov_big.type = Marker.TEXT_VIEW_FACING
+        m_cov_big.action = Marker.ADD
+        m_cov_big.pose.position.x = 0.0
+        m_cov_big.pose.position.y = 0.0
+        m_cov_big.pose.position.z = 8.0
+        m_cov_big.pose.orientation.w = 1.0
+        m_cov_big.scale.z = 2.5  # Ukuran font sangat besar
+        if cov >= 95.0:
+            m_cov_big.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.95)  # Hijau cerah
+        elif cov >= 50.0:
+            m_cov_big.color = ColorRGBA(r=1.0, g=0.9, b=0.1, a=0.95)  # Kuning
+        else:
+            m_cov_big.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.90)  # Putih
+        m_cov_big.text = f'{cov:.1f}%'
+        ma.markers.append(m_cov_big)
+
+        # ── 5b. LABEL "COVERAGE" di bawah angka besar ──
+        m_cov_label = Marker()
+        m_cov_label.header.frame_id = 'world'
+        m_cov_label.header.stamp = stamp
+        m_cov_label.ns = 'coverage_label'
+        m_cov_label.id = 96
+        m_cov_label.type = Marker.TEXT_VIEW_FACING
+        m_cov_label.action = Marker.ADD
+        m_cov_label.pose.position.x = 0.0
+        m_cov_label.pose.position.y = 0.0
+        m_cov_label.pose.position.z = 6.2
+        m_cov_label.pose.orientation.w = 1.0
+        m_cov_label.scale.z = 0.8
+        m_cov_label.color = ColorRGBA(r=0.85, g=0.85, b=0.85, a=0.80)
+        minutes = int(t_elapsed) // 60
+        seconds = int(t_elapsed) % 60
+        m_cov_label.text = f'COVERAGE  |  {mapped_cells}/{total_cells} sel  |  {minutes:02d}:{seconds:02d}'
+        ma.markers.append(m_cov_label)
+
+        # ── 5c. INFO SKEMA & STATUS DRONE (banner atas arena) ──
         m_hud = Marker()
         m_hud.header.frame_id = 'world'
         m_hud.header.stamp = stamp
@@ -2578,14 +2647,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_hud.pose.position.x = 0.0
         m_hud.pose.position.y = 15.50
         m_hud.pose.position.z = 1.0
-        scheme_labels = {
-            1: "Skema 1: Nominal (Zero Disturbance)",
-            2: "Skema 2: Dryden Wind Turbulence",
-            3: "Skema 3: Obstacle Avoidance (9 Static + 2 Dynamic X)",
-            4: "Skema 4: Combined Wind & Obstacles"
-        }
-        sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
-        m_hud.text = f'[{sch_str}] Coverage: {cov:.1f}% | 7 Drones Voronoi Mapping'
+        m_hud.pose.orientation.w = 1.0
+        m_hud.scale.z = 0.65
+        m_hud.color = ColorRGBA(r=0.95, g=0.95, b=0.95, a=0.85)
+        m_hud.text = f'{sch_str}  |  Aktif: {alive_count}/7  |  Menyapu: {sweeping_count}'
         ma.markers.append(m_hud)
 
         # 6. Grid Cakupan Hijau Padat, Kontras & Bebas Z-Fighting (Numpy Vectorized Fast Extraction)
