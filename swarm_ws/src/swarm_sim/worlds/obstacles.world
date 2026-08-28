@@ -731,7 +731,7 @@
     </model>
     <model name="static_obs_4_3">
       <static>true</static>
-      <pose>-9.5 -11.5 2.0 0 0 0</pose>
+      <pose>-10.5 -12.5 2.0 0 0 0</pose>
       <link name="link">
         <collision name="collision">
           <geometry><cylinder><radius>0.40</radius><length>4.0</length></cylinder></geometry>
