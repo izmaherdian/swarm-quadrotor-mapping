@@ -2566,7 +2566,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.path_msg.header.stamp = stamp
             self.pub_actual_path[did].publish(agent.path_msg)
 
-        # 5. Status HUD Sidebar — Panel Samping Kanan (East / X = 17.5m)
+        # 5. Status HUD Sidebar — Panel Samping Kanan (East / X = 22.0m)
         cov = self.get_coverage_percentage()
         t_elapsed = self.step_count / 20.0  # Timer @20Hz
         minutes = int(t_elapsed) // 60
@@ -2587,17 +2587,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
             total_cells = sub.size
 
         alive_count = sum(1 for a in self.agents.values() if a.is_alive and a.state != 'dead')
-        sweeping_count = sum(1 for a in self.agents.values() if a.is_alive and a.state == 'sweeping_row')
 
         scheme_labels = {
-            1: "Scheme 1: Nominal",
-            2: "Scheme 2: Dryden Wind",
-            3: "Scheme 3: Obstacles (9S+2D)",
-            4: "Scheme 4: Wind & Obstacles"
+            1: "Scheme 1 (Nominal)",
+            2: "Scheme 2 (Dryden Wind)",
+            3: "Scheme 3 (Obstacles)",
+            4: "Scheme 4 (Combined)"
         }
         sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
 
-        # ── 5a. Global Summary Card (Top Right / X=17.5, Y=14.0) ──
+        # ── 5a. Global Summary Header (X = 22.0m, Y = 13.5m) ──
         m_dash_title = Marker()
         m_dash_title.header.frame_id = 'world'
         m_dash_title.header.stamp = stamp
@@ -2605,16 +2604,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_dash_title.id = 90
         m_dash_title.type = Marker.TEXT_VIEW_FACING
         m_dash_title.action = Marker.ADD
-        m_dash_title.pose.position.x = 17.5
-        m_dash_title.pose.position.y = 14.0
+        m_dash_title.pose.position.x = 22.0
+        m_dash_title.pose.position.y = 13.5
         m_dash_title.pose.position.z = 1.0
         m_dash_title.pose.orientation.w = 1.0
-        m_dash_title.scale.z = 0.85
-        m_dash_title.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.95)
+        m_dash_title.scale.z = 0.80
+        m_dash_title.color = ColorRGBA(r=0.95, g=0.95, b=0.95, a=0.95)
         m_dash_title.text = f'SWARM DASHBOARD  |  {sch_str}'
         ma.markers.append(m_dash_title)
 
-        # ── 5b. Overall Coverage Progress (X=17.5, Y=12.2) ──
+        # ── 5b. Overall Coverage (X = 22.0m, Y = 11.8m) ──
         m_dash_cov = Marker()
         m_dash_cov.header.frame_id = 'world'
         m_dash_cov.header.stamp = stamp
@@ -2622,11 +2621,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_dash_cov.id = 91
         m_dash_cov.type = Marker.TEXT_VIEW_FACING
         m_dash_cov.action = Marker.ADD
-        m_dash_cov.pose.position.x = 17.5
-        m_dash_cov.pose.position.y = 12.2
+        m_dash_cov.pose.position.x = 22.0
+        m_dash_cov.pose.position.y = 11.8
         m_dash_cov.pose.position.z = 1.0
         m_dash_cov.pose.orientation.w = 1.0
-        m_dash_cov.scale.z = 1.05
+        m_dash_cov.scale.z = 0.95
         if cov >= 95.0:
             m_dash_cov.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.98)
         elif cov >= 50.0:
@@ -2634,16 +2633,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
         else:
             m_dash_cov.color = ColorRGBA(r=0.2, g=0.85, b=1.0, a=0.95)
 
-        bar_len = 10
-        filled = int(round((cov / 100.0) * bar_len))
-        bar_str = '█' * filled + '░' * (bar_len - filled)
         m_dash_cov.text = (
-            f'TOTAL COVERAGE: {cov:5.1f}% [{bar_str}]\n'
-            f'Time: {minutes:02d}:{seconds:02d}  |  Cells: {mapped_cells}/{total_cells}  |  Active: {alive_count}/7'
+            f'TOTAL COVERAGE: {cov:5.1f}%  |  TIME: {minutes:02d}:{seconds:02d}\n'
+            f'Cells: {mapped_cells}/{total_cells}  |  Active: {alive_count}/7 Drones'
         )
         ma.markers.append(m_dash_cov)
 
-        # ── 5c. Per-Drone Individual Status Cards (X=17.5, Y = 9.5 down to -6.5) ──
+        # ── 5c. Per-Drone Individual Cards (X = 22.0m, Y = 9.5 to -4.5m) ──
         for did in range(1, 8):
             agent = self.agents[did]
             is_dead = (not agent.is_alive or agent.state == 'dead')
@@ -2657,17 +2653,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_dcard.id = 100 + did
             m_dcard.type = Marker.TEXT_VIEW_FACING
             m_dcard.action = Marker.ADD
-            m_dcard.pose.position.x = 17.5
-            m_dcard.pose.position.y = 9.5 - (did - 1) * 2.5
+            m_dcard.pose.position.x = 22.0
+            m_dcard.pose.position.y = 9.5 - (did - 1) * 2.3
             m_dcard.pose.position.z = 1.0
             m_dcard.pose.orientation.w = 1.0
-            m_dcard.scale.z = 0.65
+            m_dcard.scale.z = 0.62
 
             if is_dead:
                 m_dcard.color = ColorRGBA(r=1.0, g=0.25, b=0.25, a=0.90)
                 m_dcard.text = (
-                    f'iris_{did} [DEAD 💥]  •  STATUS: INACTIVE\n'
-                    f'Coverage: Cell Reassigned to Helper'
+                    f'iris_{did} [DEAD 💥]  •  INACTIVE\n'
+                    f'Coverage: Reassigned to Helper'
                 )
             else:
                 m_dcard.color = ColorRGBA(r=float(cr), g=float(cg), b=float(cb), a=1.0)
@@ -2684,7 +2680,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     st_str = f"NEXT ROW ({agent.row_idx + 1}/{agent.num_rows})"
                     prog = min(100.0, (agent.row_idx / max(1, agent.num_rows)) * 100.0)
                 elif agent.state in ['transit_to_start', 'wait_takeoff', 'wait_all_start', 'align_start_yaw']:
-                    st_str = "TRANSIT TO CELL 🚀"
+                    st_str = "TRANSIT 🚀"
                     prog = 0.0
                 else:
                     st_str = agent.state.upper()
@@ -2692,7 +2688,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 m_dcard.text = (
                     f'iris_{did} {role_tag}  •  {st_str}\n'
-                    f'Progress: {prog:5.1f}%  |  Pos: ({agent.pos[0]:5.1f}, {agent.pos[1]:5.1f})'
+                    f'Coverage: {prog:5.1f}%  |  Pos: ({agent.pos[0]:4.1f}, {agent.pos[1]:4.1f})'
                 )
 
             ma.markers.append(m_dcard)
