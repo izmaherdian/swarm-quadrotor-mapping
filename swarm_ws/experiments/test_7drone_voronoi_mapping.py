@@ -1047,15 +1047,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
             dist_lateral = float(np.dot(r_obs_drone, n_obs_track))
             dist_longitudinal = float(np.dot(r_obs_drone, u_obs_track))
 
-            ttc_pass = dist_longitudinal / v_obs_speed if v_obs_speed > 0.10 else -1.0
+            # Deteksi bahaya mendekat:
+            # 1. Rintangan sedang menuju posisi drone (dot product rel_p dan v_obs < 0) dalam radius 4.5m
+            # 2. Atau jarak fisik langsung < 2.8m terlepas dari arah kecepatan
+            is_closing = (float(np.dot(rel_p, v_obs_est)) < 0.0 and dist_curr < 4.5)
+            is_close_proximity = (dist_curr < 2.8)
+            is_incoming = is_closing or is_close_proximity
 
-            # Cek apakah rintangan sedang mendekati titik drone (TTC 0..5s atau jarak dekat dan mendekat)
-            is_incoming = (0.0 <= ttc_pass <= 5.0) or (dist_curr < 4.0 and float(np.dot(rel_p, v_obs_est)) < 0.0)
-
-            CORRIDOR_SAFE = 1.80
+            CORRIDOR_SAFE = 2.20
 
             if is_incoming and abs(dist_lateral) < CORRIDOR_SAFE:
-                # Drone berada di dalam koridor bahaya!
+                # Drone berada di dalam koridor bahaya! STOP maju sepanjang garis
                 speed_scale_dyn = 0.0
                 agent.dyn_obs_yielding = True
 
@@ -1063,16 +1065,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 sign_evade = 1.0 if dist_lateral >= 0.0 else -1.0
                 u_evade = sign_evade * n_obs_track
 
-                v_evade_mag = 1.20
-                v_avoid_dyn += u_evade * v_evade_mag
+                # Kecepatan sidestep progresif hingga 2.2 m/s
+                v_evade_mag = min(2.5, max(1.6, (CORRIDOR_SAFE - abs(dist_lateral)) * 2.0 + 1.2))
+                v_avoid_dyn += (u_evade * v_evade_mag).astype(np.float32)
 
                 # Geser ref_pos keluar koridor
-                lateral_shift = (CORRIDOR_SAFE - abs(dist_lateral) + 0.35)
-                agent.ref_pos = agent.pos[:2].copy() + u_evade * lateral_shift
+                lateral_shift = max(1.5, CORRIDOR_SAFE - abs(dist_lateral) + 0.60)
+                agent.ref_pos = (agent.pos[:2] + u_evade * lateral_shift).astype(np.float32)
 
                 self.get_logger().info(
-                    f'  ⚡ [iris_{did}] DYNAMIC OBS #{k_obs+1} INCOMING (d_lat={dist_lateral:.2f}m, TTC={ttc_pass:.1f}s)! '
-                    f'Fast Sidestep ({v_evade_mag} m/s)...',
+                    f'  ⚡ [iris_{did}] DYNAMIC OBS #{k_obs+1} INCOMING (d_lat={dist_lateral:.2f}m, dist={dist_curr:.2f}m)! '
+                    f'Fast Sidestep ({v_evade_mag:.2f} m/s)...',
                     throttle_duration_sec=0.5
                 )
             elif is_incoming and abs(dist_lateral) >= CORRIDOR_SAFE:
@@ -1080,12 +1083,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 agent.dyn_obs_yielding = True
                 agent.ref_pos = agent.pos[:2].copy()
 
-            # Emergency Hard Repulsion jika jarak mepet < 1.20m
-            if dist_surf_curr < 1.20:
+            # ── HARD EMERGENCY REPULSION LAYER UNTUK RINTANGAN DINAMIS (< 1.80m dari pusat) ──
+            if dist_curr < 1.80:
+                speed_scale_dyn = 0.0
                 u_away = -rel_p / max(0.05, dist_curr)
-                push_str = float((1.20 - dist_surf_curr) * 3.5)
-                v_avoid_dyn += u_away * push_str
-                agent.ref_pos = agent.pos[:2].copy() + u_away * 0.50
+                push_mag = min(3.5, float((1.80 - dist_curr) * 5.5 + 1.5))
+                v_avoid_dyn += (u_away * push_mag).astype(np.float32)
+                agent.ref_pos = (p_obs_est + u_away * 2.20).astype(np.float32)
 
         # Periksa juga pembacaan sensor LiDAR fisik aktual
         if hasattr(agent, 'lidar_ranges') and len(agent.lidar_ranges) > 0:
@@ -1102,6 +1106,28 @@ class Swarm7DroneVoronoiMappingNode(Node):
         avoid_offset_total = v_avoid_static + v_avoid_dyn
 
         return avoid_offset_total, speed_scale_total
+
+    def get_safe_parking_pos(self, agent):
+        """Mengembalikan titik parkir aman yang terbebas dari lintasan rintangan dinamis (jarak ke diagonal >= 2.2m)."""
+        cx, cy = float(agent.centroid[0]), float(agent.centroid[1])
+        d_diag1 = abs(cx + cy) / math.sqrt(2.0)
+        d_diag2 = abs(cx - cy) / math.sqrt(2.0)
+
+        # Jika centroid terlalu dekat dengan lintasan dinamis (< 2.0m), geser ke area aman dalam selnya
+        if min(d_diag1, d_diag2) < 2.0:
+            if abs(cx) < 1.0 and abs(cy) < 1.0:
+                return np.array([0.0, 3.20], dtype=np.float32)
+            if d_diag1 < 2.0:
+                sign = 1.0 if (cx + cy) >= 0.0 else -1.0
+                shift = (2.20 - d_diag1) * math.sqrt(2.0)
+                cx += sign * shift * 0.5
+                cy += sign * shift * 0.5
+            if d_diag2 < 2.0:
+                sign = 1.0 if (cy - cx) >= 0.0 else -1.0
+                shift = (2.20 - d_diag2) * math.sqrt(2.0)
+                cx -= sign * shift * 0.5
+                cy += sign * shift * 0.5
+        return np.array([cx, cy], dtype=np.float32)
 
     def get_coverage_percentage(self):
         """Menghitung persentase cakupan di dalam area pemetaan aktif."""
@@ -1965,14 +1991,15 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] (Heading: {math.degrees(agent.yaw):.1f}°)')
 
             # ─────────────────────────────────────────────────────────
-            # 7. RETURN TO CENTROID (Kembali ke Pusat Sel Voronoi Asli)
+            # 7. RETURN TO CENTROID (Kembali ke Titik Parkir Aman Sel)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'return_to_centroid':
-                dx = float(agent.centroid[0]) - float(agent.pos[0])
-                dy = float(agent.centroid[1]) - float(agent.pos[1])
+                p_safe_park = self.get_safe_parking_pos(agent)
+                dx = float(p_safe_park[0]) - float(agent.pos[0])
+                dy = float(p_safe_park[1]) - float(agent.pos[1])
                 dist_to_c = math.hypot(dx, dy)
 
-                # Coupled Carrot bergerak menuju centroid
+                # Coupled Carrot bergerak menuju parking point
                 lead_c = min(dist_to_c, self.lead_dist)
                 ang_c = math.atan2(dy, dx)
                 agent.ref_pos = np.array([
@@ -1982,11 +2009,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 if dist_to_c < 0.30:
                     agent.state = 'done'
-                    agent.ref_pos = agent.centroid.copy()
+                    agent.ref_pos = p_safe_park.copy()
                     agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                     wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
                     self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Pusat Voronoi! Menghadap UTARA (+90.0°).')
+                    self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Parkir Aman Voronoi ({p_safe_park[0]:.2f}, {p_safe_park[1]:.2f})! Menghadap UTARA (+90.0°).')
                     continue
 
                 v_back = min(self.transit_speed, max(0.40, 2.0 * dist_to_c))
@@ -2008,21 +2035,23 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
             # ─────────────────────────────────────────────────────────
-            # 8. DONE (Hover Mengunci di Centroid & Menghadap Utara)
+            # 8. DONE (Hover Mengunci di Parkir Aman & Menghadap Utara)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'done':
                 agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                 wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
                 v_x, v_y = 0.0, 0.0
                 v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if speed_scale <= 0.01:
+                p_safe_park = self.get_safe_parking_pos(agent)
+                if speed_scale <= 0.01 or np.linalg.norm(v_obs_avoid) > 0.05:
                     v_x = float(v_obs_avoid[0])
                     v_y = float(v_obs_avoid[1])
                 else:
-                    agent.ref_pos = agent.centroid.copy()
-                    if np.linalg.norm(v_obs_avoid) > 0.01:
-                        v_x += float(v_obs_avoid[0])
-                        v_y += float(v_obs_avoid[1])
+                    agent.ref_pos = p_safe_park.copy()
+                    dx_p = float(p_safe_park[0] - agent.pos[0])
+                    dy_p = float(p_safe_park[1] - agent.pos[1])
+                    v_x = float(np.clip(1.5 * dx_p, -0.60, 0.60))
+                    v_y = float(np.clip(1.5 * dy_p, -0.60, 0.60))
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
         # Telemetri Terminal setiap 1 detik (20 ticks @ 20Hz)
