@@ -2595,48 +2595,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         }
         sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
 
-        # ── 5a. TEKS BESAR PERSENTASE COVERAGE (tengah arena, melayang tinggi) ──
-        m_cov_big = Marker()
-        m_cov_big.header.frame_id = 'world'
-        m_cov_big.header.stamp = stamp
-        m_cov_big.ns = 'coverage_big_pct'
-        m_cov_big.id = 97
-        m_cov_big.type = Marker.TEXT_VIEW_FACING
-        m_cov_big.action = Marker.ADD
-        m_cov_big.pose.position.x = 0.0
-        m_cov_big.pose.position.y = 0.0
-        m_cov_big.pose.position.z = 8.0
-        m_cov_big.pose.orientation.w = 1.0
-        m_cov_big.scale.z = 2.5  # Ukuran font sangat besar
-        if cov >= 95.0:
-            m_cov_big.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.95)  # Hijau cerah
-        elif cov >= 50.0:
-            m_cov_big.color = ColorRGBA(r=1.0, g=0.9, b=0.1, a=0.95)  # Kuning
-        else:
-            m_cov_big.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=0.90)  # Putih
-        m_cov_big.text = f'{cov:.1f}%'
-        ma.markers.append(m_cov_big)
-
-        # ── 5b. LABEL "COVERAGE" di bawah angka besar ──
-        m_cov_label = Marker()
-        m_cov_label.header.frame_id = 'world'
-        m_cov_label.header.stamp = stamp
-        m_cov_label.ns = 'coverage_label'
-        m_cov_label.id = 96
-        m_cov_label.type = Marker.TEXT_VIEW_FACING
-        m_cov_label.action = Marker.ADD
-        m_cov_label.pose.position.x = 0.0
-        m_cov_label.pose.position.y = 0.0
-        m_cov_label.pose.position.z = 6.2
-        m_cov_label.pose.orientation.w = 1.0
-        m_cov_label.scale.z = 0.8
-        m_cov_label.color = ColorRGBA(r=0.85, g=0.85, b=0.85, a=0.80)
-        minutes = int(t_elapsed) // 60
-        seconds = int(t_elapsed) % 60
-        m_cov_label.text = f'COVERAGE  |  {mapped_cells}/{total_cells} sel  |  {minutes:02d}:{seconds:02d}'
-        ma.markers.append(m_cov_label)
-
-        # ── 5c. INFO SKEMA & STATUS DRONE (banner atas arena) ──
+        # ── 5a. BANNER JUDUL SKEMA & STATUS DRONE (Utara / Y = 18.2m) ──
         m_hud = Marker()
         m_hud.header.frame_id = 'world'
         m_hud.header.stamp = stamp
@@ -2645,13 +2604,59 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_hud.type = Marker.TEXT_VIEW_FACING
         m_hud.action = Marker.ADD
         m_hud.pose.position.x = 0.0
-        m_hud.pose.position.y = 15.50
+        m_hud.pose.position.y = 18.20
         m_hud.pose.position.z = 1.0
         m_hud.pose.orientation.w = 1.0
-        m_hud.scale.z = 0.65
-        m_hud.color = ColorRGBA(r=0.95, g=0.95, b=0.95, a=0.85)
-        m_hud.text = f'{sch_str}  |  Aktif: {alive_count}/7  |  Menyapu: {sweeping_count}'
+        m_hud.scale.z = 0.85
+        m_hud.color = ColorRGBA(r=0.90, g=0.90, b=0.95, a=0.90)
+        m_hud.text = f'🛸 {sch_str}  |  Drone Aktif: {alive_count}/7 (Menyapu: {sweeping_count})'
         ma.markers.append(m_hud)
+
+        # ── 5b. TEKS BESAR COVERAGE PERCENTAGE (Utara / Y = 16.6m) ──
+        m_cov_big = Marker()
+        m_cov_big.header.frame_id = 'world'
+        m_cov_big.header.stamp = stamp
+        m_cov_big.ns = 'coverage_big_pct'
+        m_cov_big.id = 97
+        m_cov_big.type = Marker.TEXT_VIEW_FACING
+        m_cov_big.action = Marker.ADD
+        m_cov_big.pose.position.x = 0.0
+        m_cov_big.pose.position.y = 16.60
+        m_cov_big.pose.position.z = 1.0
+        m_cov_big.pose.orientation.w = 1.0
+        m_cov_big.scale.z = 1.60  # Font besar & jelas terbaca dari top-view
+        if cov >= 95.0:
+            m_cov_big.color = ColorRGBA(r=0.1, g=1.0, b=0.3, a=0.98)  # Hijau cerah
+        elif cov >= 50.0:
+            m_cov_big.color = ColorRGBA(r=1.0, g=0.88, b=0.1, a=0.98)  # Kuning emas
+        else:
+            m_cov_big.color = ColorRGBA(r=0.2, g=0.85, b=1.0, a=0.95)  # Cyan
+        
+        # Progress bar visual sederhana
+        bar_len = 15
+        filled = int(round((cov / 100.0) * bar_len))
+        bar_str = '█' * filled + '░' * (bar_len - filled)
+        m_cov_big.text = f'COVERAGE: {cov:5.1f}%  [{bar_str}]'
+        ma.markers.append(m_cov_big)
+
+        # ── 5c. SUBTITLE METRIK DETAIL & WAKTU (Utara / Y = 15.2m) ──
+        m_cov_label = Marker()
+        m_cov_label.header.frame_id = 'world'
+        m_cov_label.header.stamp = stamp
+        m_cov_label.ns = 'coverage_label'
+        m_cov_label.id = 96
+        m_cov_label.type = Marker.TEXT_VIEW_FACING
+        m_cov_label.action = Marker.ADD
+        m_cov_label.pose.position.x = 0.0
+        m_cov_label.pose.position.y = 15.20
+        m_cov_label.pose.position.z = 1.0
+        m_cov_label.pose.orientation.w = 1.0
+        m_cov_label.scale.z = 0.70
+        m_cov_label.color = ColorRGBA(r=0.80, g=0.80, b=0.80, a=0.85)
+        minutes = int(t_elapsed) // 60
+        seconds = int(t_elapsed) % 60
+        m_cov_label.text = f'Sel Terpetakan: {mapped_cells}/{total_cells} sel  |  Waktu Terbang: {minutes:02d}:{seconds:02d}  |  d_min: {self.global_min_dist:.2f}m'
+        ma.markers.append(m_cov_label)
 
         # 6. Grid Cakupan Hijau Padat, Kontras & Bebas Z-Fighting (Numpy Vectorized Fast Extraction)
         m_grid = Marker()
