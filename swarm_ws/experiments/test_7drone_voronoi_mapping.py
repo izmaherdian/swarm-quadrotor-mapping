@@ -2596,7 +2596,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         }
         sch_str = scheme_labels.get(self.scheme, "Custom Scheme")
 
-        # ── 5a. Global Summary Header (X = 22.0m, Y = 13.5m) ──
+        # ── 5a. Global Summary Header (X = 25.5m, Y = 13.5m) ──
         m_dash_title = Marker()
         m_dash_title.header.frame_id = 'world'
         m_dash_title.header.stamp = stamp
@@ -2604,7 +2604,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_dash_title.id = 90
         m_dash_title.type = Marker.TEXT_VIEW_FACING
         m_dash_title.action = Marker.ADD
-        m_dash_title.pose.position.x = 22.0
+        m_dash_title.pose.position.x = 25.5
         m_dash_title.pose.position.y = 13.5
         m_dash_title.pose.position.z = 1.0
         m_dash_title.pose.orientation.w = 1.0
@@ -2613,7 +2613,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_dash_title.text = f'SWARM DASHBOARD  |  {sch_str}'
         ma.markers.append(m_dash_title)
 
-        # ── 5b. Overall Coverage (X = 22.0m, Y = 11.8m) ──
+        # ── 5b. Overall Coverage (X = 25.5m, Y = 11.8m) ──
         m_dash_cov = Marker()
         m_dash_cov.header.frame_id = 'world'
         m_dash_cov.header.stamp = stamp
@@ -2621,7 +2621,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         m_dash_cov.id = 91
         m_dash_cov.type = Marker.TEXT_VIEW_FACING
         m_dash_cov.action = Marker.ADD
-        m_dash_cov.pose.position.x = 22.0
+        m_dash_cov.pose.position.x = 25.5
         m_dash_cov.pose.position.y = 11.8
         m_dash_cov.pose.position.z = 1.0
         m_dash_cov.pose.orientation.w = 1.0
@@ -2639,7 +2639,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         )
         ma.markers.append(m_dash_cov)
 
-        # ── 5c. Per-Drone Individual Cards (X = 22.0m, Y = 9.5 to -4.5m) ──
+        # ── 5c. Per-Drone Individual Cards (X = 25.5m, Y = 9.5 to -4.5m) ──
         for did in range(1, 8):
             agent = self.agents[did]
             is_dead = (not agent.is_alive or agent.state == 'dead')
@@ -2653,7 +2653,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             m_dcard.id = 100 + did
             m_dcard.type = Marker.TEXT_VIEW_FACING
             m_dcard.action = Marker.ADD
-            m_dcard.pose.position.x = 22.0
+            m_dcard.pose.position.x = 25.5
             m_dcard.pose.position.y = 9.5 - (did - 1) * 2.3
             m_dcard.pose.position.z = 1.0
             m_dcard.pose.orientation.w = 1.0
