@@ -20,6 +20,10 @@ import numpy as np
 WS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 RESULTS_DIR = os.path.join(WS_DIR, 'results', 'benchmark', 'scheme3_hinf', 'pid_hinf')
 
+# Satu-satunya definisi pengukuran overshoot ada di plot_benchmark_schemes.
+sys.path.insert(0, os.path.join(WS_DIR, 'experiments'))
+from plot_benchmark_schemes import compute_overshoot_cm  # noqa: E402
+
 def cleanup():
     """Menghentikan semua proses Gazebo dan ROS 2."""
     cmd = "killall -9 gz-sim-main parameter_bridge dryden_wind_node pid_lqr_node pid_hinf_node 2>/dev/null || true; pkill -9 -f 'gz sim' 2>/dev/null || true; pkill -9 -f 'spawn_drones_launch' 2>/dev/null || true; pkill -9 -f 'test_7drone_voronoi_mapping.py' 2>/dev/null || true"
@@ -64,6 +68,7 @@ def evaluate_run():
     all_ct_rms = []
     all_alt_rms = []
     all_yaw_oscillation = []
+    all_overshoot_cm = []
     global_min_clearance = float('inf')
     crash_count = 0
     
@@ -138,6 +143,16 @@ def evaluate_run():
                     if len(diffs) > 0:
                         all_yaw_oscillation.append(float(np.mean(diffs)))
 
+                # Overshoot DIUKUR dari telemetri (bukan diasumsikan nol).
+                # Memakai seluruh baris termasuk takeoff agar peristiwa henti
+                # referensi pertama tidak terpotong.
+                try:
+                    cols = {k: np.array([float(r[k]) for r in rows], dtype=np.float64)
+                            for k in ('Time_s', 'X', 'Y', 'Ref_X', 'Ref_Y')}
+                    all_overshoot_cm.append(compute_overshoot_cm(cols))
+                except (ValueError, KeyError):
+                    pass
+
         except Exception as e:
             print(f"Error parsing {fpath}: {e}")
 
@@ -153,7 +168,7 @@ def evaluate_run():
         'yaw_chatter_deg_per_tick': mean_yaw_osc,
         'min_clearance_m': min_clearance,
         'crash_count': crash_count,
-        'overshoot_pct': 0.00
+        'overshoot_cm': float(max(all_overshoot_cm)) if all_overshoot_cm else 0.0
     }
     return metrics
 
@@ -168,7 +183,7 @@ def print_metrics_table(iteration, metrics):
     print(f"  Indeks Chattering Yaw Cruising : {metrics['yaw_chatter_deg_per_tick']:.3f}°/tick (Target: < 0.30°)")
     print(f"  Min Obstacle Clearance         : {metrics['min_clearance_m']:.2f} m   (Target: >= 0.85 m)")
     print(f"  Jumlah Insiden Tabrakan        : {metrics['crash_count']} insiden (Target: 0)")
-    print(f"  Endpoint Max Overshoot         : {metrics['overshoot_pct']:.2f} %   (Target: 0.00 %)")
+    print(f"  Endpoint Max Overshoot         : {metrics['overshoot_cm']:.2f} cm  (Target: <= 5.00 cm)")
     print("-" * 75)
 
     passed = (
@@ -178,7 +193,7 @@ def print_metrics_table(iteration, metrics):
         metrics['alt_rms_cm'] <= 3.5 and
         metrics['yaw_chatter_deg_per_tick'] <= 0.70 and
         metrics['min_clearance_m'] >= 0.85 and
-        metrics['overshoot_pct'] <= 0.00
+        metrics['overshoot_cm'] <= 5.0
     )
     if passed:
         print("  🏆 STATUS: SEMUA KRITERIA KELULUSAN TERPENUHI (OPTIMAL & BEBAS TABRAKAN) ✅")
@@ -193,9 +208,10 @@ def main():
     print("===========================================================================")
     
     max_iterations = 3
+    passed = False
     for i in range(1, max_iterations + 1):
         print(f"\n--- [ITERASI {i}/{max_iterations}] ---")
-        ret = run_simulation(duration_sec=35)
+        run_simulation(duration_sec=35)
         metrics = evaluate_run()
         if metrics is not None:
             passed = print_metrics_table(i, metrics)
@@ -204,8 +220,9 @@ def main():
                 break
         else:
             print("❌ Gagal mengevaluasi data run.")
-            
+
     cleanup()
+    return 0 if passed else 1
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

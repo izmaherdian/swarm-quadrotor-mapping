@@ -10,22 +10,14 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/models', [
-            'models/ppo_lidar_avoidance.onnx',
-            'models/ppo_lidar_avoidance.onnx.data',
-            'models/ppo_lidar_avoidance.zip'
-        ]),
+        ('share/' + package_name + '/config', ['config/cbf_params.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='user',
-    maintainer_email='user@todo.todo',
-    description='Mid level AI control and obstacle avoidance for swarm quadrotor',
-    license='TODO: License declaration',
-
-    entry_points={
-        'console_scripts': [
-            'collision_avoidance_node = swarm_mid_level.collision_avoidance_node:main',
-        ],
-    },
+    maintainer='izmaherdian',
+    maintainer_email='izmaherdian@todo.todo',
+    description=('Penghindaran tabrakan CBF-QP untuk swarm quadrotor: rintangan '
+                 'statis, rintangan bergerak, dan jarak antar-drone resiprokal '
+                 'sebagai constraint dalam satu QP per drone per tick.'),
+    license='Apache-2.0',
 )

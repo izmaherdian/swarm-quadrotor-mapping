@@ -71,3 +71,8 @@ docs/Progress/*
 !docs/Progress/*.pdf
 !docs/Progress/figures/
 !docs/Progress/figures/**
+
+# Ditambahkan saat perapian 2026-08-29
+.pytest_cache/
+swarm_ws/results/
+*.egg-info/

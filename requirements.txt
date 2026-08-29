@@ -1,8 +1,12 @@
+# Dependensi Python di luar paket yang disediakan ROS 2.
+#
+# Sengaja TANPA solver QP (osqp/quadprog/qpsolvers): penghindaran CBF
+# memakai solver proyeksi 2D eksak buatan sendiri. Masalahnya hanya 2
+# variabel, dan wheel cp314 untuk solver berbasis C tidak dijamin ada —
+# menambahkannya hanya menciptakan risiko reproduksibilitas untuk artefak
+# konferensi tanpa manfaat apa pun.
 numpy
 scipy
 matplotlib
-pandas
 pyyaml
-gymnasium
-torch
-stable-baselines3
+shapely

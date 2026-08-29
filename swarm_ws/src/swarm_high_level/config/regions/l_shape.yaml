@@ -1,0 +1,11 @@
+# Wilayah pemetaan non-convex berbentuk L.
+# Penuh di paruh bawah, hanya sisi kiri di paruh atas.
+# Dipakai: ./launch_mapping_demo.sh -s 1 --region <path ke berkas ini>
+#      atau  --region l_shape  (preset identik di world/region.py)
+vertices:
+  - [-14.0, -14.0]
+  - [ 14.0, -14.0]
+  - [ 14.0,   0.0]
+  - [  0.0,   0.0]
+  - [  0.0,  14.0]
+  - [-14.0,  14.0]

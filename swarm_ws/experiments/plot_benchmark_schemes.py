@@ -70,6 +70,59 @@ def load_drone_csvs(log_dir, controller_prefix):
     return drone_data
 
 
+def compute_overshoot_cm(df):
+    """
+    Mengukur overshoot NYATA dari telemetri: seberapa jauh drone melewati titik
+    berhenti referensi setelah referensi berhenti bergerak (ujung baris sapuan).
+
+    Deteksi memakai histeresis: referensi dianggap "bergerak" saat lajunya
+    > 0.30 m/s dan dianggap "berhenti" saat turun < 0.05 m/s. Transisi
+    bergerak -> berhenti adalah satu peristiwa ujung baris. Deselerasi
+    berlangsung beberapa sampel, jadi perbandingan antar-sampel bersebelahan
+    tidak akan pernah memicu.
+
+    Dikembalikan dalam cm. Persentase terhadap panjang baris tidak dapat dihitung
+    dari CSV saja (butuh batas baris dari coordinator) — lihat summary.json.
+    """
+    if 'Ref_X' not in df or 'Time_s' not in df or len(df['Time_s']) < 20:
+        return 0.0
+
+    t = df['Time_s']
+    rx, ry = df['Ref_X'], df['Ref_Y']
+    px, py = df['X'], df['Y']
+
+    dt = np.diff(t)
+    dt[dt <= 1e-6] = 1e-6
+    vrx = np.diff(rx) / dt
+    vry = np.diff(ry) / dt
+    ref_speed = np.hypot(vrx, vry)
+
+    max_over = 0.0
+    moving = False
+    last_ux, last_uy = 0.0, 0.0
+
+    for k in range(len(ref_speed)):
+        if ref_speed[k] > 0.30:
+            moving = True
+            last_ux = vrx[k] / ref_speed[k]
+            last_uy = vry[k] / ref_speed[k]
+            continue
+
+        if not (moving and ref_speed[k] < 0.05):
+            continue
+
+        # Peristiwa ujung baris: referensi baru saja berhenti.
+        moving = False
+        sx, sy = rx[k], ry[k]
+        window = (t >= t[k]) & (t <= t[k] + 2.0)
+        if not np.any(window):
+            continue
+        proj = (px[window] - sx) * last_ux + (py[window] - sy) * last_uy
+        max_over = max(max_over, float(np.max(proj)))
+
+    return max(0.0, max_over) * 100.0
+
+
 def compute_metrics(drone_data):
     """Menghitung metrik kuantitatif tracking dan energi kontroler."""
     if not drone_data:
@@ -84,8 +137,11 @@ def compute_metrics(drone_data):
     all_yaw_errors = []
     all_torques = []
     all_rpms = []
+    overshoots = []
 
     for did, df in drone_data.items():
+        overshoots.append(compute_overshoot_cm(df))
+
         if 'Ref_X' in df and 'X' in df:
             dx = df['Ref_X'] - df['X']
             dy = df['Ref_Y'] - df['Y']
@@ -117,7 +173,7 @@ def compute_metrics(drone_data):
     return {
         'ct_rms': float(np.sqrt(np.mean(ct_arr**2)) * 100.0),  # cm
         'ct_max': float(np.max(ct_arr) * 100.0),              # cm
-        'ov_max': float(0.00),                                # 0.00% Zero Overshoot Guaranteed
+        'ov_max': float(max(overshoots)) if overshoots else 0.0,  # cm, DIUKUR dari telemetri
         'alt_rms': float(np.sqrt(np.mean(alt_arr**2)) * 100.0),# cm
         'yaw_rms': float(np.sqrt(np.mean(yaw_arr**2))),        # deg
         'energy': float(np.sum(tau_arr) * 0.05),              # N^2*m^2*s
@@ -151,11 +207,15 @@ def generate_benchmark_visualizations(base_dir, out_dir):
         data_lqr = load_drone_csvs(dir_lqr, 'lqr')
         data_hinf = load_drone_csvs(dir_hinf, 'hinf')
 
-        # Fallback sintesis deterministik berbasis dinamika fisik jika CSV parsial
-        if not data_lqr:
-            data_lqr = synthesize_benchmark_data('lqr', s_num)
-        if not data_hinf:
-            data_hinf = synthesize_benchmark_data('hinf', s_num)
+        # Data telemetri WAJIB berasal dari run nyata. Tidak ada fallback sintetis:
+        # angka yang masuk ke paper harus dapat dilacak ke file CSV yang benar-benar ada.
+        for label, data, d in (('lqr', data_lqr, dir_lqr), ('hinf', data_hinf, dir_hinf)):
+            if not data:
+                sys.exit(
+                    f"❌ FATAL: tidak ada CSV telemetri untuk Skema {s_num} / pid_{label}.\n"
+                    f"   Dicari di: {d}\n"
+                    f"   Jalankan benchmark-nya dulu; plot TIDAK akan dibuat dari data karangan."
+                )
 
         met_lqr = compute_metrics(data_lqr)
         met_hinf = compute_metrics(data_hinf)
@@ -429,75 +489,22 @@ def generate_benchmark_visualizations(base_dir, out_dir):
         delta_ct = ((l['ct_rms'] - h['ct_rms']) / l['ct_rms'] * 100.0) if l['ct_rms'] > 0 else 0.0
         delta_alt = ((l['alt_rms'] - h['alt_rms']) / l['alt_rms'] * 100.0) if l['alt_rms'] > 0 else 0.0
 
-        print(f"{s_title:<38} | {'Cross-Track RMS':<20} | {l['ct_rms']:>14.2f} cm | {h['ct_rms']:>14.2f} cm | {delta_ct:>+7.1f}% (Presisi)")
-        print(f"{'':<38} | {'Max CT Error':<20} | {l['ct_max']:>14.2f} cm | {h['ct_max']:>14.2f} cm | {((l['ct_max']-h['ct_max'])/l['ct_max']*100):>+7.1f}%")
-        print(f"{'':<38} | {'Altitude RMS':<20} | {l['alt_rms']:>14.2f} cm | {h['alt_rms']:>14.2f} cm | {delta_alt:>+7.1f}% (Z-Hold)")
-        print(f"{'':<38} | {'Max Overshoot':<20} | {l['ov_max']:>14.2f}  % | {h['ov_max']:>14.2f}  % | {'0.00% Zero Bounce'}")
-        print(f"{'':<38} | {'Control Effort':<20} | {l['energy']:>14.2f}    | {h['energy']:>14.2f}    | {'Kekebalan Robust'}")
+        delta_ctmax = ((l['ct_max'] - h['ct_max']) / l['ct_max'] * 100.0) if l['ct_max'] > 0 else 0.0
+        delta_ov = ((l['ov_max'] - h['ov_max']) / l['ov_max'] * 100.0) if l['ov_max'] > 0 else 0.0
+        delta_en = ((h['energy'] - l['energy']) / l['energy'] * 100.0) if l['energy'] > 0 else 0.0
+
+        print(f"{s_title:<38} | {'Cross-Track RMS':<20} | {l['ct_rms']:>14.2f} cm | {h['ct_rms']:>14.2f} cm | {delta_ct:>+7.1f}%")
+        print(f"{'':<38} | {'Max CT Error':<20} | {l['ct_max']:>14.2f} cm | {h['ct_max']:>14.2f} cm | {delta_ctmax:>+7.1f}%")
+        print(f"{'':<38} | {'Altitude RMS':<20} | {l['alt_rms']:>14.2f} cm | {h['alt_rms']:>14.2f} cm | {delta_alt:>+7.1f}%")
+        print(f"{'':<38} | {'Max Overshoot':<20} | {l['ov_max']:>14.2f} cm | {h['ov_max']:>14.2f} cm | {delta_ov:>+7.1f}%")
+        print(f"{'':<38} | {'Control Effort':<20} | {l['energy']:>14.2f}    | {h['energy']:>14.2f}    | {delta_en:>+7.1f}%")
         print("-" * 110)
 
     print("="*110)
-    print("🏆 KESIMPULAN UTAMA:")
-    print("  1. PID-H-Infinity terbukti mengungguli PID-LQR secara signifikan pada skema dengan gangguan angin (Skema 2 & 4),")
-    print("     mereduksi error cross-track hingga 35-45% dan memelihara kestabilan altitude yang superior.")
-    print("  2. Pada Skema 3 & 4, manuver penghindaran rintangan tangensial berbasis LiDAR berhasil mempertahankan jarak aman")
-    print("     clearance bubble >= 0.85m terhadap 9 rintangan statis dan 2 rintangan dinamis bermotif 'X'.")
-    print("  3. Kedua kontroler menghasilkan 0.00% Overshoot di seluruh ujung baris (Critically Damped Tracking).")
+    print("  Delta positif = PID-H-Infinity lebih baik (kecuali Control Effort: positif = H-Inf lebih boros).")
+    print("  Overshoot diukur dari telemetri sebagai jarak lewat titik henti referensi di ujung baris.")
+    print("  Jarak clearance ke rintangan TIDAK diukur di sini — lihat safety.csv dari node metrics.")
     print("="*110 + "\n")
-
-
-def synthesize_benchmark_data(controller_type, scheme_id):
-    """
-    Menghasilkan dataset telemetri deterministik berbasis model dinamika fisik quadrotor Iris
-    apabila file log pengujian simulasi belum lengkap diekstraksi.
-    """
-    np.random.seed(42 + scheme_id)
-    t = np.linspace(0, 75, 1500)
-    data = {}
-
-    # Karakteristik fisis berdasarkan kontroler dan skema
-    if controller_type == 'lqr':
-        base_ct_rms = {1: 0.075, 2: 0.145, 3: 0.095, 4: 0.165}[scheme_id]
-        base_alt_rms = {1: 0.035, 2: 0.085, 3: 0.042, 4: 0.098}[scheme_id]
-    else:  # hinf
-        base_ct_rms = {1: 0.068, 2: 0.088, 3: 0.082, 4: 0.105}[scheme_id]
-        base_alt_rms = {1: 0.025, 2: 0.048, 3: 0.030, 4: 0.055}[scheme_id]
-
-    for did in range(1, 8):
-        x_nom = np.linspace(-7.0 + did*1.5, 7.0 - did*1.0, len(t))
-        y_nom = np.sin(0.1 * t + did) * 5.0
-        z_nom = np.ones(len(t)) * 2.0
-
-        noise_x = np.random.randn(len(t)) * (base_ct_rms / np.sqrt(2))
-        noise_y = np.random.randn(len(t)) * (base_ct_rms / np.sqrt(2))
-        noise_z = np.random.randn(len(t)) * base_alt_rms
-
-        # Hembusan kejut (gust step) untuk skema 2 dan 4
-        if scheme_id in [2, 4]:
-            gust_mask = (t >= 5.0)
-            noise_x[gust_mask] += -0.04 if controller_type == 'lqr' else -0.015
-            noise_y[gust_mask] += -0.04 if controller_type == 'lqr' else -0.015
-
-        df = {
-            'Time_s': t,
-            'X': x_nom + noise_x,
-            'Y': y_nom + noise_y,
-            'Z': z_nom + noise_z,
-            'Ref_X': x_nom,
-            'Ref_Y': y_nom,
-            'Ref_Z': z_nom,
-            'Ref_Yaw': np.zeros(len(t)),
-            'Yaw_deg': np.random.randn(len(t)) * (0.6 if controller_type == 'lqr' else 0.4),
-            'tau_x': np.random.randn(len(t)) * (0.25 if controller_type == 'lqr' else 0.35),
-            'tau_y': np.random.randn(len(t)) * (0.25 if controller_type == 'lqr' else 0.35),
-            'tau_z': np.random.randn(len(t)) * 0.05,
-            'RPM_0': 620.0 + np.random.randn(len(t)) * 15.0,
-            'RPM_1': 620.0 + np.random.randn(len(t)) * 15.0,
-            'RPM_2': 620.0 + np.random.randn(len(t)) * 15.0,
-            'RPM_3': 620.0 + np.random.randn(len(t)) * 15.0,
-        }
-        data[did] = df
-    return data
 
 
 if __name__ == '__main__':

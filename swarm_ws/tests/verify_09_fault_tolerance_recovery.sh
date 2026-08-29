@@ -96,7 +96,7 @@ echo ""
 
 cleanup_all() {
     trap - EXIT INT TERM
-    for pid in $(ps aux | grep -E "gz.sim|ros2 launch|test_7drone|test_2drone|parameter_bridge|pid_lqr_node|pid_hinf_node|collision_avoidance_node" | grep -v grep | awk '{print $2}'); do
+    for pid in $(ps aux | grep -E "gz.sim|ros2 launch|test_7drone|parameter_bridge|pid_lqr_node|pid_hinf_node" | grep -v grep | awk '{print $2}'); do
         kill -9 "$pid" 2>/dev/null || true
     done
     killall -9 gzserver gzclient ruby "gz sim" gz sim ros2 2>/dev/null || true

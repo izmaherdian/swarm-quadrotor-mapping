@@ -1,0 +1,12 @@
+# Wilayah pemetaan non-convex berbentuk U.
+# Takik persegi dipotong dari tepi atas-tengah — menguji jalur "lompat celah"
+# pada boustrophedon (scanline menghasilkan >1 interval).
+vertices:
+  - [-14.0, -14.0]
+  - [ 14.0, -14.0]
+  - [ 14.0,  14.0]
+  - [  5.0,  14.0]
+  - [  5.0,  -2.0]
+  - [ -5.0,  -2.0]
+  - [ -5.0,  14.0]
+  - [-14.0,  14.0]

@@ -10,6 +10,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        # Dipasang agar PlantModel (swarm_mid_level) dapat menemukannya lewat
+        # ament share saat berjalan dari install/, bukan hanya dari src/.
+        ('share/' + package_name + '/config', ['config/quadrotor_params.yaml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

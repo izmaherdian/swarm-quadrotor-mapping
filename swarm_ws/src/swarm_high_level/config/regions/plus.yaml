@@ -1,0 +1,16 @@
+# Wilayah pemetaan non-convex berbentuk plus / salib simetris.
+# Empat lengan; setiap scanline horizontal di lengan atas/bawah menghasilkan
+# satu interval, di badan tengah tiga interval.
+vertices:
+  - [ -5.0, -14.0]
+  - [  5.0, -14.0]
+  - [  5.0,  -5.0]
+  - [ 14.0,  -5.0]
+  - [ 14.0,   5.0]
+  - [  5.0,   5.0]
+  - [  5.0,  14.0]
+  - [ -5.0,  14.0]
+  - [ -5.0,   5.0]
+  - [-14.0,   5.0]
+  - [-14.0,  -5.0]
+  - [ -5.0,  -5.0]

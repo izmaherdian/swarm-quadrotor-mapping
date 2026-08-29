@@ -1,0 +1,51 @@
+# Parameter penghindaran CBF-QP.
+#
+# Besaran FISIK (a_max, k_v, T_lead, v_c) TIDAK ada di sini — semuanya
+# diturunkan saat runtime oleh PlantModel.from_config() dari
+# swarm_low_level/config/quadrotor_params.yaml plus gain PID-LQR/H-inf.
+# Itu inti metodenya: fungsi kelas-K konsisten dengan aktuator, bukan disetel
+# tangan. Menulis ulang angkanya di sini justru mengulang kesalahan lama.
+
+cbf:
+  # ── Waktu ──────────────────────────────────────────────────────────────
+  dt_nominal: 0.05          # loop kendali 20 Hz
+  dt_min: 0.04              # jepit bawah saat jitter clock
+  dt_max: 0.10              # di atas ini, tahan perintah sebelumnya
+  T_d: 0.30                 # dead time loop tertutup; idealnya diidentifikasi
+                            # dari CSV telemetri, bukan ditebak
+
+  # ── Marjin anggaran percepatan (fraksi a_max) ─────────────────────────
+  # Sisa anggaran menutup percepatan rintangan & gangguan angin, sekaligus
+  # menjaga constraint tetap dapat dipenuhi di dalam kotak batas rate.
+  a_margin_static: 0.75
+  a_margin_wall: 0.85
+
+  # ── Radius ─────────────────────────────────────────────────────────────
+  drone_radius: 0.22
+  delta_static: 0.25        # bantalan tambahan ke silinder statis
+  delta_dynamic: 0.30       # lebih tebal: rintangan bergerak lebih tak pasti
+  v2v_hard: 0.70            # tidak pernah dilepas
+  v2v_soft: 1.20            # jarak nyaman; dilepas lebih dulu saat sempit.
+                            # WAJIB dua tingkat: clip_voronoi_margin(0.42)
+                            # membuat drone di sel bersebelahan bisa sah
+                            # berjarak ~0.84 m, di bawah 1.20 m.
+
+  # ── Ukuran masalah ─────────────────────────────────────────────────────
+  include_radius: 6.0
+  max_obstacle_rows: 4      # empat rintangan terdekat sudah cukup di 2D
+  max_neighbour_rows: 4
+  polygon_sides: 8          # aproksimasi lingkaran batas laju & rate
+
+  v_max: 3.0
+  w_smooth: 0.25            # bobot kehalusan terhadap perintah sebelumnya
+
+  # ── Pemecah kebuntuan (HANYA menyentuh objektif) ──────────────────────
+  # Aturan keras: constraint = keamanan, objektif = preferensi. Tidak ada di
+  # bagian ini yang boleh mengubah A atau b, sehingga liveness tidak pernah
+  # ditukar dengan keselamatan.
+  kappa: 0.6                # kuat bias tangensial saat berhadapan langsung
+  cone_deg: 20.0            # ambang "berhadapan langsung"
+  k_separate: 2.0           # pemulihan saat sudah di dalam radius nyaman;
+                            # tanpa ini gugus rapat membeku permanen
+  stall_speed: 0.15
+  stall_time: 2.0           # setelah sekian detik diam, putar gugus

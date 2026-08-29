@@ -37,6 +37,10 @@ NC='\033[0m'
 
 # Default: Skema 1 & PID-LQR
 SCHEME=1
+HEADLESS=false         # --headless untuk tanpa GUI Gazebo & RViz
+RESULTS_DIR=""         # --results <dir> untuk memisahkan hasil tiap run
+REGION="rect"          # --region <preset|path.yaml> bentuk wilayah pemetaan
+SWEEP_SPEED=""         # --sweep-speed <m/s> override kecepatan sapuan
 CONTROLLER="pid_lqr_node"
 CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
 CONTROLLER_COLOR="$CYAN"
@@ -64,6 +68,26 @@ while [[ $# -gt 0 ]]; do
       CONTROLLER_COLOR="$MAGENTA"
       shift
       ;;
+    --results)
+      RESULTS_DIR="$2"
+      shift 2
+      ;;
+    --region)
+      REGION="$2"
+      shift 2
+      ;;
+    --region=*)
+      REGION="${1#*=}"
+      shift
+      ;;
+    --sweep-speed)
+      SWEEP_SPEED="$2"
+      shift 2
+      ;;
+    --headless)
+      HEADLESS=true
+      shift
+      ;;
     -h|--help)
       echo -e "${BOLD}Penggunaan:${NC}"
       echo "  ./launch_mapping_demo.sh [OPSI]"
@@ -78,10 +102,17 @@ while [[ $# -gt 0 ]]; do
       echo "  --pid-lqr, -lqr     Menggunakan kontroler low-level PID-LQR"
       echo "  --pid-hinf, -hinf   Menggunakan kontroler low-level PID-H-Infinity (Robust)"
       echo ""
+      echo -e "${BOLD}Lainnya:${NC}"
+      echo "  --headless            Tanpa GUI Gazebo & RViz (jauh lebih ringan)"
+      echo "  --results <dir>       Simpan CSV telemetri ke direktori tersebut"
+      echo "  --region <preset|yaml> Bentuk wilayah pemetaan: rect (default),"
+      echo "                        l_shape, u_shape, plus, atau path berkas YAML"
+      echo "  --sweep-speed <m/s>   Override kecepatan sapuan baris (default 1.6)"
+      echo ""
       echo -e "${BOLD}Contoh:${NC}"
       echo "  ./launch_mapping_demo.sh -s 1 --pid-lqr"
       echo "  ./launch_mapping_demo.sh -s 2 --pid-hinf"
-      echo "  ./launch_mapping_demo.sh -s 3 --pid-lqr"
+      echo "  ./launch_mapping_demo.sh -s 1 --pid-lqr --region u_shape"
       echo "  ./launch_mapping_demo.sh -s 4 --pid-hinf"
       exit 0
       ;;
@@ -131,6 +162,8 @@ echo -e "  🎮 KONTROLER LOW-LEVEL     : ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER
 echo -e "  🌍 GAZEBO WORLD            : ${BOLD}$(basename $WORLD_FILE)${NC}"
 echo -e "  🌪️  DRYDEN WIND TURBULENCE : ${BOLD}$ENABLE_WIND${NC}"
 echo -e "  🚧 RINTANGAN (OBSTACLES)  : ${BOLD}$ENABLE_OBSTACLES${NC}"
+echo -e "  🗺️  WILAYAH PEMETAAN      : ${BOLD}$REGION${NC}"
+echo -e "  🛡️  PENGHINDARAN          : ${BOLD}CBF-QP${NC}"
 echo "  💡 Terminal 2 Fault Injection: ./kill_drone.sh <id...> (Contoh: ./kill_drone.sh 4)"
 echo "========================================================================="
 
@@ -172,8 +205,13 @@ if [ ! -f "$GUI_CONFIG" ]; then
     GUI_CONFIG="/home/izmaherdian/Documents/swarm-quadrotor-mapping/swarm_ws/src/swarm_sim/config/gazebo_gui.config"
 fi
 
-echo "1️⃣  Menjalankan Gazebo Simulator GUI..."
-gz sim -r --gui-config "$GUI_CONFIG" "$WORLD_FILE" &
+if [ "$HEADLESS" = true ]; then
+    echo "1️⃣  Menjalankan Gazebo Simulator (headless)..."
+    gz sim -s -r "$WORLD_FILE" > /dev/null 2>&1 &
+else
+    echo "1️⃣  Menjalankan Gazebo Simulator GUI..."
+    gz sim -r --gui-config "$GUI_CONFIG" "$WORLD_FILE" &
+fi
 GZ_PID=$!
 
 echo "   ⏳ Menunggu Gazebo Engine siap..."
@@ -199,7 +237,7 @@ ros2 launch swarm_sim spawn_drones_launch.py \
     spawn_x5:="-2.0" spawn_y5:="-16.5" \
     spawn_x6:="0.0"  spawn_y6:="-16.5" \
     spawn_x7:="2.0"  spawn_y7:="-16.5" \
-    results_base:=multi_agent &
+    results_base:="${RESULTS_DIR:-multi_agent}" &
 
 echo "   ⏳ Menunggu 7 drone terdeteksi aktif..."
 for t in $(seq 1 35); do
@@ -212,7 +250,7 @@ for t in $(seq 1 35); do
 done
 
 # 4. Jalankan RViz2
-if [ -f "$RVIZ_CONFIG" ]; then
+if [ -f "$RVIZ_CONFIG" ] && [ "$HEADLESS" != true ]; then
     echo "3️⃣  Membuka RViz2 Visualizer..."
     rviz2 -d "$RVIZ_CONFIG" --ros-args -p use_sim_time:=true &
 fi
@@ -221,9 +259,16 @@ sleep 2
 # 5. Jalankan Node Pemetaan Voronoi & Boustrophedon dengan Parameter Skema
 echo "4️⃣  Menjalankan Algoritma Pemetaan Voronoi Swarm..."
 echo "========================================================================="
+SWEEP_ARG=()
+if [ -n "$SWEEP_SPEED" ]; then
+    SWEEP_ARG=(-p sweep_speed:="$SWEEP_SPEED")
+fi
+
 python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
     --ros-args \
     -p use_sim_time:=true \
     -p scheme:="$SCHEME" \
     -p enable_wind:="$ENABLE_WIND" \
-    -p enable_obstacles:="$ENABLE_OBSTACLES"
+    -p enable_obstacles:="$ENABLE_OBSTACLES" \
+    -p region:="$REGION" \
+    "${SWEEP_ARG[@]}"

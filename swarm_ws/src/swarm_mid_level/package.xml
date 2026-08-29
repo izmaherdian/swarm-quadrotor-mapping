@@ -3,14 +3,15 @@
 <package format="3">
   <name>swarm_mid_level</name>
   <version>0.0.0</version>
-  <description>Mid level AI control and obstacle avoidance for swarm quadrotor</description>
+  <description>Penghindaran tabrakan CBF-QP untuk swarm quadrotor</description>
   <maintainer email="user@todo.todo">user</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
-  <depend>rclpy</depend>
-  <depend>nav_msgs</depend>
-  <depend>geometry_msgs</depend>
-  <depend>sensor_msgs</depend>
+  <!-- Library murni numpy/scipy: tidak butuh ROS untuk diuji maupun dipakai.
+       Itu yang membuat suite CBF berjalan dalam hitungan detik tanpa Gazebo. -->
+  <depend>python3-numpy</depend>
+  <depend>python3-yaml</depend>
+  <depend>swarm_low_level</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

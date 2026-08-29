@@ -4,10 +4,18 @@
   SWARM 7-DRONE 2D VORONOI & BOUSTROPHEDON MAPPING COORDINATOR (STEP 6 v8.3)
 ===============================================================================
 Fitur Utama:
-  1. CRITICALLY DAMPED TRACKING & ZERO OVERSHOOT (0.0%):
-     - Deselerasi feedforward ramp-down pada 0.80m menjelang ujung baris.
-     - Strict endpoint clamping: s_target <= line_len (tidak ada overshoot).
-     - Prioritas underdamped / undershoot aman (berhenti tepat pada batas baris).
+  0. WILAYAH PEMETAAN POLIGON (BOLEH NON-CONVEX):
+     - Bentuk wilayah dari preset ('rect', 'l_shape', 'u_shape', 'plus') atau
+       berkas YAML lewat parameter ROS 'region'.
+     - Lloyd/Voronoi, boustrophedon, dan grid coverage semua sadar-poligon.
+  1. CRITICALLY DAMPED TRACKING & ZERO OVERSHOOT:
+     - RAMP-DOWN feedforward pada brake_dist (default 1.0 m) menjelang ujung baris.
+     - Clamp ujung baris DIKEMBALIKAN: _cbf_filter mengunci komponen ref_pos
+       sepanjang garis sapuan ke [0, line_len] setelah QP — komponen lateral
+       (koreksi cross-track + V2V) tetap lolos. Overshoot longitudinal = 0
+       secara desain, bukan konstanta yang di-tune.
+     - sweep_speed default 1.6 m/s (bukan 2.85 lama yang tak pernah tercapai &
+       memaksa tilt feedforward melewati batas 15°).
   2. DYNAMIC FEEDBACK-COUPLED MOVING REFERENCE (CARROT WAITS FOR DRONE):
      - Titik referensi bergerak ref_pos terikat pada progres aktual drone (actual_prog).
      - Jika drone melambat atau memutar yaw, ref_pos berhenti dan menunggu drone fisik.
@@ -47,6 +55,8 @@ from std_msgs.msg import ColorRGBA, Int32MultiArray
 from matplotlib.path import Path as MplPath
 from shapely.geometry import Polygon as SpPolygon, MultiPolygon as SpMultiPolygon
 from shapely.ops import unary_union
+from swarm_high_level.world.coverage_path import (
+    clip_poly_to_region, expand_path, generate_boustrophedon, poly_centroid)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -116,116 +126,6 @@ def clip_voronoi_margin(polygon, pi, pj, margin=0.42):
     return out
 
 
-def poly_centroid(pts):
-    """Menghitung titik berat geometris poligon (Shoelace formula)."""
-    p = np.array(pts, dtype=float)
-    n = len(p)
-    if n < 3:
-        return p.mean(axis=0) if n else np.zeros(2)
-    A = cx = cy = 0.0
-    for i in range(n):
-        x0, y0 = p[i]
-        x1, y1 = p[(i + 1) % n]
-        f = x0 * y1 - x1 * y0
-        A += f
-        cx += (x0 + x1) * f
-        cy += (y0 + y1) * f
-    A *= 0.5
-    if abs(A) < 1e-9:
-        return p.mean(axis=0)
-    return np.array([cx / (6 * A), cy / (6 * A)])
-
-
-def polygon_scanline_intersections(polygon, y):
-    """Mencari titik potong horizontal garis scanline y dengan sisi poligon."""
-    xs = []
-    pts = [np.array(p, dtype=float) for p in polygon]
-    n = len(pts)
-    for i in range(n):
-        a, b = pts[i], pts[(i + 1) % n]
-        ya, yb = a[1], b[1]
-        if abs(yb - ya) < 1e-9:
-            continue
-        if not (min(ya, yb) <= y <= max(ya, yb)):
-            continue
-        t = (y - ya) / (yb - ya)
-        x = a[0] + t * (b[0] - a[0])
-        xs.append(x)
-    xs.sort()
-    return xs
-
-
-def generate_boustrophedon(polygon, sweep_spacing=1.45, margin=0.02, start_from_top=False, obstacles=None):
-    """
-    Menghasilkan rute sapuan Lawnmower horizontal zigzag di dalam sel poligon.
-    Jika start_from_top=True, urutan baris dimulai dari Y tertinggi ke terendah.
-    Jika obstacles diberikan, memangkas ujung-ujung baris agar berjarak aman (>= 1.15m) dari pusat rintangan.
-    """
-    if len(polygon) < 3:
-        return [poly_centroid(polygon)]
-
-    pts = np.array(polygon, dtype=float)
-    min_x, max_x = pts[:, 0].min(), pts[:, 0].max()
-    min_y, max_y = pts[:, 1].min(), pts[:, 1].max()
-
-    scan_min_y = min_y + margin
-    scan_max_y = max_y - margin
-
-    if scan_max_y <= scan_min_y:
-        scan_y_levels = [0.5 * (min_y + max_y)]
-    else:
-        n_lines = max(1, int(math.ceil((scan_max_y - scan_min_y) / sweep_spacing)))
-        scan_y_levels = np.linspace(scan_min_y, scan_max_y, n_lines)
-        if start_from_top:
-            scan_y_levels = scan_y_levels[::-1]
-
-    waypoints = []
-    sweep_right = True
-
-    for y in scan_y_levels:
-        xs = polygon_scanline_intersections(polygon, y)
-        if len(xs) < 2:
-            continue
-
-        x_left = xs[0] + margin
-        x_right = xs[-1] - margin
-
-        # Pemangkasan batas ujung baris jika dekat dengan rintangan statis (Buffer clearance >= 1.35m)
-        if obstacles:
-            for obs in obstacles:
-                ox, oy = obs[2], obs[3]
-                if abs(y - oy) < 1.35:
-                    d_crit = math.sqrt(max(0.01, 1.35**2 - (y - oy)**2))
-                    if abs(x_left - ox) < d_crit:
-                        if ox > x_left:
-                            x_left = min(x_left, ox - d_crit - 0.10)
-                        else:
-                            x_left = max(x_left, ox + d_crit + 0.10)
-                    if abs(x_right - ox) < d_crit:
-                        if ox < x_right:
-                            x_right = max(x_right, ox + d_crit + 0.10)
-                        else:
-                            x_right = min(x_right, ox - d_crit - 0.10)
-
-        # Lewatkan baris yang terlalu pendek (< 0.60m) atau terbalik
-        if (x_right - x_left) < 0.60:
-            continue
-
-        if sweep_right:
-            waypoints.append(np.array([x_left, y]))
-            waypoints.append(np.array([x_right, y]))
-        else:
-            waypoints.append(np.array([x_right, y]))
-            waypoints.append(np.array([x_left, y]))
-
-        sweep_right = not sweep_right
-
-    if not waypoints:
-        return [poly_centroid(polygon)]
-
-    return waypoints
-
-
 # ═════════════════════════════════════════════════════════════════════════════
 #  KELAS AGENT DRONE
 # ═════════════════════════════════════════════════════════════════════════════
@@ -280,17 +180,12 @@ class DroneAgent:
         self.last_odom_time = None
 
         # LiDAR Sensing & Geodesic Arc Obstacle Avoidance State
-        self.lidar_ranges = None
+        # Array kosong (bukan None) agar len() aman saat scan belum/tidak pernah tiba.
+        self.lidar_ranges = np.zeros(0, dtype=np.float32)
         self.min_dist_to_obs = float('inf')
-        self.bypass_state = 'none'       # 'none', 'arc_contour'
-        self.bypass_side = 0             # +1 (kiri) atau -1 (kanan) - Hysteresis Locked
-        self.bypass_obs_id = None
-        self.last_bypassed_obs_id = None # Mencegah chattering re-trigger pada rintangan yang sama di baris yang sama
         self.my_static_obstacles = []    # Rintangan statis yang berlokasi eksklusif di dalam sel Voronoi drone ini
         self.transit_waypoints = []      # Koridor transit aman menuju sel
         self.transit_wp_idx = 0
-        self.dyn_obs_yielding = False
-        self.dyn_evade_side = 0          # +1 (kiri) atau -1 (kanan) - Arah Proactive Sidestep Dinamis
 
 
 class DynamicObstacleKalmanFilter:
@@ -364,36 +259,66 @@ class Swarm7DroneVoronoiMappingNode(Node):
         if not self.has_parameter('use_sim_time'):
             self.declare_parameter('use_sim_time', True)
 
-        # ── Parameter Wilayah Arena 30x30m (Active Map: 28x28m) ──────
-        self.x_min, self.x_max = -15.0, 15.0
-        self.y_min, self.y_max = -15.0, 15.0
-        self.active_x_min, self.active_x_max = -14.0, 14.0
-        self.active_y_min, self.active_y_max = -14.0, 14.0
+        # ── Wilayah Pemetaan (poligon, boleh non-convex) ────────────
+        # Preset atau path YAML lewat parameter 'region'. Arena Gazebo tetap
+        # ~30x30 m; wilayah pemetaan adalah poligon di dalamnya.
+        self.declare_parameter('region', 'rect')
+        region_arg = str(self.get_parameter('region').value)
+        try:
+            from swarm_high_level.world.region import (
+                grid_region_mask, load_region)
+        except ImportError as exc:
+            raise RuntimeError(
+                f'Gagal impor swarm_high_level.world.region: {exc}\n'
+                '   Jalankan: colcon build --packages-select swarm_high_level') from exc
+        self.region_ring, self.region_poly = load_region(region_arg)
+        self.region_name = region_arg
+        self._grid_region_mask = grid_region_mask
+
+        rx0, ry0, rx1, ry1 = self.region_poly.bounds
         self.cruise_alt = 2.0
         self.sensor_radius = 0.95
 
-        # Bounding box arena pemetaan aktif
-        self.bbox = [
-            np.array([self.active_x_min, self.active_y_min]),
-            np.array([self.active_x_max, self.active_y_min]),
-            np.array([self.active_x_max, self.active_y_max]),
-            np.array([self.active_x_min, self.active_y_max]),
+        # Arena grid = bbox wilayah + padding 1 m di tiap sisi.
+        self.x_min, self.x_max = rx0 - 1.0, rx1 + 1.0
+        self.y_min, self.y_max = ry0 - 1.0, ry1 + 1.0
+
+        # bbox = cincin-luar wilayah (marker RViz + patokan y_mid boustrophedon).
+        self.bbox = [np.asarray(v, dtype=float) for v in self.region_ring]
+        # bbox_rect = persegi pembatas wilayah. Klip bisector Voronoi
+        # (Sutherland-Hodgman) HANYA sahih pada poligon convex, jadi Lloyd
+        # dimulai dari persegi ini lalu diiris ke region_poly via Shapely.
+        self.bbox_rect = [
+            np.array([rx0, ry0]), np.array([rx1, ry0]),
+            np.array([rx1, ry1]), np.array([rx0, ry1]),
         ]
 
-        # ── Parameter Kecepatan & Kontrol Presisi Kritis Terredam ────
-        self.nominal_speed = 2.85       # Kecepatan sapuan baris nominal (m/s)
-        self.transit_speed = 2.70       # Kecepatan transit awal (m/s)
-        self.step_speed = 2.20          # Kecepatan langkah vertikal (m/s)
+        # ── Parameter Kecepatan (dapat di-override per skema di launcher) ──
+        # nominal_speed lama 2.85 m/s tidak pernah tercapai (maks terukur
+        # 1.86) dan feedforward k_ff*v melampaui batas tilt 15°. Default baru
+        # 1.6 m/s: benar-benar tercapai, tilt ~13.7°, waktu misi ~sama.
+        self.declare_parameter('sweep_speed', 1.6)
+        self.declare_parameter('transit_speed', 2.2)
+        self.declare_parameter('step_speed', 1.8)
+        self.declare_parameter('brake_dist', 1.0)
+        self.nominal_speed = float(self.get_parameter('sweep_speed').value)
+        self.transit_speed = float(self.get_parameter('transit_speed').value)
+        self.step_speed = float(self.get_parameter('step_speed').value)
+        self.brake_dist = float(self.get_parameter('brake_dist').value)
         self.max_cmd_speed = 3.00       # Saturation limit (m/s)
         self.kp_track = 2.20            # Tracking gain lateral
         self.lead_dist = 0.70           # Jarak maju virtual carrot di depan drone (m)
         self.corner_settle_ticks = 3    # Jeda 0.15 detik saat pivot statis di sudut (@20Hz)
 
-        # ── Coverage Grid (100 x 100 sel = 10.000 sel, 0.3m/sel) ─────
+        # ── Coverage Grid (100 x 100 sel) ───────────────────────────
         self.grid_n = 100
         self.cov_grid = np.zeros((self.grid_n, self.grid_n), dtype=bool)
         self.dx = (self.x_max - self.x_min) / self.grid_n
         self.dy = (self.y_max - self.y_min) / self.grid_n
+        # Sel grid yang pusatnya di dalam wilayah — dasar perhitungan coverage.
+        self.region_mask = self._grid_region_mask(
+            self.region_poly, self.x_min, self.y_min,
+            self.dx, self.dy, self.grid_n)
 
         # ── 7 Drone Swarm Initialization ─────────────────────────────
         self.drone_colors = [
@@ -417,12 +342,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         # ── Parameter 4 Skema Pemetaan & Konfigurasi Lingkungan ──────
         self.declare_parameter('scheme', 1)
-        self.declare_parameter('obstacles', 'preset')
         self.declare_parameter('enable_wind', False)
         self.declare_parameter('enable_obstacles', False)
 
         self.scheme = int(self.get_parameter('scheme').value)
-        obs_mode = str(self.get_parameter('obstacles').value)
         self.enable_wind = bool(self.get_parameter('enable_wind').value) or (self.scheme in [2, 4])
         self.enable_obstacles = bool(self.get_parameter('enable_obstacles').value) or (self.scheme in [3, 4])
 
@@ -542,6 +465,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
             10
         )
 
+        # ── Lapisan Penghindaran CBF-QP (opsional) ───────────────────
+        self._setup_cbf()
+
         # Timer 20 Hz (50ms) untuk Loop Kontrol dan Visualisasi Presisi Tinggi
         self.timer_control = self.create_timer(0.05, self.control_loop)
         self.timer_viz = self.create_timer(0.10, self.publish_rviz_markers)
@@ -551,6 +477,202 @@ class Swarm7DroneVoronoiMappingNode(Node):
             f'(Arena: {self.x_max-self.x_min:.0f}x{self.y_max-self.y_min:.0f}m, '
             f'Grid: {self.grid_n}x{self.grid_n}, v_nom={self.nominal_speed:.2f}m/s @ 20Hz)'
         )
+
+    # ── Lapisan Penghindaran CBF-QP ──────────────────────────────────
+    #
+    # Dipasang sebagai FILTER di depan send_world_twist, bukan dengan
+    # membongkar state machine. State machine tetap menghitung kecepatan
+    # yang DIINGINKAN; QP yang memutuskan kecepatan yang AMAN. Dengan
+    # QP selalu aktif; tidak ada lagi jalur penghindaran alternatif.
+
+
+    # State yang yaw-nya harus dikunci: v_safe yang terotasi kuat akan
+    # mengayunkan target yaw, dan compute_wz membatasi 40 deg/s sehingga
+    # putaran 90 derajat memakan 2.25 detik sambil merusak metrik yaw.
+    YAW_HOLD_STATES = frozenset((
+        'sweeping_row', 'sweeping_recovery', 'align_start_yaw',
+        'delay_at_corner_end', 'delay_at_new_row', 'wait_all_start', 'done',
+    ))
+
+    def _setup_cbf(self):
+        self._cbf_cache_step = -1
+        self._cbf_last_t = None
+        self._cbf_dt = 0.05
+        self._cbf_now = 0.0
+        self._cbf_agents = {}
+        self._cbf_stats = {'ticks': 0, 'tier': [0, 0, 0, 0], 'max_slack': 0.0}
+
+        try:
+            from swarm_mid_level.cbf import (
+                Bounds, CBFAvoidance, CBFConfig, Obstacle, PlantModel)
+            from swarm_mid_level.cbf import types as CT
+            from swarm_mid_level.cbf.avoidance import priority_for_state
+        except ImportError as exc:
+            self.get_logger().error(
+                f'❌ use_cbf=true tetapi swarm_mid_level.cbf tidak dapat diimpor: {exc}\n'
+                '   Jalankan: colcon build --packages-select swarm_mid_level')
+            raise
+
+        self._CT = CT
+        self._Obstacle = Obstacle
+        self._priority_for_state = priority_for_state
+
+        solver = 'hinf' if 'hinf' in self.get_namespace().lower() else 'lqr'
+        self.cbf_plant = PlantModel.from_config(solver='lqr')
+        self.cbf_cfg = CBFConfig()
+        self.cbf_cfg.v_max = self.max_cmd_speed
+        # Anggaran percepatan yang "dicuri" angin dari otoritas menghindar.
+        # BELUM DIIDENTIFIKASI — ini perkiraan, bukan hasil ukur.
+        #
+        # Angin Dryden dipublikasikan ke Gazebo sebagai KECEPATAN (m/s), bukan
+        # gaya, sehingga kolom Wind_* di CSV tidak bisa langsung dikonversi ke
+        # percepatan. Yang benar-benar memakan otoritas hanyalah komponen yang
+        # TIDAK ditolak loop dalam; aksi integral low-level menolak sebagian
+        # besar gangguan lambat (Skema 2 mencapai 97.2% coverage tanpa
+        # kesulitan), jadi sisanya kecil.
+        #
+        # Nilai awal 1.25 memangkas a_eff dinamis menjadi 0.60 m/s^2 dan justru
+        # membuat constraint MUSTAHIL dipenuhi -> QP jatuh ke Tier 2 ->
+        # pelanggaran diterima. Terlalu konservatif menghasilkan tabrakan,
+        # bukan mencegahnya.
+        self.declare_parameter('cbf_wind_accel', 0.5)
+        self.cbf_wind_accel = float(self.get_parameter('cbf_wind_accel').value)
+
+        self.cbf = CBFAvoidance(self.cbf_cfg, self.cbf_plant)
+        self.cbf.set_world([], Bounds(self.x_min, self.x_max,
+                                      self.y_min, self.y_max))
+
+        self.get_logger().info(
+            f'   🛡️  Avoidance: CBF-QP aktif | {self.cbf_plant}')
+        self.get_logger().info(
+            f'   📐 T_lead={self.cbf_plant.T_lead:.4f}s dipakai untuk ref_pos '
+            f'(menggantikan lead_dist={self.lead_dist:.2f}m tetap)')
+
+    def _cbf_obstacles(self):
+        """Rakit daftar rintangan untuk QP.
+
+        SELURUH rintangan disertakan, bukan hanya yang ada di sel Voronoi
+        drone ini. Pembatasan per-sel di kode lama membuat rintangan #108 di
+        (0.0, 2.5) — dekat pusat arena tempat jalur transit bersilangan —
+        tidak terlihat oleh setiap drone yang tidak memiliki sel 7.
+        """
+        if not self.enable_obstacles:
+            return []
+        obs = [
+            self._Obstacle(oid, np.array([ox, oy]), radius=rad,
+                           kind=self._CT.CLASS_STATIC)
+            for oid, _cell, ox, oy, rad, _h, _c in self.static_obstacles
+        ]
+        for k, dyn in enumerate(self.dynamic_obstacles):
+            omega = 0.15 if k == 0 else 0.11
+            obs.append(self._Obstacle(
+                dyn['id'], np.asarray(dyn['pos'], dtype=float),
+                np.asarray(dyn['vel'], dtype=float), 0.45,
+                accel_bound=10.0 * omega * omega,
+                kind=self._CT.CLASS_DYNAMIC))
+        return obs
+
+    def _cbf_snapshot(self):
+        """Bangun snapshot seluruh drone sekali per tick.
+
+        Satu snapshot itulah yang membuat split resiprokal lambda_ij +
+        lambda_ji = 1 eksak — keunggulan nyata atas ORCA terdistribusi.
+        """
+        if self._cbf_cache_step == self.step_count:
+            return self._cbf_agents
+
+        # dt diukur SEKALI PER TICK, bukan per drone. Ketujuh drone
+        # diselesaikan dalam tick yang sama beberapa mikrodetik terpisah;
+        # mengukur per drone membuat enam drone terakhir menerima dt~0 yang
+        # lalu dijepit ke dt_min, memangkas separuh percepatan yang mereka
+        # boleh pakai — kawanan nyaris tidak bergerak.
+        self._cbf_now = self.get_clock().now().nanoseconds * 1e-9
+        self._cbf_dt = (0.05 if self._cbf_last_t is None
+                        else self._cbf_now - self._cbf_last_t)
+        self._cbf_last_t = self._cbf_now
+
+        self.cbf.set_world(self._cbf_obstacles(),
+                           self._CT.Bounds(self.x_min, self.x_max,
+                                           self.y_min, self.y_max),
+                           wind_accel=(self.cbf_wind_accel
+                                       if self.enable_wind else 0.0))
+
+        agents = {}
+        for did, ag in self.agents.items():
+            agents[did] = self._CT.AgentState(
+                aid=did,
+                pos=ag.pos[:2].copy(),
+                vel=getattr(ag, 'vel_world', np.zeros(2)),
+                v_prev_cmd=getattr(ag, 'cbf_v_prev', np.zeros(2)),
+                radius=self.cbf_cfg.drone_radius,
+                priority_w=self._priority_for_state(ag.state),
+                airborne=bool(ag.pos[2] >= 0.80),
+                alive=bool(ag.is_alive and ag.state != 'dead'),
+            )
+            if getattr(ag, 'cell_polygon', None) is not None:
+                self.cbf.set_cell_polygon(did, ag.cell_polygon)
+
+        self._cbf_agents = agents
+        self._cbf_cache_step = self.step_count
+        return agents
+
+    def _cbf_filter(self, did, v_world_x, v_world_y):
+        """Saring kecepatan yang diinginkan lewat QP; kembalikan yang aman."""
+        agent = self.agents[did]
+        agents = self._cbf_snapshot()
+        if did not in agents:
+            return v_world_x, v_world_y
+
+        task = self._CT.Task(v_nom=np.array([v_world_x, v_world_y], dtype=float))
+        res = self.cbf.solve(did, agents, task, self._cbf_dt, t_now=self._cbf_now)
+
+        # Aturan ref_pos TUNGGAL. Di kode lama enam tempat berbeda
+        # me-teleport ref_pos, masing-masing bertarung dengan perintah
+        # kecepatan lewat position loop low-level.
+        ref = res.ref_pos.astype(float)
+
+        # CLAMP UJUNG BARIS. Saat menyapu, komponen ref_pos SEPANJANG garis
+        # sapuan dikunci ke [0, line_len] — inilah yang mengembalikan jaminan
+        # "tidak ada overshoot" (klaim di docstring). Komponen LATERAL (koreksi
+        # cross-track + manuver V2V dari QP) dibiarkan utuh: CBF tetap bekerja
+        # untuk V2V, hanya overshoot longitudinal yang dimatikan.
+        seg = getattr(agent, '_row_seg', None)
+        if seg is not None and agent.state == 'sweeping_row':
+            wp0, u_line, line_len = seg
+            d = ref - wp0
+            s_long = float(np.dot(d, u_line))
+            perp = d - s_long * u_line
+            s_long = min(max(s_long, 0.0), line_len)
+            ref = wp0 + s_long * u_line + perp
+
+        agent.ref_pos = ref.astype(np.float32)
+        agent.cbf_v_prev = res.v_safe
+        agents[did].v_prev_cmd = res.v_safe
+
+        st = self._cbf_stats
+        st['ticks'] += 1
+        st['tier'][res.tier] += 1
+        if np.isfinite(res.slack):
+            st['max_slack'] = max(st['max_slack'], res.slack)
+        if res.h_min < agent.min_dist_to_obs:
+            agent.min_dist_to_obs = max(0.0, res.h_min)
+
+        if res.tier >= 2:
+            self.get_logger().warning(
+                f'  ⚠️  [iris_{did}] QP Tier {res.tier} (slack={res.slack:.3f}, '
+                f'pembatas={res.limiting}, h_min={res.h_min:.2f}m)',
+                throttle_duration_sec=1.0)
+
+        return float(res.v_safe[0]), float(res.v_safe[1])
+
+    def cbf_summary(self):
+        st = self._cbf_stats
+        n = max(1, st['ticks'])
+        return (f"CBF-QP: {st['ticks']} solve | "
+                f"T0 {st['tier'][0]} T1 {st['tier'][1]} "
+                f"T2 {st['tier'][2]} T3 {st['tier'][3]} | "
+                f"P(tier>0)={100.0*(n-st['tier'][0])/n:.3f}% | "
+                f"slack_maks={st['max_slack']:.4f}")
 
     # ── Utilitas Matematika & Rotasi ─────────────────────────────────
 
@@ -585,6 +707,14 @@ class Swarm7DroneVoronoiMappingNode(Node):
         agent.odom_received = True
         agent.last_odom_time = self.get_clock().now()
 
+        # Kecepatan dunia; QP memerlukannya untuk deteksi macet. Gazebo
+        # OdometryPublisher melaporkan twist di frame bodi, jadi diputar.
+        vb_x = msg.twist.twist.linear.x
+        vb_y = msg.twist.twist.linear.y
+        cy, sy = math.cos(agent.yaw), math.sin(agent.yaw)
+        agent.vel_world = np.array([vb_x * cy - vb_y * sy,
+                                    vb_x * sy + vb_y * cy], dtype=float)
+
         # Perbarui jejak lintasan penerbangan riil (Path)
         if agent.last_path_pos is None or np.linalg.norm(agent.pos[:2] - agent.last_path_pos[:2]) > 0.12:
             agent.last_path_pos = agent.pos.copy()
@@ -602,26 +732,24 @@ class Swarm7DroneVoronoiMappingNode(Node):
         """Menjalankan 25x Lloyd's Relaxation & Hungarian Assignment untuk 7 Drone."""
         self.get_logger().info('📐 Menjalankan Centroidal Voronoi (25x Lloyd) + Hungarian Assignment...')
 
-        # Inisialisasi generator terdistribusi simetris untuk partisi 3 Bawah, 1 Tengah, 3 Atas
-        seed_points = [
-            np.array([-9.0, -9.0]), np.array([0.0, -9.5]), np.array([9.0, -9.0]),  # 3 Wilayah Bawah
-            np.array([0.0, 0.0]),                                                  # 1 Wilayah Tengah
-            np.array([-9.0, 9.0]),  np.array([0.0, 9.5]),  np.array([9.0, 9.0])    # 3 Wilayah Atas
-        ]
+        # Generator awal: 7 titik DI DALAM wilayah, tersebar via k-means++
+        # deterministik. Menggantikan 7 titik hardcoded yang bisa jatuh di
+        # luar wilayah non-convex.
+        from swarm_high_level.world.region import region_seed_points
+        seed_points = region_seed_points(self.region_poly, 7, seed=7)
         gens = {i + 1: seed_points[i].copy() for i in range(7)}
 
-        # 25 Putaran Lloyd's Relaxation Loop untuk partisi homogen seimbang
+        # 25 Putaran Lloyd's Relaxation. Tiap iterasi: sel = (Voronoi ∩ wilayah),
+        # centroid = titik berat sel itu (bukan sel Voronoi tak-terpotong).
         for _ in range(25):
             new_gens = {}
             for i in gens:
-                cell_tmp = [np.array(v, dtype=float) for v in self.bbox]
+                cell_tmp = [np.array(v, dtype=float) for v in self.bbox_rect]
                 for j in gens:
                     if j != i:
                         cell_tmp = clip_voronoi(cell_tmp, gens[i], gens[j])
-                if len(cell_tmp) >= 3:
-                    new_gens[i] = poly_centroid(cell_tmp)
-                else:
-                    new_gens[i] = gens[i]
+                ring, ctr = clip_poly_to_region(cell_tmp, self.region_poly)
+                new_gens[i] = ctr if len(ring) >= 3 else gens[i]
             gens = new_gens
 
         # Optimal Bipartite Matching: pasangkan posisi riil drone ke sel Voronoi terdekat
@@ -635,31 +763,46 @@ class Swarm7DroneVoronoiMappingNode(Node):
         for r_idx, c_idx in zip(row_ind, col_ind):
             drone_to_gen[r_idx + 1] = target_centroids[c_idx]
 
-        # Bentuk sel poligon dengan margin bisector normal 0.20m & rute Boustrophedon
+        # Bentuk sel poligon dengan margin bisector normal 0.45m & rute Boustrophedon
         for did, agent in self.agents.items():
             pi = drone_to_gen[did]
-            cell = [np.array(v, dtype=float) for v in self.bbox]
-            raw_cell = [np.array(v, dtype=float) for v in self.bbox]
+            cell = [np.array(v, dtype=float) for v in self.bbox_rect]
+            raw_cell = [np.array(v, dtype=float) for v in self.bbox_rect]
             for other_did, pj in drone_to_gen.items():
                 if other_did != did:
-                    cell = clip_voronoi_margin(cell, pi, pj, margin=0.45)
+                    cell = clip_voronoi_margin(cell, pi, pj, margin=0.25)
                     raw_cell = clip_voronoi(raw_cell, pi, pj)
+
+            # Potong ke batas wilayah non-convex (no-op bila wilayah = persegi).
+            cell, cell_ctr = clip_poly_to_region(cell, self.region_poly)
+            raw_cell, _ = clip_poly_to_region(raw_cell, self.region_poly)
 
             agent.cell_polygon = cell
             agent.raw_cell_polygon = raw_cell
-            agent.centroid = poly_centroid(cell)
+            agent.centroid = cell_ctr
             pts = np.array(cell, dtype=float)
             y_mid = 0.5 * (pts[:, 1].min() + pts[:, 1].max())
 
-            poly_raw = MplPath(np.array(raw_cell))
-            agent.my_static_obstacles = [obs for obs in self.static_obstacles if poly_raw.contains_point(np.array([obs[2], obs[3]], dtype=float))]
+            # Rintangan hanya relevan bila skema mengaktifkannya. Pada Skema
+            # 1/2 daftar ini HARUS kosong — kalau tidak, boustrophedon memangkas
+            # baris di sekitar koordinat rintangan yang tidak ada di Gazebo dan
+            # meninggalkan celah cakupan palsu.
+            if self.enable_obstacles:
+                poly_raw = MplPath(np.array(raw_cell))
+                agent.my_static_obstacles = [
+                    obs for obs in self.static_obstacles
+                    if poly_raw.contains_point(np.array([obs[2], obs[3]], dtype=float))]
+            else:
+                agent.my_static_obstacles = []
 
             start_from_top = bool(agent.pos[1] > y_mid)
-            wps = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.02, start_from_top=start_from_top, obstacles=agent.my_static_obstacles)
-            agent.waypoints = wps
-            agent.num_rows = max(1, len(wps) // 2)
+            wps, meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.02, start_from_top=start_from_top, obstacles=agent.my_static_obstacles)
+            # Sisipkan pelacak-tepi (cap atas/bawah + belokan) sebagai segmen —
+            # baris interior tetap horizontal, hanya belokannya "nempel" tepi sel.
+            agent.waypoints = expand_path(wps, meta)
+            agent.num_rows = max(1, len(agent.waypoints) // 2)
             agent.row_idx = 0
-            agent.ref_pos = wps[0].copy()
+            agent.ref_pos = agent.waypoints[0].copy()
 
         # Deconflict initial start waypoints if any pair of drones starts within 1.6m of each other
         for _ in range(5):
@@ -673,16 +816,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         pts_j = np.array(self.agents[j].cell_polygon, dtype=float)
                         y_mid_j = 0.5 * (pts_j[:, 1].min() + pts_j[:, 1].max())
                         curr_start_from_top = (self.agents[j].waypoints[0][1] > y_mid_j)
-                        wps_new = generate_boustrophedon(
+                        wps_new, meta_new = generate_boustrophedon(
                             self.agents[j].cell_polygon,
                             sweep_spacing=1.45,
                             margin=0.02,
                             start_from_top=(not curr_start_from_top),
                             obstacles=self.agents[j].my_static_obstacles
                         )
-                        self.agents[j].waypoints = wps_new
-                        self.agents[j].num_rows = max(1, len(wps_new) // 2)
-                        self.agents[j].ref_pos = wps_new[0].copy()
+                        self.agents[j].waypoints = expand_path(wps_new, meta_new)
+                        self.agents[j].num_rows = max(1, len(self.agents[j].waypoints) // 2)
+                        self.agents[j].ref_pos = self.agents[j].waypoints[0].copy()
                         break
                 if conflict_found:
                     break
@@ -693,14 +836,14 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.own_waypoints = list(agent.waypoints)
             dist_to_start = float(np.linalg.norm(agent.pos[:2] - agent.waypoints[0]))
 
-            # Alokasikan rintangan statis secara eksklusif ke sel drone yang memuat rintangan tersebut
-            poly_raw = MplPath(np.array(agent.raw_cell_polygon))
+            # Alokasikan rintangan statis secara eksklusif ke sel drone yang
+            # memuatnya — hanya bila skema mengaktifkan rintangan.
             agent.my_static_obstacles = []
-            for obs in self.static_obstacles:
-                obs_id, _, ox, oy, rad, height, color = obs
-                obs_center = np.array([ox, oy], dtype=float)
-                if poly_raw.contains_point(obs_center):
-                    agent.my_static_obstacles.append(obs)
+            if self.enable_obstacles:
+                poly_raw = MplPath(np.array(agent.raw_cell_polygon))
+                for obs in self.static_obstacles:
+                    if poly_raw.contains_point(np.array([obs[2], obs[3]], dtype=float)):
+                        agent.my_static_obstacles.append(obs)
 
             obs_ids = [o[0] for o in agent.my_static_obstacles]
 
@@ -712,33 +855,28 @@ class Swarm7DroneVoronoiMappingNode(Node):
             u_tr_hat = u_tr / max(1e-3, dist_tr)
 
             needs_intermediate = False
-            for obs in self.static_obstacles:
-                obs_center = np.array([obs[2], obs[3]], dtype=float)
-                r_obs = obs_center - p_stage
-                s_proj = float(np.dot(r_obs, u_tr_hat))
-                if 0.5 < s_proj < (dist_tr - 0.5):
-                    p_proj = p_stage + s_proj * u_tr_hat
-                    d_perp = float(np.linalg.norm(obs_center - p_proj))
-                    if d_perp < (obs[4] + 0.65):
-                        needs_intermediate = True
-                        break
+            if self.enable_obstacles:
+                for obs in self.static_obstacles:
+                    obs_center = np.array([obs[2], obs[3]], dtype=float)
+                    r_obs = obs_center - p_stage
+                    s_proj = float(np.dot(r_obs, u_tr_hat))
+                    if 0.5 < s_proj < (dist_tr - 0.5):
+                        p_proj = p_stage + s_proj * u_tr_hat
+                        if np.linalg.norm(obs_center - p_proj) < (obs[4] + 0.65):
+                            needs_intermediate = True
+                            break
 
-            if p_start[1] > -5.0:  # Sel bagian atas / tengah
-                if p_start[0] < -4.0:  # Sel Kiri Atas (e.g. iris_5)
-                    agent.transit_waypoints = [
-                        np.array([-14.00, -8.00], dtype=np.float32),
-                        p_start.copy()
-                    ]
-                elif p_start[0] > 4.0:  # Sel Kanan Atas (e.g. iris_7)
-                    agent.transit_waypoints = [
-                        np.array([10.00, -8.00], dtype=np.float32),
-                        p_start.copy()
-                    ]
-                else:  # Sel Tengah (e.g. iris_2, iris_3)
-                    agent.transit_waypoints = [
-                        np.array([p_stage[0], -14.00], dtype=np.float32),
-                        p_start.copy()
-                    ]
+            # Koridor transit dengan titik antara HANYA bila ada rintangan yang
+            # harus dihindari (Skema 3/4). Pada Skema 1/2 titik antara hardcoded
+            # itu tak perlu dan bisa jatuh di luar wilayah non-convex.
+            if needs_intermediate and p_start[1] > -5.0:
+                if p_start[0] < -4.0:
+                    mid = np.array([-14.00, -8.00], dtype=np.float32)
+                elif p_start[0] > 4.0:
+                    mid = np.array([10.00, -8.00], dtype=np.float32)
+                else:
+                    mid = np.array([p_stage[0], -14.00], dtype=np.float32)
+                agent.transit_waypoints = [mid, p_start.copy()]
             else:
                 agent.transit_waypoints = [p_start.copy()]
             agent.transit_wp_idx = 0
@@ -834,293 +972,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.kf_dyn_obs[0].predict(dt)
         self.kf_dyn_obs[1].predict(dt)
 
-    def compute_obstacle_avoidance_offset(self, did, agent, p_nom_dir):
-        """
-        Menghitung pergeseran lateral & modulasi kecepatan berbasis Perpendicular Tangent Orbit, 
-        Fast Corridor Dynamic Evasion, & Respon Low-Level:
-        1. Rintangan Statis (9 silinder): Perpendicular Tangent Orbit (R = 0.90m, v = 0.80 m/s) & Direct Line Merge:
-           - Vektor tangensial MURNI TEGAK LURUS terhadap jari-jari silinder (dot product == 0.00).
-           - Arc Carrot Reference (phi_carrot = phi + dphi) menjaga low-level position error & velocity feedforward bekerja seirama ke depan.
-           - Yaw continuous align dengan arah pergerakan orbit.
-           - Direct Line Merge: Begitu melintasi meridian (prog_past >= 0.35m) dan arah busur kembali selaras dengan garis (dot >= 0.55),
-             state bypass SEGERA berakhir ('none'), menyatu langsung ke garis sapuan tanpa bergelombang/menjauh.
-        2. Rintangan Dinamis (2 silinder 'X'): Fast Corridor Evasion (Koridor 1.80m, v = 1.20 m/s)
-           - Menghitung jarak lateral d_perp dan TTC longitudinal terhadap sumbu lintasan diagonal rintangan.
-           - Jika berada di dalam koridor 1.80m dan rintangan mendekat (TTC <= 5.0s): Geser seketika ke samping luar koridor pada 1.20 m/s.
-           - Menggeser ref_pos secara instan ke area aman di luar koridor.
-        Mengembalikan tuple: (v_avoid, speed_scale)
-        """
-        if not self.enable_obstacles:
-            return np.zeros(2, dtype=np.float32), 1.0
-
-        p_drone = agent.pos[:2]
-        v_drone = p_nom_dir.copy() if np.linalg.norm(p_nom_dir) > 0.05 else np.zeros(2, dtype=float)
-        speed_nom = float(np.linalg.norm(v_drone))
-        unit_vel = v_drone / speed_nom if speed_nom > 0.05 else np.array([math.cos(agent.yaw), math.sin(agent.yaw)])
-
-        min_obs_dist = float('inf')
-        v_avoid_static = np.zeros(2, dtype=np.float32)
-        speed_scale_static = 1.0
-
-        # ── 1. EVALUASI RINTANGAN STATIS (PURE CIRCULAR TANGENT ORBIT & STRICT CELL ISOLATION) ──
-        R_ORBIT = 1.15          # Radius orbit konstan (m) -> clearance bersih 0.75m dari silinder 0.40m
-        V_NOM = 0.80            # Kecepatan jelajah bypass (m/s)
-
-        # Rintangan statis dievaluasi SECARA EKSKLUSIF hanya yang berada di dalam sel Voronoi drone ini
-        relevant_obs_list = getattr(agent, 'my_static_obstacles', [])
-
-        u_line = unit_vel.copy()
-        n_line = np.array([-u_line[1], u_line[0]], dtype=float)
-
-        active_bypass_obs = None
-
-        for obs in relevant_obs_list:
-            obs_id, _, ox, oy, rad, _, _ = obs
-            # Mencegah re-triggering rintangan yang sama yang baru saja selesai di baris ini
-            if obs_id == getattr(agent, 'last_bypassed_obs_id', None) and agent.bypass_state != 'arc_contour':
-                continue
-
-            obs_center = np.array([ox, oy], dtype=float)
-            r_vec = obs_center - p_drone
-            d_center = float(np.linalg.norm(r_vec))
-            d_surf = d_center - rad
-            min_obs_dist = min(min_obs_dist, d_surf)
-
-            # Jarak lateral pusat rintangan dari garis lintasan
-            w_0 = float(np.dot(r_vec, n_line))
-
-            # Jika rintangan memotong koridor bahaya tabrakan (|w_0| < 0.90m)
-            if abs(w_0) < 0.90:
-                d_0 = math.sqrt(max(0.01, R_ORBIT**2 - w_0**2))
-                # Titik potong garis lintasan dengan lingkaran orbit
-                p_proj = obs_center - w_0 * n_line
-                p_entry = p_proj - d_0 * u_line
-                p_exit = p_proj + d_0 * u_line
-
-                s_to_entry = float(np.dot(p_entry - p_drone, u_line))
-                s_to_exit = float(np.dot(p_exit - p_drone, u_line))
-
-                # Deteksi jika drone mendekati titik entry atau sedang berada di dalam zona orbit sebelum titik exit
-                if s_to_entry <= 0.45 and s_to_exit > 0.10 and d_surf < 1.25:
-                    active_bypass_obs = (obs, w_0, d_0, p_entry, p_exit)
-                    break
-
-        if active_bypass_obs is not None:
-            obs, w_0, d_0, p_entry, p_exit = active_bypass_obs
-            obs_id, _, ox, oy, rad, _, _ = obs
-            obs_center = np.array([ox, oy], dtype=float)
-
-            theta_entry = math.atan2(p_entry[1] - obs_center[1], p_entry[0] - obs_center[0])
-            theta_exit = math.atan2(p_exit[1] - obs_center[1], p_exit[0] - obs_center[0])
-
-            # Inisialisasi arah rotasi orbit (menjauhi rintangan ke sisi terbuka)
-            if agent.bypass_obs_id != obs_id or agent.bypass_side == 0:
-                open_sign = -1.0 if w_0 >= 0.0 else +1.0
-                if abs(w_0) < 0.05 and hasattr(agent, 'cell_polygon') and len(agent.cell_polygon) >= 3:
-                    poly_path = MplPath(np.array(agent.cell_polygon))
-                    p_apex_cand_l = obs_center + n_line * R_ORBIT
-                    p_apex_cand_r = obs_center - n_line * R_ORBIT
-                    if poly_path.contains_point(p_apex_cand_l) and not poly_path.contains_point(p_apex_cand_r):
-                        open_sign = +1.0
-                    elif poly_path.contains_point(p_apex_cand_r) and not poly_path.contains_point(p_apex_cand_l):
-                        open_sign = -1.0
-
-                theta_apex = math.atan2(open_sign * n_line[1], open_sign * n_line[0])
-                d_entry_to_apex = math.atan2(math.sin(theta_apex - theta_entry), math.cos(theta_apex - theta_entry))
-                sigma_rot = +1.0 if d_entry_to_apex > 0 else -1.0
-
-                agent.bypass_obs_id = obs_id
-                agent.bypass_side = int(sigma_rot)
-                agent.bypass_state = 'arc_contour'
-                self.get_logger().info(
-                    f'  🔄 [iris_{did}] Rintangan Statis #{obs_id} (w={w_0:.2f}m)! '
-                    f'Pure Circular Orbit (R={R_ORBIT}m, {"CCW" if sigma_rot > 0 else "CW"})...'
-                )
-
-            sigma_rot = float(agent.bypass_side)
-
-            # Posisi sudut drone saat ini relatif terhadap pusat rintangan
-            r_drone = p_drone - obs_center
-            d_curr = float(np.linalg.norm(r_drone))
-            theta_now = math.atan2(r_drone[1], r_drone[0])
-
-            # Total panjang busur orbit dan busur yang telah diselesaikan (robust tanpa modulo wrap bug)
-            d_exit_angle = math.atan2(math.sin(theta_exit - theta_entry), math.cos(theta_exit - theta_entry)) * sigma_rot
-            total_arc = d_exit_angle if d_exit_angle > 0.0 else (d_exit_angle + 2.0 * math.pi)
-
-            d_now_angle = math.atan2(math.sin(theta_now - theta_entry), math.cos(theta_now - theta_entry)) * sigma_rot
-            if d_now_angle < 0.0:
-                arc_done = 0.0
-            else:
-                arc_done = min(d_now_angle, total_arc)
-
-            # Kondisi Keluar: Harus sudah melewati garis entry DAN (melewati garis exit ATAU arc selesai)
-            dist_to_entry_line = float(np.dot(p_drone - p_entry, u_line))
-            dist_to_exit_line = float(np.dot(p_drone - p_exit, u_line))
-            is_past_entry = dist_to_entry_line >= 0.0
-
-            if is_past_entry and (dist_to_exit_line >= 0.0 or arc_done >= (total_arc - 0.08)):
-                agent.last_bypassed_obs_id = obs_id
-                agent.bypass_state = 'none'
-                agent.bypass_obs_id = None
-                agent.bypass_side = 0
-                speed_scale_static = 1.0
-                v_avoid_static = np.zeros(2, dtype=np.float32)
-                agent.ref_pos = (p_exit + self.lead_dist * u_line).astype(np.float32)
-                self.get_logger().info(
-                    f'  ✅ [iris_{did}] Rintangan #{obs_id} selesai dilingkari! Melanjutkan lurus di jalur sapuan.'
-                )
-            else:
-                # 1. Carrot Position pada busur lingkaran (maju lead_dist sepanjang busur)
-                d_theta_lead = min(total_arc - arc_done, self.lead_dist / R_ORBIT)
-                theta_carrot = theta_now + sigma_rot * d_theta_lead
-                p_carrot = obs_center + max(R_ORBIT, d_curr) * np.array([math.cos(theta_carrot), math.sin(theta_carrot)], dtype=float)
-                agent.ref_pos = p_carrot.astype(np.float32)
-
-                # 2. Kecepatan Tangensial (100% Murni Tegak Lurus terhadap Vektor Radial)
-                u_tangent = sigma_rot * np.array([-math.sin(theta_now), math.cos(theta_now)], dtype=float)
-                v_ff = V_NOM * u_tangent
-
-                # 3. Sawar Radial Satu Arah (Hanya Mendorong Keluar jika < R_ORBIT, Tidak Pernah Menarik ke Dalam)
-                u_radial = r_drone / max(0.01, d_curr)
-                v_radial = max(0.0, 3.0 * (R_ORBIT - d_curr)) * u_radial
-
-                v_cmd = v_ff + v_radial
-                v_avoid_static = v_cmd.astype(np.float32)
-                speed_scale_static = 0.0
-
-                # 4. Target Yaw tegak lurus mengitari rintangan
-                agent.target_yaw = math.atan2(u_tangent[1], u_tangent[0])
-        else:
-            if agent.bypass_state == 'arc_contour':
-                agent.bypass_state = 'none'
-                agent.bypass_obs_id = None
-                agent.bypass_side = 0
-
-        # Hard Universal Safety Repulsion Layer darurat (< 0.65m dari silinder)
-        for obs in self.static_obstacles:
-            obs_id, _, ox, oy, rad, _, _ = obs
-            obs_center = np.array([ox, oy], dtype=float)
-            d_c = float(np.linalg.norm(obs_center - p_drone))
-            d_s = d_c - rad
-            if d_s < 0.65:
-                u_away = (p_drone - obs_center) / max(0.05, d_c)
-                push_str = min(2.5, float((0.65 - d_s) * 4.5))
-                v_avoid_static += (u_away * push_str).astype(np.float32)
-                agent.ref_pos = (obs_center + u_away * 1.15).astype(np.float32)
-                speed_scale_static = 0.0
-
-        # ── 2. EVALUASI RINTANGAN DINAMIS (PREDIKSI HARMONIK & PROACTIVE CORRIDOR EVASION) ──
-        v_avoid_dyn = np.zeros(2, dtype=np.float32)
-        speed_scale_dyn = 1.0
-
-        for k_obs, dyn_obs in enumerate(self.dynamic_obstacles):
-            p_obs_ground = dyn_obs['pos']
-            v_obs_ground = dyn_obs['vel']
-            kf = self.kf_dyn_obs[k_obs]
-            rad_dyn = 0.45
-
-            # Gunakan posisi & kecepatan gabungan
-            p_obs_est = p_obs_ground if np.linalg.norm(p_obs_ground) > 0.01 else kf.pos
-            v_obs_est = v_obs_ground if np.linalg.norm(v_obs_ground) > 0.01 else kf.vel
-            v_obs_speed = float(np.linalg.norm(v_obs_est))
-
-            rel_p = p_obs_est - p_drone
-            dist_curr = float(np.linalg.norm(rel_p))
-            dist_surf_curr = dist_curr - rad_dyn
-            min_obs_dist = min(min_obs_dist, dist_surf_curr)
-
-            if dist_curr > 8.0:
-                continue
-
-            # Unit track arah rintangan
-            if v_obs_speed > 0.10:
-                u_obs_track = v_obs_est / v_obs_speed
-            else:
-                u_obs_track = np.array([1.0, -1.0]) / math.sqrt(2.0) if k_obs == 0 else np.array([1.0, 1.0]) / math.sqrt(2.0)
-
-            # Vektor normal terhadap garis lintasan diagonal rintangan
-            n_obs_track = np.array([-u_obs_track[1], u_obs_track[0]], dtype=float)
-
-            # Jarak lateral dan longitudinal drone terhadap rintangan
-            r_obs_drone = p_drone - p_obs_est
-            dist_lateral = float(np.dot(r_obs_drone, n_obs_track))
-            dist_longitudinal = float(np.dot(r_obs_drone, u_obs_track))
-
-            # Deteksi bahaya mendekat:
-            # 1. Rintangan sedang menuju posisi drone (dot product rel_p dan v_obs < 0) dalam radius 4.5m
-            # 2. Atau jarak fisik langsung < 2.8m terlepas dari arah kecepatan
-            is_closing = (float(np.dot(rel_p, v_obs_est)) < 0.0 and dist_curr < 4.5)
-            is_close_proximity = (dist_curr < 2.8)
-            is_incoming = is_closing or is_close_proximity
-
-            CORRIDOR_SAFE = 2.20
-
-            if is_incoming and abs(dist_lateral) < CORRIDOR_SAFE:
-                # Drone berada di dalam koridor bahaya! STOP maju sepanjang garis
-                speed_scale_dyn = 0.0
-                agent.dyn_obs_yielding = True
-
-                # Tentukan arah geser lateral
-                sign_evade = 1.0 if dist_lateral >= 0.0 else -1.0
-                u_evade = sign_evade * n_obs_track
-
-                # Kecepatan sidestep progresif hingga 2.2 m/s
-                v_evade_mag = min(2.5, max(1.6, (CORRIDOR_SAFE - abs(dist_lateral)) * 2.0 + 1.2))
-                v_avoid_dyn += (u_evade * v_evade_mag).astype(np.float32)
-
-                # Geser ref_pos keluar koridor
-                lateral_shift = max(1.5, CORRIDOR_SAFE - abs(dist_lateral) + 0.60)
-                agent.ref_pos = (agent.pos[:2] + u_evade * lateral_shift).astype(np.float32)
-
-                self.get_logger().info(
-                    f'  ⚡ [iris_{did}] DYNAMIC OBS #{k_obs+1} INCOMING (d_lat={dist_lateral:.2f}m, dist={dist_curr:.2f}m)! '
-                    f'Fast Sidestep ({v_evade_mag:.2f} m/s)...',
-                    throttle_duration_sec=0.5
-                )
-            elif is_incoming and abs(dist_lateral) >= CORRIDOR_SAFE:
-                speed_scale_dyn = 0.0
-                agent.dyn_obs_yielding = True
-                agent.ref_pos = agent.pos[:2].copy()
-
-            # ── HARD EMERGENCY REPULSION LAYER UNTUK RINTANGAN DINAMIS (< 1.80m dari pusat) ──
-            if dist_curr < 1.80:
-                speed_scale_dyn = 0.0
-                u_away = -rel_p / max(0.05, dist_curr)
-                push_mag = min(3.5, float((1.80 - dist_curr) * 5.5 + 1.5))
-                v_avoid_dyn += (u_away * push_mag).astype(np.float32)
-                agent.ref_pos = (p_obs_est + u_away * 2.20).astype(np.float32)
-
-        # Periksa juga pembacaan sensor LiDAR fisik aktual
-        if hasattr(agent, 'lidar_ranges') and len(agent.lidar_ranges) > 0:
-            valid_lidar = agent.lidar_ranges[np.isfinite(agent.lidar_ranges) & (agent.lidar_ranges > 0.15)]
-            if len(valid_lidar) > 0:
-                min_lidar_dist = float(np.min(valid_lidar))
-                if min_lidar_dist < min_obs_dist:
-                    min_obs_dist = min_lidar_dist
-
-        agent.min_dist_to_obs = min(agent.min_dist_to_obs, max(0.0, min_obs_dist))
-
-        # Gabungkan Modulasi Kecepatan & Vektor Menghindar
-        speed_scale_total = min(speed_scale_static, speed_scale_dyn)
-        avoid_offset_total = v_avoid_static + v_avoid_dyn
-
-        return avoid_offset_total, speed_scale_total
 
     def get_coverage_percentage(self):
-        """Menghitung persentase cakupan di dalam area pemetaan aktif."""
-        i_start = int((self.active_x_min - self.x_min) / self.dx)
-        i_end = int((self.active_x_max - self.x_min) / self.dx)
-        j_start = int((self.active_y_min - self.y_min) / self.dy)
-        j_end = int((self.active_y_max - self.y_min) / self.dy)
-
-        sub_grid = self.cov_grid[i_start:i_end, j_start:j_end]
+        """Persentase cakupan di dalam wilayah pemetaan (poligon, bisa non-convex)."""
+        valid = self.region_mask.copy()
         if self.enable_obstacles and hasattr(self, 'obstacle_mask'):
-            sub_mask = self.obstacle_mask[i_start:i_end, j_start:j_end]
-            valid_cells = ~sub_mask
-            if np.any(valid_cells):
-                return float(np.sum(sub_grid & valid_cells) / np.sum(valid_cells) * 100.0)
-        return float(np.mean(sub_grid) * 100.0)
+            valid &= ~self.obstacle_mask
+        n_valid = int(np.sum(valid))
+        if n_valid == 0:
+            return 0.0
+        return float(np.sum(self.cov_grid & valid) / n_valid * 100.0)
 
     # ── Fault Tolerance & Dynamic Failure Recovery Functions ─────────
 
@@ -1290,8 +1151,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         # 6. Generate Lawnmower lines horizontal murni untuk setiap komponen sel mati
         raw_recovery_lines = []
+        rec_obs = self.static_obstacles if self.enable_obstacles else None
         for comp in comp_polys:
-            boust_wps = generate_boustrophedon(comp, sweep_spacing=1.45, margin=0.20, start_from_top=False, obstacles=self.static_obstacles)
+            b_wps, b_meta = generate_boustrophedon(comp, sweep_spacing=1.45, margin=0.20, start_from_top=False, obstacles=rec_obs)
+            boust_wps = expand_path(b_wps, b_meta)
             for k in range(0, len(boust_wps) - 1, 2):
                 raw_recovery_lines.append((boust_wps[k], boust_wps[k + 1]))
 
@@ -1443,17 +1306,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     ag.state = 'return_to_centroid'
                     self.get_logger().info(f'  🏁 [iris_{h}] Tidak ada sisa tugas recovery, kembali ke centroid.')
 
-        # Perbarui rintangan statis yang relevan untuk setiap drone hidup (mencakup rintangan di sel recovery)
+        # Perbarui rintangan statis yang relevan untuk setiap drone hidup
+        # (hanya bila skema mengaktifkan rintangan).
         for did in alive_ids:
             ag = self.agents[did]
             relevant_obs = []
-            for obs in self.static_obstacles:
-                obs_c = np.array([obs[2], obs[3]], dtype=float)
-                for wp in ag.waypoints:
-                    if np.linalg.norm(obs_c - wp) < 3.5:
-                        if obs not in relevant_obs:
-                            relevant_obs.append(obs)
-                        break
+            if self.enable_obstacles:
+                for obs in self.static_obstacles:
+                    obs_c = np.array([obs[2], obs[3]], dtype=float)
+                    for wp in ag.waypoints:
+                        if np.linalg.norm(obs_c - wp) < 3.5:
+                            if obs not in relevant_obs:
+                                relevant_obs.append(obs)
+                            break
             ag.my_static_obstacles = relevant_obs
 
         self.recovery_active = True
@@ -1582,21 +1447,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 target_yaw = math.atan2(dy, dx)
                 agent.target_yaw = target_yaw
 
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if np.linalg.norm(v_obs_avoid) > 0.05:
-                    self.send_world_twist(did, float(v_obs_avoid[0]), float(v_obs_avoid[1]), target_yaw)
-                else:
-                    agent.ref_pos = agent.pos[:2].copy()
-                    wz_cmd = self.compute_wz(agent.yaw, target_yaw)
-                    self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
+                agent.ref_pos = agent.pos[:2].copy()
+                wz_cmd = self.compute_wz(agent.yaw, target_yaw)
+                self.publish_twist(did, 0.0, 0.0, wz_cmd)
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
-                    yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                    if (agent.delay_timer >= 20 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 80:
-                        agent.state = 'transit_to_start'
-                        agent.delay_timer = 0
-                        self.publish_twist(did, 0.0, 0.0, 0.0)
-                        self.get_logger().info(f'  🚀 [iris_{did}] Hadap titik start ({math.degrees(target_yaw):.1f}°)! Terbang ke sel...')
+                yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
+                if (agent.delay_timer >= 20 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 80:
+                    agent.state = 'transit_to_start'
+                    agent.delay_timer = 0
+                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    self.get_logger().info(f'  🚀 [iris_{did}] Hadap titik start ({math.degrees(target_yaw):.1f}°)! Terbang ke sel...')
 
             # ─────────────────────────────────────────────────────────
             # 1b. TRANSIT TO START (Fase Menuju Titik Awal Sel Melalui Koridor Aman)
@@ -1641,16 +1502,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_world_y = v_mag * math.sin(angle_to_wp) + np.clip(1.2 * dy, -0.40, 0.40)
 
                 # Full V2V avoidance during transit
-                v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
 
-                # Dynamic Harmonic Obstacle Avoidance (Hanya jika berpapasan dengan rintangan dinamis)
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([v_world_x, v_world_y]))
-                if speed_scale <= 0.01:
-                    v_world_x = float(v_obs_avoid[0])
-                    v_world_y = float(v_obs_avoid[1])
-                else:
-                    v_world_x = v_world_x * speed_scale + float(v_obs_avoid[0])
-                    v_world_y = v_world_y * speed_scale + float(v_obs_avoid[1])
 
                 self.send_world_twist(did, v_world_x, v_world_y, angle_to_wp)
 
@@ -1659,16 +1511,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'wait_all_start':
                 start_wp = np.array(agent.waypoints[0], dtype=np.float32)
-                v_x, v_y = self.apply_v2v_repulsion(did, 0.0, 0.0, is_transit=True)
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([v_x, v_y]))
-                if speed_scale <= 0.01:
-                    v_x = float(v_obs_avoid[0])
-                    v_y = float(v_obs_avoid[1])
-                else:
-                    agent.ref_pos = start_wp.copy()
-                    if np.linalg.norm(v_obs_avoid) > 0.01:
-                        v_x += float(v_obs_avoid[0])
-                        v_y += float(v_obs_avoid[1])
+                # Menahan posisi di titik start; QP di send_world_twist yang
+                # menambahkan manuver menghindar bila ada yang mendekat.
+                v_x, v_y = 0.0, 0.0
+                agent.ref_pos = start_wp.copy()
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
                 alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
@@ -1707,16 +1553,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_world_y = v_mag * math.sin(angle_to_start) + np.clip(1.2 * dy, -0.40, 0.40)
 
                 # V2V avoidance aktif selama perjalanan melintasi arena
-                v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
 
-                # Obstacle Avoidance Geodesic Arc & Dynamic Harmonic Avoidance
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([v_world_x, v_world_y]))
-                if speed_scale <= 0.01:
-                    v_world_x = float(v_obs_avoid[0])
-                    v_world_y = float(v_obs_avoid[1])
-                else:
-                    v_world_x = v_world_x * speed_scale + float(v_obs_avoid[0])
-                    v_world_y = v_world_y * speed_scale + float(v_obs_avoid[1])
 
                 self.send_world_twist(did, v_world_x, v_world_y, angle_to_start)
 
@@ -1730,22 +1567,18 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 target_yaw = math.atan2(line_dir[1], line_dir[0])
                 agent.target_yaw = target_yaw
 
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if np.linalg.norm(v_obs_avoid) > 0.05:
-                    self.send_world_twist(did, float(v_obs_avoid[0]), float(v_obs_avoid[1]), target_yaw)
-                else:
-                    agent.ref_pos = wp_start.copy()
-                    wz_cmd = self.compute_wz(agent.yaw, target_yaw)
-                    self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
+                agent.ref_pos = wp_start.copy()
+                wz_cmd = self.compute_wz(agent.yaw, target_yaw)
+                self.publish_twist(did, 0.0, 0.0, wz_cmd)
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
-                    yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                    if (agent.delay_timer >= 25 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 100:
-                        agent.state = 'sweeping_row'
-                        agent.row_idx = 0
-                        agent.delay_timer = 0
-                        self.publish_twist(did, 0.0, 0.0, 0.0)
-                        self.get_logger().info(f'  🚀 [iris_{did}] Heading Baris 1 Terkunci ({math.degrees(target_yaw):.1f}°)! Memulai Baris 1/{agent.num_rows}')
+                yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
+                if (agent.delay_timer >= 25 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 100:
+                    agent.state = 'sweeping_row'
+                    agent.row_idx = 0
+                    agent.delay_timer = 0
+                    self.publish_twist(did, 0.0, 0.0, 0.0)
+                    self.get_logger().info(f'  🚀 [iris_{did}] Heading Baris 1 Terkunci ({math.degrees(target_yaw):.1f}°)! Memulai Baris 1/{agent.num_rows}')
 
             # ─────────────────────────────────────────────────────────
             # 3. SWEEPING ROW (Critically Damped Tracking & Zero Overshoot)
@@ -1771,17 +1604,18 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 u_line = line_vec / line_len
                 pos_rel = agent.pos[:2] - wp_start
 
+                # Segmen baris untuk clamp ujung di _cbf_filter (anti-overshoot).
+                agent._row_seg = (np.array(wp_start, dtype=float), u_line, line_len)
+
                 # Progres AKTUAL drone fisik di sepanjang garis sapuan
                 actual_prog = max(0.0, min(line_len, float(np.dot(pos_rel, u_line))))
                 e_lat = float(pos_rel[1] * u_line[0] - pos_rel[0] * u_line[1])
 
-                # Obstacle Avoidance Geodesic Arc & Dynamic Harmonic Avoidance
-                v_obs_avoid, obs_speed_scale = self.compute_obstacle_avoidance_offset(did, agent, u_line)
-
-                # DYNAMIC FEEDBACK-COUPLED MOVING REFERENCE (Hanya diperbarui sepanjang garis jika tidak terhalang / tidak sedang orbit)
-                if obs_speed_scale > 0.01 and agent.bypass_state != 'arc_contour':
-                    s_target = min(line_len, actual_prog + self.lead_dist * obs_speed_scale)
-                    agent.ref_pos = (wp_start + s_target * u_line)
+                # Referensi bergerak terikat progres nyata drone. _cbf_filter
+                # menimpanya dengan pos + T_lead*v_safe LALU meng-clamp komponen
+                # longitudinal ke [0, line_len] memakai agent._row_seg.
+                s_target = min(line_len, actual_prog + self.lead_dist)
+                agent.ref_pos = (wp_start + s_target * u_line)
 
                 # Catat telemetri tracking
                 agent.max_cross_track_err = max(agent.max_cross_track_err, abs(e_lat))
@@ -1809,9 +1643,6 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         f'tercapai ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}) | Overshoot: {overshoot_pct:.2f}% ({overshoot_dist:.2f}m)'
                     )
                     self.publish_twist(did, 0.0, 0.0, 0.0)
-                    agent.bypass_state = 'none'
-                    agent.bypass_obs_id = None
-                    agent.bypass_side = 0
 
                     if agent.row_idx + 1 >= agent.num_rows:
                         agent.state = 'return_to_centroid'
@@ -1828,57 +1659,64 @@ class Swarm7DroneVoronoiMappingNode(Node):
                             agent.delay_timer = 0
                     continue
 
-                # CRITICALLY DAMPED FEEDFORWARD RAMP-DOWN pada 0.80m terakhir & Obstacle Braking
-                if dist_to_end > 0.80:
+                # RAMP-DOWN feedforward pada brake_dist terakhir. Jarak henti
+                # pada 1.6 m/s ~0.60 m; default brake_dist 1.0 m memberi margin.
+                bd = self.brake_dist
+                if dist_to_end > bd:
                     ff_scale = 1.0
                 elif dist_to_end > 0.10:
-                    ff_scale = dist_to_end / 0.80
+                    ff_scale = dist_to_end / bd
                 else:
                     ff_scale = 0.0
 
-                # MAPPING ISOLATION: Maju sepanjang garis sapuan dikalikan obs_speed_scale (0.0 jika terhalang)
-                v_ff = (self.nominal_speed * ff_scale * obs_speed_scale) * u_line
+                # Kecepatan yang DIINGINKAN sepanjang garis sapuan. Perlambatan
+                # karena rintangan tidak lagi dihitung di sini: QP yang
+                # memodulasinya lewat constraint, secara kontinu — bukan
+                # pengali biner 0/1 seperti pendekatan lama.
+                v_ff = (self.nominal_speed * ff_scale) * u_line
 
-                # Feedback controller: Koreksi lateral orthogonal (Cross-track) yang disesuaikan saat menghindar
-                v_corr_lat = -np.clip(self.kp_track * e_lat, -0.45, 0.45) * np.array([-u_line[1], u_line[0]]) * obs_speed_scale
+                # Koreksi lateral cross-track.
+                v_corr_lat = -np.clip(self.kp_track * e_lat, -0.45, 0.45) * np.array([-u_line[1], u_line[0]])
 
-                v_world = v_ff + v_corr_lat + v_obs_avoid
+                v_world = v_ff + v_corr_lat
                 v_world_x = float(v_world[0])
                 v_world_y = float(v_world[1])
 
                 self.send_world_twist(did, v_world_x, v_world_y, agent.yaw)
 
             elif agent.state == 'delay_at_corner_end':
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if np.linalg.norm(v_obs_avoid) > 0.05:
-                    self.send_world_twist(did, float(v_obs_avoid[0]), float(v_obs_avoid[1]), agent.target_yaw)
-                else:
-                    # Cek jika ada drone tetangga di perbatasan yang sedang belok / dekat (< 1.25m)
-                    has_yield_conflict = False
-                    for other_id, other_agent in self.agents.items():
-                        if other_id != did and other_agent.is_alive and other_agent.odom_received and other_agent.pos[2] >= 0.80:
-                            dist_neighbor = float(np.linalg.norm(agent.pos[:2] - other_agent.pos[:2]))
-                            if dist_neighbor < 1.25:
-                                if other_agent.state in ('stepping_vertical', 'sweeping_row') or (other_agent.state in ('delay_at_corner_end', 'delay_at_new_row') and did > other_id):
-                                    has_yield_conflict = True
-                                    break
+                # Cek jika ada drone tetangga di perbatasan yang sedang belok / dekat (< 1.25m)
+                has_yield_conflict = False
+                for other_id, other_agent in self.agents.items():
+                    if other_id != did and other_agent.is_alive and other_agent.odom_received and other_agent.pos[2] >= 0.80:
+                        dist_neighbor = float(np.linalg.norm(agent.pos[:2] - other_agent.pos[:2]))
+                        if dist_neighbor < 1.25:
+                            if other_agent.state in ('stepping_vertical', 'sweeping_row') or (other_agent.state in ('delay_at_corner_end', 'delay_at_new_row') and did > other_id):
+                                has_yield_conflict = True
+                                break
 
-                    next_start = agent.waypoints[(agent.row_idx + 1) * 2]
-                    step_vec = next_start - agent.pos[:2]
-                    target_yaw = math.atan2(step_vec[1], step_vec[0])
-                    agent.target_yaw = target_yaw
-                    agent.ref_pos = agent.pos[:2].copy()
+                next_start = agent.waypoints[(agent.row_idx + 1) * 2]
+                next_end = agent.waypoints[(agent.row_idx + 1) * 2 + 1]
+                step_vec = next_start - agent.pos[:2]
+                target_yaw = math.atan2(step_vec[1], step_vec[0])
+                agent.target_yaw = target_yaw
+                agent.ref_pos = agent.pos[:2].copy()
 
-                    wz_cmd = self.compute_wz(agent.yaw, target_yaw)
-                    self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
+                wz_cmd = self.compute_wz(agent.yaw, target_yaw)
+                self.publish_twist(did, 0.0, 0.0, wz_cmd)
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
-                    yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                    if not has_yield_conflict and ((agent.delay_timer >= 25 and yaw_diff < math.radians(6.0)) or agent.delay_timer >= 120):
-                        agent.state = 'stepping_vertical'
-                        agent.step_timer = 0
-                        agent.delay_timer = 0
-                        agent.last_bypassed_obs_id = None
+                # Segmen pendek (cap/connector pelacak-tepi) → pivot cepat, tak
+                # perlu settle penuh: geometri toh sudah menyusuri tepi sel.
+                seg_short = (float(np.linalg.norm(next_end - next_start)) < 2.5
+                             and float(np.linalg.norm(step_vec)) < 2.5)
+                settle_ticks = 6 if seg_short else 25
+                yaw_tol = math.radians(15.0 if seg_short else 6.0)
+                yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
+                if not has_yield_conflict and ((agent.delay_timer >= settle_ticks and yaw_diff < yaw_tol) or agent.delay_timer >= 120):
+                    agent.state = 'stepping_vertical'
+                    agent.step_timer = 0
+                    agent.delay_timer = 0
 
             # ─────────────────────────────────────────────────────────
             # 5. STEPPING VERTICAL (Melangkah Lurus Maju ke Baris Baru)
@@ -1922,51 +1760,36 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_world_x = v_step * math.cos(angle_step) + np.clip(1.2 * dx, -0.35, 0.35)
                 v_world_y = v_step * math.sin(angle_step) + np.clip(1.2 * dy, -0.35, 0.35)
 
-                # V2V aktif saat transit jarak jauh lintas sel
-                if is_long_transit:
-                    v_world_x, v_world_y = self.apply_v2v_repulsion(did, v_world_x, v_world_y, is_transit=True)
-
-                # Obstacle Avoidance Geodesic Arc & Dynamic Harmonic Avoidance
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([v_world_x, v_world_y]))
-                if speed_scale <= 0.01:
-                    v_world_x = float(v_obs_avoid[0])
-                    v_world_y = float(v_obs_avoid[1])
-                else:
-                    v_world_x = v_world_x * speed_scale + float(v_obs_avoid[0])
-                    v_world_y = v_world_y * speed_scale + float(v_obs_avoid[1])
-
                 self.send_world_twist(did, v_world_x, v_world_y, agent.yaw)
 
             # ─────────────────────────────────────────────────────────
             # 6. DELAY AT NEW ROW (Stationary In-Place Pivot ke Baris Baru)
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'delay_at_new_row':
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if np.linalg.norm(v_obs_avoid) > 0.05:
-                    self.send_world_twist(did, float(v_obs_avoid[0]), float(v_obs_avoid[1]), agent.target_yaw)
-                else:
-                    next_idx_start = (agent.row_idx + 1) * 2
-                    next_idx_end = next_idx_start + 1
-                    wp_start = agent.waypoints[next_idx_start]
-                    wp_end = agent.waypoints[next_idx_end]
-                    line_dir = wp_end - wp_start
-                    target_yaw = math.atan2(line_dir[1], line_dir[0])
-                    agent.target_yaw = target_yaw
-                    agent.ref_pos = wp_start.copy()
+                next_idx_start = (agent.row_idx + 1) * 2
+                next_idx_end = next_idx_start + 1
+                wp_start = agent.waypoints[next_idx_start]
+                wp_end = agent.waypoints[next_idx_end]
+                line_dir = wp_end - wp_start
+                target_yaw = math.atan2(line_dir[1], line_dir[0])
+                agent.target_yaw = target_yaw
+                agent.ref_pos = wp_start.copy()
 
-                    wz_cmd = self.compute_wz(agent.yaw, target_yaw)
-                    self.publish_twist(did, 0.0, 0.0, wz_cmd)
-                    agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
+                wz_cmd = self.compute_wz(agent.yaw, target_yaw)
+                self.publish_twist(did, 0.0, 0.0, wz_cmd)
+                agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
 
-                    yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
-                    if (agent.delay_timer >= 25 and yaw_diff < math.radians(6.0)) or agent.delay_timer >= 120:
-                        agent.row_idx += 1
-                        agent.state = 'sweeping_row'
-                        agent.delay_timer = 0
-                        agent.last_bypassed_obs_id = None
-                        is_rec = (agent.row_idx < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx])
-                        tag_type = "RECOVERY" if is_rec else "SEL ASLI"
-                        self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] (Heading: {math.degrees(agent.yaw):.1f}°)')
+                seg_short = float(np.linalg.norm(line_dir)) < 2.5
+                settle_ticks = 6 if seg_short else 25
+                yaw_tol = math.radians(15.0 if seg_short else 6.0)
+                yaw_diff = abs(math.atan2(math.sin(target_yaw - agent.yaw), math.cos(target_yaw - agent.yaw)))
+                if (agent.delay_timer >= settle_ticks and yaw_diff < yaw_tol) or agent.delay_timer >= 120:
+                    agent.row_idx += 1
+                    agent.state = 'sweeping_row'
+                    agent.delay_timer = 0
+                    is_rec = (agent.row_idx < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx])
+                    tag_type = "RECOVERY" if is_rec else "SEL ASLI"
+                    self.get_logger().info(f'  🚀 [iris_{did}] Memulai Baris {agent.row_idx+1}/{agent.num_rows} [{tag_type}] (Heading: {math.degrees(agent.yaw):.1f}°)')
 
             # ─────────────────────────────────────────────────────────
             # 7. RETURN TO CENTROID (Kembali ke Titik Pusat Sel Voronoi)
@@ -1998,16 +1821,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_y = v_back * math.sin(ang_c) + np.clip(1.2 * dy, -0.40, 0.40)
 
                 # V2V repulsion aktif di perjalanan pulang
-                v_x, v_y = self.apply_v2v_repulsion(did, v_x, v_y, is_transit=True)
 
-                # Obstacle Avoidance Geodesic Arc & Dynamic Harmonic Avoidance
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([v_x, v_y]))
-                if speed_scale <= 0.01:
-                    v_x = float(v_obs_avoid[0])
-                    v_y = float(v_obs_avoid[1])
-                else:
-                    v_x = v_x * speed_scale + float(v_obs_avoid[0])
-                    v_y = v_y * speed_scale + float(v_obs_avoid[1])
 
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
@@ -2018,13 +1832,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                 wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
                 v_x, v_y = 0.0, 0.0
-                v_obs_avoid, speed_scale = self.compute_obstacle_avoidance_offset(did, agent, np.array([0.0, 0.0]))
-                if speed_scale <= 0.01 or np.linalg.norm(v_obs_avoid) > 0.05:
-                    # Rintangan dinamis/statis melintas -> geser menjauh sementara!
-                    v_x = float(v_obs_avoid[0])
-                    v_y = float(v_obs_avoid[1])
-                else:
-                    # Tidak ada rintangan -> kembali mengunci lembut di pusat centroid
+                # Mengunci lembut di pusat sel. Bila ada rintangan melintas,
+                # QP yang menambahkan manuver menghindar di send_world_twist.
+                if True:
                     agent.ref_pos = agent.centroid.copy()
                     dx_c = float(agent.centroid[0] - agent.pos[0])
                     dy_c = float(agent.centroid[1] - agent.pos[1])
@@ -2075,57 +1885,40 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         )
                 self.get_logger().info('====================================================================================================')
 
+                # Clearance rintangan terukur — dihitung sejak dulu di
+                # agent.min_dist_to_obs tetapi tidak pernah dilaporkan.
+                if self.enable_obstacles:
+                    d_obs = min((a.min_dist_to_obs for a in self.agents.values()
+                                 if a.is_alive), default=float('inf'))
+                    self.get_logger().info(
+                        f'  🚧 Clearance rintangan minimum (semua drone): {d_obs:.3f} m')
+                # Ringkasan CBF SELALU dicetak (juga Skema 1/2) supaya
+                # P(tier>0) bisa dilaporkan apa adanya — Tier>0 di Skema 1/2
+                # murni dari relaksasi V2V-soft.
+                self.get_logger().info(f'  🛡️  {self.cbf_summary()}')
+                self.get_logger().info('====================================================================================================')
+
     # ── Gaya Tolak V2V (Hanya Aktif Saat Transit, Wait, & Done Yield) ──
 
-    def apply_v2v_repulsion(self, did, vx, vy, is_transit=True):
-        """
-        Menghitung gaya tolak V2V:
-        - is_transit=True  -> buffer d_safe = 1.80m, evasion lateral & speed throttle.
-        - is_transit=False -> 0.0 N (dinonaktifkan saat mapping untuk isolasi jalur).
-        """
-        if not is_transit:
-            return vx, vy
-
-        agent = self.agents[did]
-        d_safe = 1.80
-
-        for other_id, other_agent in self.agents.items():
-            if other_id != did and other_agent.odom_received and other_agent.pos[2] >= 0.80:
-                p_diff = agent.pos[:2] - other_agent.pos[:2]
-                d_ij = float(np.linalg.norm(p_diff))
-                if 0.01 < d_ij < d_safe:
-                    u_sep = p_diff / d_ij
-                    v_vec = np.array([vx, vy], dtype=float)
-                    
-                    # Pengereman aktif jika arah gerak saling mendekat (closing velocity)
-                    closing_spd = -float(np.dot(v_vec, u_sep))
-                    if closing_spd > 0:
-                        v_vec += 2.2 * closing_spd * u_sep
-
-                    # Gaya tolak murni menjauhi drone tetangga
-                    rep_gain = 4.0 * (d_safe - d_ij)
-                    v_vec += u_sep * rep_gain
-
-                    # Evasion lateral (Right-Hand Aviation Rule)
-                    u_lat = np.array([-u_sep[1], u_sep[0]])
-                    v_vec += u_lat * (1.5 * (d_safe - d_ij))
-
-                    vx = float(v_vec[0])
-                    vy = float(v_vec[1])
-        return vx, vy
 
     # ── Transformasi & Pengiriman Twist dengan Smooth Yaw Follow ──────
 
     def send_world_twist(self, did, v_world_x, v_world_y, current_yaw):
         """Mentransformasikan vektor kecepatan dunia ke frame bodi drone dengan continuous yaw follow."""
-        spd = math.hypot(v_world_x, v_world_y)
-        if spd > self.max_cmd_speed:
-            v_world_x = (v_world_x / spd) * self.max_cmd_speed
-            v_world_y = (v_world_y / spd) * self.max_cmd_speed
-            spd = self.max_cmd_speed
-
         agent = self.agents[did]
-        if spd > 0.15:
+
+        # Titik cegat CBF: state machine mengusulkan, QP yang memutuskan.
+        # Batas laju sudah menjadi constraint di dalam QP, jadi tidak boleh
+        # dipotong lagi setelahnya — pemotongan pasca-QP bisa melanggar baris
+        # dengan sisi kanan negatif (mis. rintangan menyusul dari belakang,
+        # yang justru MEWAJIBKAN drone bergerak).
+        v_world_x, v_world_y = self._cbf_filter(did, v_world_x, v_world_y)
+        spd = math.hypot(v_world_x, v_world_y)
+
+        # Saat menyapu, yaw dikunci ke arah baris: v_safe yang terotasi kuat
+        # akan mengayunkan target yaw dan merusak kelurusan sapuan.
+        hold_yaw = agent.state in self.YAW_HOLD_STATES
+        if spd > 0.15 and not hold_yaw:
             agent.target_yaw = math.atan2(v_world_y, v_world_x)
         
         wz_cmd = self.compute_wz(current_yaw, agent.target_yaw)
@@ -2170,6 +1963,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
     def publish_twist(self, did, vx, vy, wz):
         agent = self.agents[did]
+
+        # State penahan (delay_*, pivot, done) memanggil jalur ini, bukan
+        # send_world_twist. Tanpa filter di sini penghindaran MATI TOTAL
+        # selama drone menahan posisi — dan rintangan dinamis yang menyapu
+        # persis saat itu tetap menabrak. Ini penyebab tabrakan yang tersisa
+        # setelah perbaikan urgensi.
+        cy, sy = math.cos(agent.yaw), math.sin(agent.yaw)
+        vx_w = vx * cy - vy * sy
+        vy_w = vx * sy + vy * cy
+        vx_w, vy_w = self._cbf_filter(did, vx_w, vy_w)
+        vx = vx_w * cy + vy_w * sy
+        vy = -vx_w * sy + vy_w * cy
+
         now_msg = self.get_clock().now().to_msg()
 
         tw = Twist()
@@ -2579,19 +2385,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
         minutes = int(t_elapsed) // 60
         seconds = int(t_elapsed) % 60
 
-        # Mapped cells vs total valid active cells
-        i_s = int((self.active_x_min - self.x_min) / self.dx)
-        i_e = int((self.active_x_max - self.x_min) / self.dx)
-        j_s = int((self.active_y_min - self.y_min) / self.dy)
-        j_e = int((self.active_y_max - self.y_min) / self.dy)
-        sub = self.cov_grid[i_s:i_e, j_s:j_e]
+        # Sel terpetakan vs total sel valid di dalam wilayah.
+        valid_mask = self.region_mask.copy()
         if self.enable_obstacles and hasattr(self, 'obstacle_mask'):
-            valid_mask = ~self.obstacle_mask[i_s:i_e, j_s:j_e]
-            mapped_cells = int(np.sum(sub & valid_mask))
-            total_cells = int(np.sum(valid_mask))
-        else:
-            mapped_cells = int(np.sum(sub))
-            total_cells = sub.size
+            valid_mask &= ~self.obstacle_mask
+        mapped_cells = int(np.sum(self.cov_grid & valid_mask))
+        total_cells = max(1, int(np.sum(valid_mask)))
 
         alive_count = sum(1 for a in self.agents.values() if a.is_alive and a.state != 'dead')
 
