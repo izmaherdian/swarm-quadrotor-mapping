@@ -33,6 +33,9 @@ done
 
 EXTRA_ARGS=(--region "$REGION")
 [ -n "$SWEEP_SPEED" ] && EXTRA_ARGS+=(--sweep-speed "$SWEEP_SPEED")
+# Berhenti 12 detik-sim setelah semua drone di centroid. Tanpa ini setiap
+# run terkunci sampai DURATION penuh walau misi sudah tuntas.
+EXTRA_ARGS+=(--exit-after "${EXIT_AFTER:-12}")
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="$OUT_ROOT/scheme${SCHEME}_$STAMP"

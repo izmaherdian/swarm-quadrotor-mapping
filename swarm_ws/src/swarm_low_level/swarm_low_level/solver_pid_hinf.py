@@ -87,7 +87,28 @@ class PIDHinfSolver:
         
         return Kp, Ki, Kd
 
-    def get_all_gains(self, gamma_out=80.0, gamma_in=64.0):
+    # gamma per subsistem, ditetapkan 1.3 x gamma_min (batas kelayakan HARE).
+    #
+    # Nilai LAMA (gamma_out=80, gamma_in=64) membuat suku -(1/gamma^2)BwBw^T
+    # 1.000-51.000 kali lebih kecil daripada suku BuR^-1Bu^T, sehingga HARE
+    # mendegenerasi menjadi CARE: H-inf menghasilkan gain yang IDENTIK dengan
+    # LQR sampai ~2% (yaw Kp 1.1895 vs 1.1657), dan perbandingan kedua
+    # kontroler menjadi tanpa makna. Diukur 30 Agu 2026 pada 12 misi Gazebo.
+    #
+    # gamma_min (bisection): x_out 2.54, x_in 2.54, z 4.61, yaw 9.02.
+    # Memilih gamma mendekati gamma_min adalah praktik baku H-inf: di situlah
+    # spesifikasi atenuasi gangguan paling ketat yang masih layak.
+    GAMMA_OUT = 3.30      # posisi luar X/Y
+    GAMMA_IN = 3.31       # sikap dalam roll/pitch
+    GAMMA_Z = 6.00        # ketinggian
+    GAMMA_YAW = 11.73     # yaw
+
+    def get_all_gains(self, gamma_out=None, gamma_in=None,
+                      gamma_z=None, gamma_yaw=None):
+        gamma_out = self.GAMMA_OUT if gamma_out is None else gamma_out
+        gamma_in = self.GAMMA_IN if gamma_in is None else gamma_in
+        gamma_z = self.GAMMA_Z if gamma_z is None else gamma_z
+        gamma_yaw = self.GAMMA_YAW if gamma_yaw is None else gamma_yaw
         gains = {}
         
         g = self.g; m = self.m; Ix = self.Ix; Iy = self.Iy; Iz = self.Iz
@@ -143,7 +164,7 @@ class PIDHinfSolver:
         Cz = np.array([[1, 0]])
         Q_z = np.diag([1.0, 1000.0])
         R_z = 1.0
-        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, Q_z, R_z, gamma_in)
+        Kp, Ki, Kd = self.solve_pid_hinf(Az, Bz, Cz, Q_z, R_z, gamma_z)
         gains['z'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         # ==========================================
@@ -154,7 +175,7 @@ class PIDHinfSolver:
         Cyaw = np.array([[1, 0]])
         Q_yaw = np.diag([1.0, 4.0])
         R_yaw = 4.0
-        Kp, Ki, Kd = self.solve_pid_hinf(Ayaw, Byaw, Cyaw, Q_yaw, R_yaw, gamma_in)
+        Kp, Ki, Kd = self.solve_pid_hinf(Ayaw, Byaw, Cyaw, Q_yaw, R_yaw, gamma_yaw)
         gains['yaw'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
         return gains

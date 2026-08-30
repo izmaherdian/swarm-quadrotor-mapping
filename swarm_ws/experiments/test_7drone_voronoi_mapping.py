@@ -39,6 +39,7 @@ Fitur Utama:
 ===============================================================================
 """
 
+import itertools
 import math
 import sys
 import numpy as np
@@ -56,7 +57,7 @@ from matplotlib.path import Path as MplPath
 from shapely.geometry import Polygon as SpPolygon, MultiPolygon as SpMultiPolygon
 from shapely.ops import unary_union
 from swarm_high_level.world.coverage_path import (
-    clip_poly_to_region, expand_path, generate_boustrophedon, poly_centroid)
+    clip_poly_to_region, generate_boustrophedon, poly_centroid)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -283,7 +284,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.x_min, self.x_max = rx0 - 1.0, rx1 + 1.0
         self.y_min, self.y_max = ry0 - 1.0, ry1 + 1.0
 
-        # bbox = cincin-luar wilayah (marker RViz + patokan y_mid boustrophedon).
+        # bbox = cincin-luar wilayah (marker RViz).
         self.bbox = [np.asarray(v, dtype=float) for v in self.region_ring]
         # bbox_rect = persegi pembatas wilayah. Klip bisector Voronoi
         # (Sutherland-Hodgman) HANYA sahih pada poligon convex, jadi Lloyd
@@ -301,10 +302,21 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.declare_parameter('transit_speed', 2.2)
         self.declare_parameter('step_speed', 1.8)
         self.declare_parameter('brake_dist', 1.0)
+        # Auto-exit: berhenti N detik-sim SETELAH seluruh drone hidup
+        # berstatus 'done'. 0 = jangan pernah keluar (perilaku lama).
+        # Tanpa ini setiap run terkunci sampai timeout skrip pemanggil,
+        # padahal misi sudah tuntas -> sweep 6 misi buang ~3 jam.
+        self.declare_parameter('exit_after_success', 0.0)
+        # Batas koreksi cross-track. Dinaikkan dari 0.45 supaya lintasan tetap
+        # lurus saat berangin; efeknya roll lebih besar (usaha kendali naik),
+        # yang memang itulah cara angin seharusnya terlihat.
+        self.declare_parameter('ct_corr_max', 0.90)
         self.nominal_speed = float(self.get_parameter('sweep_speed').value)
         self.transit_speed = float(self.get_parameter('transit_speed').value)
         self.step_speed = float(self.get_parameter('step_speed').value)
         self.brake_dist = float(self.get_parameter('brake_dist').value)
+        self.exit_after_success = float(self.get_parameter('exit_after_success').value)
+        self.ct_corr_max = float(self.get_parameter('ct_corr_max').value)
         self.max_cmd_speed = 3.00       # Saturation limit (m/s)
         self.kp_track = 2.20            # Tracking gain lateral
         self.lead_dist = 0.70           # Jarak maju virtual carrot di depan drone (m)
@@ -339,6 +351,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.step_count = 0
         self.voronoi_planned = False
         self.mission_completed = False
+        self._done_step = None
 
         # ── Parameter 4 Skema Pemetaan & Konfigurasi Lingkungan ──────
         self.declare_parameter('scheme', 1)
@@ -489,6 +502,17 @@ class Swarm7DroneVoronoiMappingNode(Node):
     # State yang yaw-nya harus dikunci: v_safe yang terotasi kuat akan
     # mengayunkan target yaw, dan compute_wz membatasi 40 deg/s sehingga
     # putaran 90 derajat memakan 2.25 detik sambil merusak metrik yaw.
+    # State yang MENAHAN POSISI di satu titik yang ditentukan state machine.
+    # Di sini ref_pos TIDAK boleh diganti pos + T_lead*v_safe: dengan v_safe=0
+    # itu membuat referensi mengikuti drone, jadi loop posisi low-level kehilangan
+    # jangkarnya dan drone hanyut bebas tertiup angin. Terukur: hanyut 3.1 m
+    # selama 112 s wait_all_start di Skema 2, keluar wilayah, dan Baris 1 langsung
+    # dianggap tuntas tanpa pernah disapu.
+    POS_HOLD_STATES = frozenset((
+        'wait_all_start', 'align_start_yaw', 'delay_at_corner_end',
+        'delay_at_new_row', 'done', 'pivot_to_transit',
+    ))
+
     YAW_HOLD_STATES = frozenset((
         'sweeping_row', 'sweeping_recovery', 'align_start_yaw',
         'delay_at_corner_end', 'delay_at_new_row', 'wait_all_start', 'done',
@@ -616,12 +640,60 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self._cbf_cache_step = self.step_count
         return agents
 
+    def _row_clamp_ref(self, agent, v_world_x, v_world_y):
+        """Titik acuan saat menyapu — DIPROYEKSIKAN PENUH ke garis baris.
+
+        Komponen lateral sengaja DIBUANG. Kalau tidak, ref_pos = pos +
+        T_lead*v ikut tertiup angin (posisi drone melenceng, kecepatan punya
+        komponen koreksi lateral), sehingga bola acuan di RViz ikut membelok
+        dan loop posisi low-level mengejar garis yang bengkok — angin jadi
+        merusak petanya, bukan sekadar menambah usaha kendali.
+
+        Dengan acuan terkunci di garis, angin hanya muncul sebagai roll/pitch
+        (usaha kendali) sementara lintasan tetap lurus.
+        """
+        pos = agent.pos[:2].astype(float)
+        ref = pos + self.cbf_plant.T_lead * np.array([v_world_x, v_world_y])
+        seg = getattr(agent, '_row_seg', None)
+        if seg is not None:
+            wp0, u_line, line_len = seg
+            s_long = min(max(float(np.dot(ref - wp0, u_line)), 0.0), line_len)
+            ref = wp0 + s_long * u_line          # murni di garis baris
+        agent.ref_pos = ref.astype(np.float32)
+
     def _cbf_filter(self, did, v_world_x, v_world_y):
         """Saring kecepatan yang diinginkan lewat QP; kembalikan yang aman."""
         agent = self.agents[did]
+
+        # SAAT MENYAPU DI SKEMA 1/2 (tanpa rintangan): mapping tidak boleh
+        # diganggu kawanan. QP di-bypass total selama tak ada tetangga dalam
+        # ~0.85 m — margin sel 0.35 m menjamin dua drone bertetangga terpisah
+        # >= 0.70 m secara geometris. Bila ada yang menerobos masuk radius itu
+        # (mis. saat transisi berdekatan), QP penuh (batas keras V2V 0.70 m)
+        # kembali aktif otomatis.
+        if (agent.state == 'sweeping_row' and not self.enable_obstacles):
+            near = False
+            for oid, o in self.agents.items():
+                if oid == did or not o.is_alive or o.state == 'dead':
+                    continue
+                if o.pos[2] > 0.8 and float(np.linalg.norm(
+                        agent.pos[:2] - o.pos[:2])) < 0.85:
+                    near = True
+                    break
+            if not near:
+                self._row_clamp_ref(agent, v_world_x, v_world_y)
+                agent.cbf_v_prev = np.array([v_world_x, v_world_y], dtype=float)
+                self._cbf_stats['ticks'] += 1
+                self._cbf_stats['tier'][0] += 1
+                return v_world_x, v_world_y
+
         agents = self._cbf_snapshot()
         if did not in agents:
             return v_world_x, v_world_y
+
+        # Titik tahan yang DIMAKSUD state machine, direkam sebelum QP menimpanya.
+        hold_anchor = (np.array(agent.ref_pos, dtype=float)
+                       if agent.state in self.POS_HOLD_STATES else None)
 
         task = self._CT.Task(v_nom=np.array([v_world_x, v_world_y], dtype=float))
         res = self.cbf.solve(did, agents, task, self._cbf_dt, t_now=self._cbf_now)
@@ -630,6 +702,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
         # me-teleport ref_pos, masing-masing bertarung dengan perintah
         # kecepatan lewat position loop low-level.
         ref = res.ref_pos.astype(float)
+
+        # State penahan: jangkarkan ke titik yang dimaksud, bukan ke posisi drone.
+        # v_safe tetap ditambahkan supaya manuver menghindar dari QP tetap lolos.
+        if hold_anchor is not None:
+            ref = hold_anchor + self.cbf_plant.T_lead * res.v_safe
 
         # CLAMP UJUNG BARIS. Saat menyapu, komponen ref_pos SEPANJANG garis
         # sapuan dikunci ke [0, line_len] — inilah yang mengembalikan jaminan
@@ -752,16 +829,46 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 new_gens[i] = ctr if len(ring) >= 3 else gens[i]
             gens = new_gens
 
-        # Optimal Bipartite Matching: pasangkan posisi riil drone ke sel Voronoi terdekat
+        # ── Penugasan sel: Hungarian DUA TAHAP ───────────────────────────
+        # Tahap 1 memakai centroid sel (perkiraan kasar). Tahap 2 memakai TITIK
+        # MULAI SAPUAN yang sebenarnya — itulah yang benar-benar diterbangi
+        # drone saat transit, dan bisa jauh dari centroid pada sel memanjang.
         drone_positions = np.array([self.agents[did].pos[:2] for did in range(1, 8)])
-        target_centroids = np.array([gens[did] for did in range(1, 8)])
-        cost_mat = np.linalg.norm(drone_positions[:, None, :] - target_centroids[None, :, :], axis=2)
-        row_ind, col_ind = linear_sum_assignment(cost_mat)
+        gen_list = [gens[k] for k in range(1, 8)]
 
-        # Re-assign generator hasil matching
-        drone_to_gen = {}
-        for r_idx, c_idx in zip(row_ind, col_ind):
-            drone_to_gen[r_idx + 1] = target_centroids[c_idx]
+        def _assign(targets):
+            tgt = np.asarray(targets, dtype=float)
+            cost = np.linalg.norm(drone_positions[:, None, :] - tgt[None, :, :], axis=2)
+            r, c = linear_sum_assignment(cost)
+            return {int(ri) + 1: int(ci) for ri, ci in zip(r, c)}
+
+        def _cell_of(gi, owners):
+            """Sel bermargin untuk generator ke-gi, diberi peta pemilik saat ini."""
+            cell = [np.array(v, dtype=float) for v in self.bbox_rect]
+            for gj in range(7):
+                if gj != gi:
+                    cell = clip_voronoi_margin(
+                        cell, gen_list[gi], gen_list[gj], margin=0.35)
+            cell, _ctr = clip_poly_to_region(cell, self.region_poly)
+            return cell
+
+        # Tahap 1 — dekat centroid.
+        owner = _assign(gen_list)
+
+        # Titik mulai sapuan tiap sel, dilihat dari drone yang ditugaskan tahap 1.
+        starts = []
+        for gi in range(7):
+            cell_i = _cell_of(gi, owner)
+            did_i = next((d for d, g in owner.items() if g == gi), 1)
+            wp = generate_boustrophedon(
+                cell_i, sweep_spacing=1.45, margin=0.02,
+                entry_point=self.agents[did_i].pos[:2])
+            starts.append(np.asarray(wp[0], dtype=float))
+
+        # Tahap 2 — dekat titik MULAI yang sebenarnya.
+        owner = _assign(starts)
+
+        drone_to_gen = {did: gen_list[gi] for did, gi in owner.items()}
 
         # Bentuk sel poligon dengan margin bisector normal 0.45m & rute Boustrophedon
         for did, agent in self.agents.items():
@@ -770,7 +877,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             raw_cell = [np.array(v, dtype=float) for v in self.bbox_rect]
             for other_did, pj in drone_to_gen.items():
                 if other_did != did:
-                    cell = clip_voronoi_margin(cell, pi, pj, margin=0.25)
+                    cell = clip_voronoi_margin(cell, pi, pj, margin=0.35)
                     raw_cell = clip_voronoi(raw_cell, pi, pj)
 
             # Potong ke batas wilayah non-convex (no-op bila wilayah = persegi).
@@ -780,8 +887,6 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.cell_polygon = cell
             agent.raw_cell_polygon = raw_cell
             agent.centroid = cell_ctr
-            pts = np.array(cell, dtype=float)
-            y_mid = 0.5 * (pts[:, 1].min() + pts[:, 1].max())
 
             # Rintangan hanya relevan bila skema mengaktifkannya. Pada Skema
             # 1/2 daftar ini HARUS kosong — kalau tidak, boustrophedon memangkas
@@ -795,40 +900,67 @@ class Swarm7DroneVoronoiMappingNode(Node):
             else:
                 agent.my_static_obstacles = []
 
-            start_from_top = bool(agent.pos[1] > y_mid)
-            wps, meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.02, start_from_top=start_from_top, obstacles=agent.my_static_obstacles)
-            # Sisipkan pelacak-tepi (cap atas/bawah + belokan) sebagai segmen —
-            # baris interior tetap horizontal, hanya belokannya "nempel" tepi sel.
-            agent.waypoints = expand_path(wps, meta)
+            # Sapuan SELALU bawah→atas; entry_point membuat drone masuk lewat
+            # ujung rantai tepi bawah yang TERDEKAT dengan posisinya, jadi tidak
+            # memutar ke sisi jauh sel.
+            agent.waypoints = generate_boustrophedon(
+                cell, sweep_spacing=1.45, margin=0.02,
+                entry_point=agent.pos[:2], obstacles=agent.my_static_obstacles)
             agent.num_rows = max(1, len(agent.waypoints) // 2)
             agent.row_idx = 0
             agent.ref_pos = agent.waypoints[0].copy()
 
-        # Deconflict initial start waypoints if any pair of drones starts within 1.6m of each other
-        for _ in range(5):
-            conflict_found = False
-            for i in range(1, 8):
-                for j in range(i + 1, 8):
-                    w_i = self.agents[i].waypoints[0]
-                    w_j = self.agents[j].waypoints[0]
-                    if np.linalg.norm(w_i - w_j) < 1.60:
-                        conflict_found = True
-                        pts_j = np.array(self.agents[j].cell_polygon, dtype=float)
-                        y_mid_j = 0.5 * (pts_j[:, 1].min() + pts_j[:, 1].max())
-                        curr_start_from_top = (self.agents[j].waypoints[0][1] > y_mid_j)
-                        wps_new, meta_new = generate_boustrophedon(
-                            self.agents[j].cell_polygon,
-                            sweep_spacing=1.45,
-                            margin=0.02,
-                            start_from_top=(not curr_start_from_top),
-                            obstacles=self.agents[j].my_static_obstacles
-                        )
-                        self.agents[j].waypoints = expand_path(wps_new, meta_new)
-                        self.agents[j].num_rows = max(1, len(self.agents[j].waypoints) // 2)
-                        self.agents[j].ref_pos = self.agents[j].waypoints[0].copy()
-                        break
-                if conflict_found:
-                    break
+        # ── Deconflict titik mulai (pencarian kombinatorial) ─────────────
+        # Sel yang bersebelahan bisa punya pojok bawah yang berdekatan, jadi
+        # "ujung terdekat" untuk dua drone bisa jatuh nyaris di titik yang sama
+        # (terukur 0.70 m — persis di batas keras V2V). Tiap drone punya DUA
+        # kandidat masuk: ujung dekat / ujung jauh rantai tepi bawah. 2^7 = 128
+        # kombinasi, cukup dievaluasi seluruhnya.
+        #
+        # Skor: maksimalkan jarak minimum antar titik-mulai (dibatasi di
+        # SAFE_START — lebih dari itu tidak berguna), lalu minimalkan total
+        # transit. Loop flip lama gagal karena prefer_far bukan toggle:
+        # membaliknya dua kali menghasilkan rute yang sama.
+        SAFE_START = 2.5
+        cand = {}
+        for did, agent in self.agents.items():
+            cand[did] = [
+                generate_boustrophedon(
+                    agent.cell_polygon, sweep_spacing=1.45, margin=0.02,
+                    entry_point=agent.pos[:2], prefer_far=far,
+                    obstacles=agent.my_static_obstacles)
+                for far in (False, True)
+            ]
+
+        def _score(combo):
+            starts = [np.asarray(cand[d][combo[d - 1]][0], dtype=float)
+                      for d in range(1, 8)]
+            d_min = min(float(np.linalg.norm(starts[a] - starts[b]))
+                        for a in range(7) for b in range(a + 1, 7))
+            transit = sum(float(np.linalg.norm(
+                self.agents[d].pos[:2] - starts[d - 1])) for d in range(1, 8))
+            return (min(d_min, SAFE_START), -transit), d_min
+
+        best_combo, best_key, best_dmin = None, None, 0.0
+        for combo in itertools.product((0, 1), repeat=7):
+            key, d_min = _score(combo)
+            if best_key is None or key > best_key:
+                best_combo, best_key, best_dmin = combo, key, d_min
+
+        for did, agent in self.agents.items():
+            agent.waypoints = cand[did][best_combo[did - 1]]
+            agent.num_rows = max(1, len(agent.waypoints) // 2)
+            agent.row_idx = 0
+            agent.ref_pos = agent.waypoints[0].copy()
+
+        n_flip = sum(best_combo)
+        self.get_logger().info(
+            f'  🔀 Deconflict titik mulai: jarak minimum {best_dmin:.2f} m '
+            f'({n_flip} drone masuk lewat ujung jauh)')
+        if best_dmin < 1.20:
+            self.get_logger().warning(
+                f'  ⚠️  Titik mulai terdekat hanya {best_dmin:.2f} m — '
+                'CBF V2V akan menanganinya saat wait_all_start.')
 
         for did, agent in self.agents.items():
             agent.wp_flags = [True] * agent.num_rows
@@ -1153,8 +1285,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         raw_recovery_lines = []
         rec_obs = self.static_obstacles if self.enable_obstacles else None
         for comp in comp_polys:
-            b_wps, b_meta = generate_boustrophedon(comp, sweep_spacing=1.45, margin=0.20, start_from_top=False, obstacles=rec_obs)
-            boust_wps = expand_path(b_wps, b_meta)
+            boust_wps = generate_boustrophedon(comp, sweep_spacing=1.45, margin=0.20, start_from_top=False, obstacles=rec_obs)
             for k in range(0, len(boust_wps) - 1, 2):
                 raw_recovery_lines.append((boust_wps[k], boust_wps[k + 1]))
 
@@ -1627,9 +1758,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 dist_to_end = line_len - actual_prog
                 dist_to_end_pt = float(np.linalg.norm(agent.pos[:2] - wp_end))
 
-                # Cek ketercapaian ujung baris (Snapping & Hard Stop 0.0% Overshoot)
-                # Syarat: harus sudah melewati 40% panjang baris agar tidak salah picu di titik awal
-                if actual_prog > 0.40 * line_len and (dist_to_end <= 0.25 or dist_to_end_pt < 0.26):
+                # Ketercapaian ujung baris. Toleransi RELATIF: baris pendek
+                # (segmen rantai tepi) tidak boleh dipotong separuh oleh
+                # ambang absolut — dulu 0.25 m memotong baris 0.5 m di tengah.
+                end_tol = max(0.10, min(0.22, 0.28 * line_len))
+                if actual_prog > 0.50 * line_len and (dist_to_end <= end_tol or dist_to_end_pt < end_tol + 0.02):
                     overshoot_dist = max(0.0, float(np.dot(pos_rel, u_line)) - line_len)
                     overshoot_pct = (overshoot_dist / line_len) * 100.0 if line_len > 0 else 0.0
                     agent.overshoot_list.append(overshoot_pct)
@@ -1676,7 +1809,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_ff = (self.nominal_speed * ff_scale) * u_line
 
                 # Koreksi lateral cross-track.
-                v_corr_lat = -np.clip(self.kp_track * e_lat, -0.45, 0.45) * np.array([-u_line[1], u_line[0]])
+                # Koreksi cross-track. Batas dinaikkan 0.45 -> ct_corr_max
+                # (default 0.90 m/s) supaya drone benar-benar menahan garis saat
+                # berangin: angin muncul sebagai roll yang lebih besar (usaha
+                # kendali), bukan sebagai lintasan yang melengkung.
+                v_corr_lat = -np.clip(self.kp_track * e_lat,
+                                      -self.ct_corr_max, self.ct_corr_max) \
+                    * np.array([-u_line[1], u_line[0]])
 
                 v_world = v_ff + v_corr_lat
                 v_world_x = float(v_world[0])
@@ -1897,6 +2036,31 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 # murni dari relaksasi V2V-soft.
                 self.get_logger().info(f'  🛡️  {self.cbf_summary()}')
                 self.get_logger().info('====================================================================================================')
+
+            # ── Auto-exit setelah misi benar-benar tuntas ────────────────
+            # Syarat: SELURUH drone hidup berstatus 'done' (bukan sekadar
+            # coverage >= 97%), lalu diam exit_after_success detik-sim supaya
+            # CSV low-level sempat ter-flush. Tanpa ini proses hidup selamanya
+            # dan skrip pemanggil harus menunggu timeout penuh.
+            if self.exit_after_success > 0.0:
+                alive_now = [a for a in self.agents.values()
+                             if a.is_alive and a.state != 'dead']
+                if alive_now and all(a.state == 'done' for a in alive_now):
+                    if self._done_step is None:
+                        self._done_step = self.step_count
+                        self.get_logger().info(
+                            f'  ⏳ Semua drone di centroid — keluar dalam '
+                            f'{self.exit_after_success:.0f}s.')
+                elif self._done_step is not None:
+                    self._done_step = None      # ada yang kembali bertugas
+
+                if (self._done_step is not None
+                        and (self.step_count - self._done_step)
+                        >= self.exit_after_success * 20.0):
+                    self.get_logger().info(
+                        f'🛑 [AUTO-EXIT] Misi tuntas & mengendap. '
+                        f'Cov akhir {cov:.1f}%. Node berhenti.')
+                    raise SystemExit(0)
 
     # ── Gaya Tolak V2V (Hanya Aktif Saat Transit, Wait, & Done Yield) ──
 
@@ -2601,7 +2765,7 @@ def main(args=None):
     node = Swarm7DroneVoronoiMappingNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         pass
     finally:
         node.destroy_node()

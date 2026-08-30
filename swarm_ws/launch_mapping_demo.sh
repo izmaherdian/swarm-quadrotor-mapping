@@ -41,6 +41,7 @@ HEADLESS=false         # --headless untuk tanpa GUI Gazebo & RViz
 RESULTS_DIR=""         # --results <dir> untuk memisahkan hasil tiap run
 REGION="rect"          # --region <preset|path.yaml> bentuk wilayah pemetaan
 SWEEP_SPEED=""         # --sweep-speed <m/s> override kecepatan sapuan
+EXIT_AFTER=""          # --exit-after <detik-sim> berhenti otomatis setelah misi tuntas
 CONTROLLER="pid_lqr_node"
 CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
 CONTROLLER_COLOR="$CYAN"
@@ -82,6 +83,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --sweep-speed)
       SWEEP_SPEED="$2"
+      shift 2
+      ;;
+    --exit-after)
+      EXIT_AFTER="$2"
       shift 2
       ;;
     --headless)
@@ -259,9 +264,14 @@ sleep 2
 # 5. Jalankan Node Pemetaan Voronoi & Boustrophedon dengan Parameter Skema
 echo "4️⃣  Menjalankan Algoritma Pemetaan Voronoi Swarm..."
 echo "========================================================================="
+# Parameter DOUBLE harus dikirim dengan titik desimal: rclpy menolak "12"
+# sebagai INTEGER saat deklarasinya DOUBLE.
 SWEEP_ARG=()
 if [ -n "$SWEEP_SPEED" ]; then
-    SWEEP_ARG=(-p sweep_speed:="$SWEEP_SPEED")
+    SWEEP_ARG+=(-p sweep_speed:="$(printf '%.4f' "$SWEEP_SPEED")")
+fi
+if [ -n "$EXIT_AFTER" ]; then
+    SWEEP_ARG+=(-p exit_after_success:="$(printf '%.1f' "$EXIT_AFTER")")
 fi
 
 python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \

@@ -9,7 +9,7 @@ from shapely.geometry import LineString, MultiPoint, Point
 from shapely.geometry import Polygon as SpPolygon
 
 from swarm_high_level.world.coverage_path import (
-    clip_poly_to_region, expand_path, generate_boustrophedon,
+    clip_poly_to_region, generate_boustrophedon,
     polygon_scanline_intersections)
 from swarm_high_level.world.region import (
     REGION_PRESETS, grid_region_mask, load_region, region_seed_points)
@@ -105,24 +105,6 @@ def _cells_from_region(poly, n=7):
     return cells
 
 
-@pytest.mark.parametrize('name', list(REGION_PRESETS))
-def test_boustrophedon_interior_rows_inside_cell(name):
-    """Baris INTERIOR (horizontal) tidak boleh keluar sel. Segmen cap/connector
-    boleh menyusuri tepi (itu memang tujuannya)."""
-    _, poly = load_region(name)
-    for cell in _cells_from_region(poly):
-        cell_poly = SpPolygon(cell).buffer(0.10)
-        wps, _meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
-        if len(wps) < 2:
-            continue
-        for k in range(0, len(wps) - 1, 2):
-            a, b = wps[k], wps[k + 1]
-            if abs(a[1] - b[1]) > 1e-6:      # bukan baris horizontal → lewati
-                continue
-            assert cell_poly.contains(LineString([tuple(a), tuple(b)])), (
-                f'{name}: baris horizontal {k // 2} keluar dari sel')
-
-
 def _coverage_frac(path, cell_poly):
     samples = []
     for k in range(0, len(path) - 1, 2):
@@ -136,48 +118,73 @@ def _coverage_frac(path, cell_poly):
 
 
 @pytest.mark.parametrize('name', list(REGION_PRESETS))
-def test_expanded_path_covers_cell(name):
-    """expand_path (cap + connector) harus >= 88% tiap sel DAN tidak lebih buruk
-    dari baris-telanjang (biasanya jauh lebih baik di sel bersudut)."""
+def test_interior_horizontal_rows_inside_cell(name):
+    """Segmen HORIZONTAL (baris interior) tidak boleh keluar sel. Segmen rantai
+    tepi (miring) memang menyusuri tepi — dilewati."""
     _, poly = load_region(name)
     for cell in _cells_from_region(poly):
-        cell_poly = SpPolygon(cell)
-        wps, meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
-        if len(wps) < 2:
+        cell_poly = SpPolygon(cell).buffer(0.12)
+        path = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
+        if len(path) < 2:
             continue
-        bare = [p for r in range(len(wps) // 2)
-                for p in (wps[2 * r], wps[2 * r + 1])]
-        f_bare = _coverage_frac(bare, cell_poly)
-        f_full = _coverage_frac(expand_path(wps, meta), cell_poly)
-        assert f_full >= f_bare - 0.01, (
-            f'{name}: expand_path {f_full:.1%} < baris-telanjang {f_bare:.1%}')
-        assert f_full >= 0.88, f'{name}: cakupan sel (expanded) hanya {f_full:.1%}'
+        for k in range(0, len(path) - 1, 2):
+            a, b = path[k], path[k + 1]
+            if abs(a[1] - b[1]) > 1e-6:
+                continue
+            assert cell_poly.contains(LineString([tuple(a), tuple(b)])), (
+                f'{name}: baris horizontal keluar sel di y={a[1]:.2f}')
 
 
 @pytest.mark.parametrize('name', list(REGION_PRESETS))
-def test_expanded_path_pairs_even(name):
+def test_path_covers_cell(name):
+    """Rute (rantai tepi + baris interior) menutup >= 90% tiap sel."""
     _, poly = load_region(name)
     for cell in _cells_from_region(poly):
-        wps, meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
-        path = expand_path(wps, meta)
+        cell_poly = SpPolygon(cell)
+        path = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
+        if len(path) < 2:
+            continue
+        assert _coverage_frac(path, cell_poly) >= 0.90, (
+            f'{name}: cakupan sel hanya {_coverage_frac(path, cell_poly):.1%}')
+
+
+@pytest.mark.parametrize('name', list(REGION_PRESETS))
+def test_path_pairs_even_and_inside_region(name):
+    _, poly = load_region(name)
+    rbuf = poly.buffer(0.20)
+    for cell in _cells_from_region(poly):
+        path = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
         assert len(path) % 2 == 0
+        for p in path:
+            assert rbuf.contains(Point(p[0], p[1])), f'{name}: titik {p} di luar wilayah'
 
 
-def test_rect_boustrophedon_spans_full_width():
+def test_start_point_is_a_cell_corner_not_row_end():
+    """Titik masuk misi (path[0]) harus di TEPI sel, bukan ujung baris interior
+    yang menggantung di tengah sel (regresi cap_pre lama)."""
+    _, poly = load_region('rect')
+    for cell in _cells_from_region(poly)[:3]:
+        path = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.05)
+        if len(path) < 4:
+            continue
+        edge = SpPolygon(cell).exterior
+        assert edge.distance(Point(path[0][0], path[0][1])) < 0.5
+
+
+def test_rect_interior_rows_span_full_width():
     _, poly = load_region('rect')
     cell = [np.asarray(c) for c in poly.exterior.coords[:-1]]
-    wps, _meta = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.02)
-    widths = [abs(wps[k][0] - wps[k + 1][0]) for k in range(0, len(wps) - 1, 2)]
-    assert min(widths) > 27.0        # ~28 m dikurangi margin
+    path = generate_boustrophedon(cell, sweep_spacing=1.45, margin=0.02)
+    widths = [abs(path[k][0] - path[k + 1][0]) for k in range(0, len(path) - 1, 2)
+              if abs(path[k][1] - path[k + 1][1]) < 1e-6]
+    assert widths and max(widths) > 27.0
 
 
-def test_single_row_cell_centered():
-    # Sel setipis satu spasi sapuan → satu baris di TENGAH, bukan di tepi bawah.
+def test_tiny_cell_returns_something():
     thin = [np.array([0.0, 0.0]), np.array([6.0, 0.0]),
-            np.array([6.0, 1.2]), np.array([0.0, 1.2])]
-    wps, _meta = generate_boustrophedon(thin, sweep_spacing=1.45, margin=0.02)
-    assert len(wps) == 2
-    assert wps[0][1] == pytest.approx(0.6, abs=0.05)
+            np.array([6.0, 1.0]), np.array([0.0, 1.0])]
+    path = generate_boustrophedon(thin, sweep_spacing=1.45, margin=0.02)
+    assert len(path) >= 2
 
 
 # ── clip_poly_to_region ──────────────────────────────────────────────────

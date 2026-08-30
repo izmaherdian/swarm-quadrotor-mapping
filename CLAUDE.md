@@ -50,29 +50,66 @@ always CBF-QP. Pass `--results DIR` so each run's CSVs and log stay paired.
 old 28×28 active area, so schemes 1/2 stay comparable to earlier runs. The
 Voronoi/Lloyd partition, boustrophedon, and coverage grid are all polygon-aware.
 
-**Boustrophedon** (`swarm_high_level/world/coverage_path.py`): interior rows stay
-horizontal; `generate_boustrophedon` returns `(rows, meta)` where `meta` carries
-`connectors` (cell-edge vertices between rows) and `cap_pre`/`cap_post` (edge arcs
-over the tapered top/bottom of the cell — those wedges are missed by fixed-pitch
-horizontal rows). `expand_path(rows, meta)` inlines all of it into one flat
-waypoint list; the drone hugs the Voronoi cell edge at every turn and cap. This
-took cell coverage from ~92–96% to ~98–99.8%. `clip_voronoi_margin` is **0.25 m**
-(down from 0.45) so adjacent drones' sweeps nearly meet; CBF handles the rare
-simultaneous border contact. Short (<2.5 m) cap/connector segments use a fast
-pivot settle (6 ticks) so the extra segments don't lengthen the mission.
+**Boustrophedon** (`swarm_high_level/world/coverage_path.py`) returns ONE flat
+`[s0,e0,s1,e1,...]` list, always bottom→top:
+
+  * the **first and last rows are the cell's own bottom/top edge chains**, not
+    horizontal lines — that is what covers the wedges a fixed-pitch horizontal
+    sweep misses at tapered corners. Interior rows stay horizontal.
+  * `entry_point` (the drone's position) picks **which end** of the bottom chain
+    the drone enters at, so transit doesn't loop around to the far side.
+  * chain vertices closer than **0.60 m** are merged (`_chain_segments`). A
+    segment shorter than the 0.58 m stopping distance at 1.6 m/s *cannot* be
+    braked into and shows up as end-of-row overshoot; sensor radius 0.95 m still
+    covers the merged vertices, so coverage is unaffected.
+  * `clip_voronoi_margin` is **0.35 m**.
+
+Cell coverage measured 98.2–100% across all four presets.
+
+**Start-point deconfliction is combinatorial, not a flip loop.** Neighbouring
+cells can put two drones' "nearest entry" 0.70 m apart — exactly the V2V hard
+limit — and then the second drone can never *arrive*, so `wait_all_start` hangs
+the whole swarm forever (observed: 317 s stuck, coverage 0%). Each drone has two
+candidate entries (near/far end), so all 2⁷ combinations are scored: maximise the
+minimum pairwise start distance (capped at 2.5 m), then minimise total transit.
+One flipped drone typically buys 0.7 m → 3–7 m for ~8% extra transit.
 
 **Sweep speed**: `nominal_speed` is now the `sweep_speed` param, default **1.6
 m/s** (was a hardcoded 2.85 that was never achieved and forced the feedforward
-tilt past the 15° limit → end-of-row overshoot). The endpoint clamp
-(`s_target ≤ line_len`) is restored inside `_cbf_filter`: it clamps only the
-*longitudinal* component of `ref_pos` to the current row, leaving the lateral
-(cross-track + V2V) component from the QP intact.
+tilt past the 15° limit → end-of-row overshoot).
+
+**During `sweeping_row` in schemes 1–2 the QP is bypassed entirely** unless a
+neighbour is within 0.85 m, and `ref_pos` is **projected fully onto the row
+line** (`_row_clamp_ref`). Keeping the lateral component let wind blow the
+reference off the line, so the low-level position loop chased a bent line and the
+wind corrupted the map instead of merely costing control effort. With the
+reference pinned to the line, wind appears only as roll/pitch. `ct_corr_max`
+(default 0.90 m/s, was 0.45) sets how hard the drone fights back onto the line.
+Note this makes `|ref−pos|` *larger* (15 → 25 cm) — that is the honest
+cross-track error finally being visible, not a regression.
 
 ## Verification — use the fast path first
 
-**Gazebo RTF is ~0.26** with 7 drones (measured; disabling the GPU lidar only
-gets it to 0.32 — the cost is quadrotor physics, not sensors). A full mission is
-8–13 minutes of wall clock. Do not iterate against Gazebo.
+**Gazebo RTF is ~0.31** with 7 drones (re-measured 2026-08-30 on an idle machine:
+156 s of sim in 501 s of wall). A full mission is ~156 s of **sim** time and
+~8.5 min of **wall** time.
+
+**Do not read sim time off the coordinator's log timestamps.** Those `[1788…]`
+stamps are UNIX epoch — i.e. WALL clock — even with `use_sim_time:=true`. Sim
+time comes from the CSVs' `Time_s`, which is derived from the Gazebo odometry
+`header.stamp`. Comparing log stamps against wall clock trivially yields
+"RTF ≈ 1.0" and is wrong; that mistake was made and corrected on 2026-08-30.
+
+**Always pass `--exit-after N`** for unattended runs. The coordinator otherwise
+never exits (`main()` just spins), so a caller's `timeout` burns its full budget
+even though the mission finished: the 2026-08-29 sweep spent 241 min on 6
+missions that each completed in ~8 min of sim. `exit_after_success` (seconds of
+sim time) shuts the node down once **every live drone is `done`** — not merely
+when coverage ≥ 97%, so a mission is never truncated. Default `0.0` keeps the
+old never-exit behaviour.
+
+Note `-p` DOUBLE params must carry a decimal point (`12` is rejected as INTEGER);
+`launch_mapping_demo.sh` formats them with `printf` for you.
 
 ```bash
 # L1: unit — CBF library + region/boustrophedon geometry, no ROS, no Gazebo — ~20s
@@ -92,10 +129,18 @@ PYTHONPATH=src/swarm_mid_level:src/swarm_low_level \
 code) and `verify_11_benchmark_all_schemes.sh` (4-scheme sweep, feeds
 `plot_benchmark_schemes.py`) are the surviving integration scripts.
 
-Quantitative reporting goes through
-`swarm_high_level/metrics/run_report.py` — tracking & safety, mission time &
-coverage, control effort, and CBF diagnostics. It prints `n/a` for missing data
-and **never** fills in a substitute value.
+Quantitative reporting goes through `swarm_high_level/metrics/`:
+`run_report.py` (one or two runs — the 4-group table + JSON) and
+`region_report.py` + `region_figures.py` (scheme × region × controller matrix
+plus PNG figures). Both print `n/a` for missing data and **never** fill in a
+substitute value.
+
+**Attitude metrics must be filtered to the sweeping phase.** `region_report.py`
+keeps only samples where `Ref_Yaw` has been stable ≥1.5 s and the drone is moving
+>0.6 m/s. Unfiltered whole-mission percentiles are dominated by the ~180° pivots
+at row ends and will make you "diagnose" a wind-induced yaw wobble that does not
+exist — during steady sweeping the yaw error is ~1° RMS and wind shows up in
+roll/pitch (+11°), exactly as intended.
 
 **Benchmark tooling used to fabricate data.** `plot_benchmark_schemes.py`
 silently substituted `np.random`-generated telemetry when CSVs were missing (42
