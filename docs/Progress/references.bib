@@ -1,26 +1,229 @@
-@article{vanDenBergReciprocalCollision2011,
-  title = {Reciprocal n-Body Collision Avoidance},
-  author = {Van Den Berg, Jur and Guy, Stephen J. and Lin, Ming C. and Manocha, Dinesh},
-  journal = {Springer Tracts in Advanced Robotics},
-  volume = {70},
-  pages = {3--19},
-  year = {2011},
-  doi = {10.1007/978-3-642-19457-3_1}
+% =====================================================================
+%  Referensi paper EPIC 2026 (AIP Conference Proceedings)
+%  Style: aipnum4-1.bst — nomor Arab, urut kemunculan, format AIP.
+%  Kompilasi: pdflatex -> bibtex -> pdflatex -> pdflatex
+% =====================================================================
+
+% ---------- Tujuh referensi dari abstrak yang sudah diterima ----------
+
+@inproceedings{papatheodorouCooperativeVisual2017,
+  author    = {Papatheodorou, Sotiris and Tzes, Anthony},
+  title     = {Cooperative Visual Convex Area Coverage Using a Tessellation-Free Strategy},
+  booktitle = {2017 IEEE 56th Annual Conference on Decision and Control (CDC)},
+  pages     = {4662--4667},
+  year      = {2017},
+  doi       = {10.1109/CDC.2017.8264348}
 }
 
+@article{huRoutePlanning2021,
+  author  = {Hu, Shaoxing and Xu, Tianliang and Wang, Bingke},
+  title   = {Route-Planning Method for Plant Protection Rotor Drones in Convex Polygon Regions},
+  journal = {Sensors},
+  volume  = {21},
+  number  = {6},
+  pages   = {2221},
+  year    = {2021},
+  doi     = {10.3390/s21062221}
+}
+
+@article{okeeffeAnticipatingDegradation2025,
+  author  = {O'Keeffe, James},
+  title   = {Anticipating Degradation: A Predictive Approach to Fault Tolerance in Robot Swarms},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {10},
+  number  = {9},
+  pages   = {8954--8961},
+  year    = {2025},
+  doi     = {10.1109/LRA.2025.3592063}
+}
+
+@inproceedings{belkheiriLinearizationControl2012,
+  author    = {Belkheiri, Mohammed and Rabhi, Abdelhamid and Hajjaji, Ahmed El and Pegard, Claude},
+  title     = {Different Linearization Control Techniques for a Quadrotor System},
+  booktitle = {2012 2nd International Conference on Communications, Computing and Control Applications (CCCA)},
+  pages     = {1--6},
+  address   = {Marseilles, France},
+  publisher = {IEEE},
+  year      = {2012},
+  doi       = {10.1109/CCCA.2012.6417914}
+}
+
+@article{leeAdaptiveCentroidalVoronoi2024,
+  author  = {Lee, Kangneoung and Lee, Kiju},
+  title   = {Adaptive Centroidal Voronoi Tessellation with Agent Dropout and Reinsertion for Multi-Agent Non-Convex Area Coverage},
+  journal = {IEEE Access},
+  volume  = {12},
+  pages   = {5503--5516},
+  year    = {2024},
+  doi     = {10.1109/ACCESS.2024.3351052}
+}
+
+@inproceedings{breitenmoserVoronoiCoverage2010,
+  author    = {Breitenmoser, Andreas and Schwager, Mac and Metzger, Jean-Claude and Siegwart, Roland and Rus, Daniela},
+  title     = {Voronoi Coverage of Non-Convex Environments with a Group of Networked Robots},
+  booktitle = {2010 IEEE International Conference on Robotics and Automation},
+  pages     = {4982--4989},
+  year      = {2010},
+  doi       = {10.1109/ROBOT.2010.5509696}
+}
+
+@article{caoDistributedWeightedCoverage2023,
+  author  = {Cao, Kai and Chen, Yangquan and Gao, Song and Dang, Haixin and An, Di},
+  title   = {Distributed Weighted Coverage for Multi-Robot Systems in Non-Convex Environment},
+  journal = {Applied Sciences},
+  volume  = {13},
+  number  = {14},
+  pages   = {8530},
+  year    = {2023},
+  doi     = {10.3390/app13148530}
+}
+
+% ---------- Rujukan metode yang dipakai di bagian Methodology ----------
+
 @book{beardSmallUnmannedAircraft2012,
-  title = {Small Unmanned Aircraft: Theory and Practice},
-  author = {Beard, Randal W. and McLain, Timothy W.},
+  author    = {Beard, Randal W. and McLain, Timothy W.},
+  title     = {Small Unmanned Aircraft: Theory and Practice},
   publisher = {Princeton University Press},
-  year = {2012}
+  address   = {Princeton, NJ},
+  year      = {2012}
 }
 
 @article{doyleStateSpaceHinf1989,
-  title = {State-Space Solutions to Standard $H_2$ and $H_\infty$ Control Problems},
-  author = {Doyle, John C. and Glover, Keith and Khargonekar, Pramod P. and Francis, Bruce A.},
+  author  = {Doyle, John C. and Glover, Keith and Khargonekar, Pramod P. and Francis, Bruce A.},
+  title   = {State-Space Solutions to Standard $H_2$ and $H_\infty$ Control Problems},
   journal = {IEEE Transactions on Automatic Control},
-  volume = {34},
-  number = {8},
-  pages = {831--847},
-  year = {1989}
+  volume  = {34},
+  number  = {8},
+  pages   = {831--847},
+  year    = {1989},
+  doi     = {10.1109/9.29425}
+}
+
+% =====================================================================
+%  Fondasi metode yang sebelumnya tidak disitir sama sekali.
+%  CATATAN: verifikasi DOI/halaman lewat Zotero sebelum submit.
+% =====================================================================
+
+% ---------- Control Barrier Functions (fondasi lapisan mid-level) ----------
+
+@article{amesControlBarrierFunction2017,
+  author  = {Ames, Aaron D. and Xu, Xiangru and Grizzle, Jessy W. and Tabuada, Paulo},
+  title   = {Control Barrier Function Based Quadratic Programs for Safety Critical Systems},
+  journal = {IEEE Transactions on Automatic Control},
+  volume  = {62},
+  number  = {8},
+  pages   = {3861--3876},
+  year    = {2017},
+  doi     = {10.1109/TAC.2016.2638961}
+}
+
+@inproceedings{amesControlBarrierFunctions2019,
+  author    = {Ames, Aaron D. and Coogan, Samuel and Egerstedt, Magnus and Notomista, Gennaro and Sreenath, Koushil and Tabuada, Paulo},
+  title     = {Control Barrier Functions: Theory and Applications},
+  booktitle = {2019 18th European Control Conference (ECC)},
+  pages     = {3420--3431},
+  year      = {2019},
+  doi       = {10.23919/ECC.2019.8796030}
+}
+
+@article{wangSafetyBarrierCertificates2017,
+  author  = {Wang, Li and Ames, Aaron D. and Egerstedt, Magnus},
+  title   = {Safety Barrier Certificates for Collisions-Free Multirobot Systems},
+  journal = {IEEE Transactions on Robotics},
+  volume  = {33},
+  number  = {3},
+  pages   = {661--674},
+  year    = {2017},
+  doi     = {10.1109/TRO.2017.2659727}
+}
+
+@article{zhouBufferedVoronoiCells2017,
+  author  = {Zhou, Dingjiang and Wang, Zijian and Bandyopadhyay, Saptarshi and Schwager, Mac},
+  title   = {Fast, On-Line Collision Avoidance for Dynamic Vehicles Using Buffered Voronoi Cells},
+  journal = {IEEE Robotics and Automation Letters},
+  volume  = {2},
+  number  = {2},
+  pages   = {1047--1054},
+  year    = {2017},
+  doi     = {10.1109/LRA.2017.2656241}
+}
+
+% ---------- Coverage control & CVT (fondasi lapisan high-level) ----------
+
+@article{cortesCoverageControl2004,
+  author  = {Cort{\'e}s, Jorge and Mart{\'i}nez, Sonia and Karatas, Timur and Bullo, Francesco},
+  title   = {Coverage Control for Mobile Sensing Networks},
+  journal = {IEEE Transactions on Robotics and Automation},
+  volume  = {20},
+  number  = {2},
+  pages   = {243--255},
+  year    = {2004},
+  doi     = {10.1109/TRA.2004.824698}
+}
+
+@article{duCentroidalVoronoiTessellations1999,
+  author  = {Du, Qiang and Faber, Vance and Gunzburger, Max},
+  title   = {Centroidal Voronoi Tessellations: Applications and Algorithms},
+  journal = {SIAM Review},
+  volume  = {41},
+  number  = {4},
+  pages   = {637--676},
+  year    = {1999},
+  doi     = {10.1137/S0036144599352836}
+}
+
+@article{lloydLeastSquaresQuantization1982,
+  author  = {Lloyd, Stuart P.},
+  title   = {Least Squares Quantization in PCM},
+  journal = {IEEE Transactions on Information Theory},
+  volume  = {28},
+  number  = {2},
+  pages   = {129--137},
+  year    = {1982},
+  doi     = {10.1109/TIT.1982.1056489}
+}
+
+% ---------- Coverage path planning / boustrophedon ----------
+
+@incollection{chosetBoustrophedonDecomposition1998,
+  author    = {Choset, Howie and Pignon, Philippe},
+  title     = {Coverage Path Planning: The Boustrophedon Cellular Decomposition},
+  booktitle = {Field and Service Robotics},
+  editor    = {Zelinsky, Alexander},
+  publisher = {Springer},
+  address   = {London},
+  pages     = {203--209},
+  year      = {1998},
+  doi       = {10.1007/978-1-4471-1273-0_32}
+}
+
+@article{chosetCoverageSurvey2001,
+  author  = {Choset, Howie},
+  title   = {Coverage for Robotics --- A Survey of Recent Results},
+  journal = {Annals of Mathematics and Artificial Intelligence},
+  volume  = {31},
+  pages   = {113--126},
+  year    = {2001},
+  doi     = {10.1023/A:1016639210559}
+}
+
+@article{galceranCoveragePathPlanning2013,
+  author  = {Galceran, Enric and Carreras, Marc},
+  title   = {A Survey on Coverage Path Planning for Robotics},
+  journal = {Robotics and Autonomous Systems},
+  volume  = {61},
+  number  = {12},
+  pages   = {1258--1276},
+  year    = {2013},
+  doi     = {10.1016/j.robot.2013.09.004}
+}
+
+% ---------- Model turbulensi ----------
+
+@techreport{milhdbk1797,
+  author      = {{U.S. Department of Defense}},
+  title       = {Flying Qualities of Piloted Aircraft},
+  number      = {MIL-HDBK-1797},
+  institution = {U.S. Department of Defense},
+  year        = {1997}
 }
