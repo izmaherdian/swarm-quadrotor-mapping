@@ -1,0 +1,808 @@
+<?xml version="1.0" ?>
+<sdf version="1.8">
+  <world name="swarm_world">
+    <!-- SPEEDUP SIMULATION: max_step_size=0.001 (1000Hz stable physics) & real_time_factor=1.0 -->
+    <physics name="fast_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <!-- SCENE CONFIG: Matikan default 20x20 grid internal Gazebo agar tidak tumpang-tindih -->
+    <scene>
+      <ambient>0.6 0.6 0.6 1.0</ambient>
+      <background>0.85 0.85 0.88 1.0</background>
+      <shadows>true</shadows>
+      <grid>false</grid>
+    </scene>
+
+    <!-- PLUGIN INTI GAZEBO HARMONIC -->
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics">
+    </plugin>
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands">
+    </plugin>
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster">
+    </plugin>
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin
+      filename="gz-sim-wind-effects-system"
+      name="gz::sim::systems::WindEffects">
+      <force_approximation_scaling_factor>0.25</force_approximation_scaling_factor>
+    </plugin>
+
+    <!-- MATAHARI (SUN) -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- LANTAI (GROUND PLANE) -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.88 0.88 0.90 1.0</ambient>
+            <diffuse>0.88 0.88 0.90 1.0</diffuse>
+            <specular>0.3 0.3 0.3 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- GUI TOP-VIEW CAMERA PRESET (Z=38m looking down, +Y North UP, +X East RIGHT) -->
+    <gui fullscreen="0">
+      <camera name="user_camera">
+        <pose>0.0 0.0 38.0 0.0 1.5708 1.5708</pose>
+        <view_controller>orbit</view_controller>
+      </camera>
+    </gui>
+
+    <!-- ARENA 30x30m GRID (1m x 1m UNIFORM SERAGAM BLOCKS, TOTAL MAPPING AREA) -->
+    <model name="arena_30x30_grid">
+      <static>true</static>
+      <link name="grid_link">
+        <visual name="grid_v_0">
+          <pose>-15 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_1">
+          <pose>-14 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_2">
+          <pose>-13 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_3">
+          <pose>-12 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_4">
+          <pose>-11 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_5">
+          <pose>-10 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_6">
+          <pose>-9 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_7">
+          <pose>-8 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_8">
+          <pose>-7 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_9">
+          <pose>-6 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_10">
+          <pose>-5 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_11">
+          <pose>-4 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_12">
+          <pose>-3 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_13">
+          <pose>-2 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_14">
+          <pose>-1 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_15">
+          <pose>0 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_16">
+          <pose>1 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_17">
+          <pose>2 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_18">
+          <pose>3 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_19">
+          <pose>4 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_20">
+          <pose>5 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_21">
+          <pose>6 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_22">
+          <pose>7 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_23">
+          <pose>8 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_24">
+          <pose>9 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_25">
+          <pose>10 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_26">
+          <pose>11 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_27">
+          <pose>12 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_28">
+          <pose>13 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_29">
+          <pose>14 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_v_30">
+          <pose>15 0.0 0.005 0 0 0</pose>
+          <geometry><box><size>0.04 30.0 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_0">
+          <pose>0.0 -15 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_1">
+          <pose>0.0 -14 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_2">
+          <pose>0.0 -13 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_3">
+          <pose>0.0 -12 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_4">
+          <pose>0.0 -11 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_5">
+          <pose>0.0 -10 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_6">
+          <pose>0.0 -9 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_7">
+          <pose>0.0 -8 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_8">
+          <pose>0.0 -7 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_9">
+          <pose>0.0 -6 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_10">
+          <pose>0.0 -5 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_11">
+          <pose>0.0 -4 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_12">
+          <pose>0.0 -3 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_13">
+          <pose>0.0 -2 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_14">
+          <pose>0.0 -1 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_15">
+          <pose>0.0 0 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_16">
+          <pose>0.0 1 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_17">
+          <pose>0.0 2 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_18">
+          <pose>0.0 3 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_19">
+          <pose>0.0 4 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_20">
+          <pose>0.0 5 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_21">
+          <pose>0.0 6 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_22">
+          <pose>0.0 7 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_23">
+          <pose>0.0 8 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_24">
+          <pose>0.0 9 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_25">
+          <pose>0.0 10 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_26">
+          <pose>0.0 11 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_27">
+          <pose>0.0 12 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_28">
+          <pose>0.0 13 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_29">
+          <pose>0.0 14 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="grid_h_30">
+          <pose>0.0 15 0.005 0 0 0</pose>
+          <geometry><box><size>30.0 0.04 0.008</size></box></geometry>
+          <material>
+            <ambient>0.45 0.47 0.52 1.0</ambient>
+            <diffuse>0.45 0.47 0.52 1.0</diffuse>
+          </material>
+        </visual>
+        <!-- BORDER PERIMETER ARENA 30x30m -->
+        <visual name="border_north">
+          <pose>0.0 15.0 0.008 0 0 0</pose>
+          <geometry><box><size>30.16 0.08 0.012</size></box></geometry>
+          <material>
+            <ambient>0.20 0.22 0.26 1.0</ambient>
+            <diffuse>0.20 0.22 0.26 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="border_south">
+          <pose>0.0 -15.0 0.008 0 0 0</pose>
+          <geometry><box><size>30.16 0.08 0.012</size></box></geometry>
+          <material>
+            <ambient>0.20 0.22 0.26 1.0</ambient>
+            <diffuse>0.20 0.22 0.26 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="border_east">
+          <pose>15.0 0.0 0.008 0 0 0</pose>
+          <geometry><box><size>0.08 30.16 0.012</size></box></geometry>
+          <material>
+            <ambient>0.20 0.22 0.26 1.0</ambient>
+            <diffuse>0.20 0.22 0.26 1.0</diffuse>
+          </material>
+        </visual>
+        <visual name="border_west">
+          <pose>-15.0 0.0 0.008 0 0 0</pose>
+          <geometry><box><size>0.08 30.16 0.012</size></box></geometry>
+          <material>
+            <ambient>0.20 0.22 0.26 1.0</ambient>
+            <diffuse>0.20 0.22 0.26 1.0</diffuse>
+          </material>
+        </visual>
+
+        <!-- STAGING BASE PAD DI LUAR ARENA SELATAN (Y = -17.25m) -->
+        <visual name="staging_pad_visual">
+          <pose>0.0 -17.25 0.003 0 0 0</pose>
+          <geometry><box><size>8.0 3.0 0.005</size></box></geometry>
+          <material>
+            <ambient>0.35 0.38 0.44 0.9</ambient>
+            <diffuse>0.35 0.38 0.44 0.9</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+        <!-- ===================================================================== -->
+    <!-- 9 RINTANGAN STATIS — wilayah 'l_shape'                           -->
+    <!-- DIBANGKITKAN oleh tools/gen_obstacle_worlds.py — JANGAN diedit tangan. -->
+    <!-- Sumber: swarm_high_level/world/obstacles.py :: OBSTACLES_BY_REGION     -->
+    <!-- ===================================================================== -->
+
+    <model name="static_obs_301">
+      <static>true</static>
+      <pose>1.9000 -11.5000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>1.00 0.60 0.00 1.0</ambient>
+            <diffuse>1.00 0.60 0.00 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_302">
+      <static>true</static>
+      <pose>11.5000 -11.5000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>1.00 0.95 0.10 1.0</ambient>
+            <diffuse>1.00 0.95 0.10 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_303">
+      <static>true</static>
+      <pose>-11.5000 -11.4000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>0.10 0.95 0.20 1.0</ambient>
+            <diffuse>0.10 0.95 0.20 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_304">
+      <static>true</static>
+      <pose>-5.8000 -5.8000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>0.10 0.85 1.00 1.0</ambient>
+            <diffuse>0.10 0.85 1.00 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_305">
+      <static>true</static>
+      <pose>11.5000 -4.6000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>0.90 0.20 1.00 1.0</ambient>
+            <diffuse>0.90 0.20 1.00 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_306">
+      <static>true</static>
+      <pose>4.9000 -2.5000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>1.00 0.40 0.40 1.0</ambient>
+            <diffuse>1.00 0.40 0.40 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_307">
+      <static>true</static>
+      <pose>-11.4000 1.9000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>0.40 1.00 0.70 1.0</ambient>
+            <diffuse>0.40 1.00 0.70 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_308">
+      <static>true</static>
+      <pose>-2.5000 5.3000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>0.60 0.60 1.00 1.0</ambient>
+            <diffuse>0.60 0.60 1.00 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="static_obs_309">
+      <static>true</static>
+      <pose>-11.4000 11.4000 2.0000 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.4000</radius><length>4.0000</length></cylinder></geometry>
+          <material>
+            <ambient>1.00 0.80 0.50 1.0</ambient>
+            <diffuse>1.00 0.80 0.50 1.0</diffuse>
+            <specular>0.5 0.5 0.5 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

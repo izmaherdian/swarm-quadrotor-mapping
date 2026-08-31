@@ -38,12 +38,56 @@ From `swarm_ws/`:
 ./kill_drone.sh 4                    # fault injection, from a second terminal
 ```
 
-Schemes: 1 nominal, 2 Dryden wind, 3 obstacles (9 static + 2 dynamic), 4 both.
-**Current focus is schemes 1 & 2 × {LQR, H∞}** on a configurable, possibly
-**non-convex** mapping region (accepted abstract: "Non-Convex Geodetic Mapping").
-Scheme 3 static-only is next; dynamic obstacles / scheme 4 are deferred (CBF for
-moving cylinders not yet stable — see `results/compare/scheme4_*`). Avoidance is
-always CBF-QP. Pass `--results DIR` so each run's CSVs and log stay paired.
+Schemes: 1 nominal, 2 Dryden wind, **3 static obstacles only**, 4 static +
+2 dynamic. Schemes 1 & 2 × {LQR, H∞} are done and reported; **scheme 3 is the
+current focus**. Scheme 4 stays deferred (CBF for moving cylinders not yet
+stable — see `results/compare/scheme4_*`); `obstacles.world` is left untouched
+so it still works. Avoidance is always CBF-QP. Pass `--results DIR` so each
+run's CSVs and log stay paired.
+
+**Scheme 3 = static obstacles only.** `enable_dynamic_obstacles` is a separate
+param from `enable_obstacles` and defaults to `scheme == 4`, so scheme 3 never
+subscribes to, drives, or feeds the QP the moving cylinders. Scheme 3 also uses
+its own world, `worlds/obstacles_<region>.world`, which contains no dynamic
+models at all: those cylinders span z 0.25–3.85 m while the drones cruise at
+2.0 m, so leaving them spawned-but-unmoved would put two stationary obstacles in
+the arena that neither the planner nor the QP can see.
+
+**Obstacles are SENSED, not looked up** (`use_lidar_obstacles`, default true when
+obstacles are on). Until 2026-08-31 the LiDAR was dead: `lidar_callback` stored
+`lidar_ranges` and *nothing ever read it*, while the planner and the QP both took
+obstacle coordinates from a table. Scheme 3 was therefore "avoidance with a
+perfect a-priori map", and the paper must not claim sensing for those runs.
+
+Now `swarm_mid_level/perception/obstacle_map.py` turns each scan into obstacle
+detections (reject returns near other drones and near the arena wall → cluster →
+fit a circle) and merges them into **one shared `ObstacleMap`** for the swarm; a
+track is confirmed after 4 sightings. The mission starts with an *empty* map.
+
+The split that keeps this honest:
+
+  * `self.static_obstacles` — what the system **knows**. Empty at takeoff, filled
+    by LiDAR. The planner and `_cbf_obstacles` see only this.
+  * `self.truth_obstacles` — the Gazebo table. Used **only for scoring**: the
+    coverage denominator and collision detection. Grading a drone against
+    obstacles it has not yet discovered is the entire point.
+
+`_replan_rows_for_discoveries` re-plans a drone's *remaining* rows when a newly
+confirmed obstacle threatens them. Only rows above the current sweep line are
+replaced — sweeps run bottom→top, so re-planning completed rows would sweep them
+twice. Between discovery and re-plan, the QP is what keeps the drone safe.
+
+Because the LiDAR sits at cruise altitude (mount z +0.08, cruise 2.0 m) and the
+cylinders span z 0–4 m, a 360-ray, 12 m horizontal scan sees them; a 0.40 m
+cylinder subtends ~9 rays at 5 m.
+
+**Obstacles are per-region and generated, not hand-written.**
+`world/obstacles.py :: OBSTACLES_BY_REGION` gives each region 9 cylinders
+*inside* that region (the old 9 only all fit `rect`; the non-convex presets
+contained just 6). `tools/gen_obstacle_worlds.py` derives the `.world` files
+from that table — run it after changing any coordinate, and
+`test_obstacle_paths.py` parses the SDF back and fails if the two drift.
+`rect` deliberately keeps its historical nine so older runs stay comparable.
 
 **Mapping region** is a polygon set by the `region` param
 (`swarm_high_level/world/region.py` presets or a YAML vertex list). `rect` = the
@@ -65,6 +109,38 @@ Voronoi/Lloyd partition, boustrophedon, and coverage grid are all polygon-aware.
   * `clip_voronoi_margin` is **0.35 m**.
 
 Cell coverage measured 98.2–100% across all four presets.
+
+**Obstacle avoidance in the path is planned, not left to the QP.** Two things
+run when `obstacles` is passed:
+
+  * `_split_interval_for_obstacles` **splits** a scanline interval on the
+    keep-out disc, returning a *list*. The multi-interval machinery for concave
+    cells already handles the pieces. The old `_trim_…` could only push an
+    interval's *ends*: an obstacle mid-row was ignored outright, and one near an
+    end pushed that end the wrong way, *extending* the row across the obstacle.
+    Measured before the fix: 10 of 92 planned sweep segments in `rect` passed
+    within physical collision distance, hitting all nine cylinders.
+  * `route_around_obstacles` is a single final pass over the assembled flat
+    list, so it covers interior rows, connectors **and the cell edge chains**
+    (which were not obstacle-aware at all). It inserts arcs at
+    `OBSTACLE_KEEP_OUT = 1.30 m`, then `_simplify_chain` string-pulls points back
+    out while proving each removal still clears `OBSTACLE_CLEAR_MIN = 1.10 m`.
+
+Why 1.30: physical need is 0.87 m (0.40 cylinder + 0.22 drone + 0.25
+`delta_static`), and an arc chord subtending ≤70° dips to `1.30·cos35° = 1.065`
+m — still clear. The 70° cap exists to keep chords *long* (1.49 m ≫ the 0.60 m
+`min_seg`); a finely-sampled arc gets merged and the corner cut back into the
+keep-out zone. The arc doubles as the sweeper: at 1.30 m with a 0.95 m sensor,
+the ring around each cylinder is still mapped, so detouring costs no coverage.
+Measured after the fix: closest approach 1.066–1.096 m, coverage 98.2–99.8%.
+
+**Obstacle→cell assignment is by intersection, never `contains`.** A drone plans
+around every obstacle whose keep-out disc touches *its swept cell*
+(`_obstacles_near_cell`), so one obstacle can belong to several drones. The old
+exclusive `contains_point` left the neighbouring drone sweeping through a
+keep-out zone with no detour planned — it happens in all four presets. Runtime
+safety never depended on this: `_cbf_obstacles` always feeds every obstacle to
+every drone's QP.
 
 **Start-point deconfliction is combinatorial, not a flip loop.** Neighbouring
 cells can put two drones' "nearest entry" 0.70 m apart — exactly the V2V hard
@@ -118,12 +194,27 @@ PYTHONPATH=src/swarm_high_level:src/swarm_mid_level:src/swarm_low_level \
   pytest src/swarm_high_level/test src/swarm_mid_level/test -q
 
 # L2 standalone CBF scenario, tunable duration and speed (~15x realtime)
+#     --static-only drops the two moving cylinders, matching scheme 3
 PYTHONPATH=src/swarm_mid_level:src/swarm_low_level \
-  python3 src/swarm_mid_level/test/scenario_scheme3.py 200 2.85
+  python3 src/swarm_mid_level/test/scenario_scheme3.py 200 1.6 --static-only
 
 # L3: confirm in the real simulator, once
 ./launch_mapping_demo.sh -s 1 --headless --region u_shape
+
+# L4: scheme 3 sweep — regions × {lqr, hinf}, ~11 min wall each
+./tools/sweep_scheme3.sh                      # l_shape u_shape plus × both
+PYTHONPATH=src/swarm_high_level python3 -m swarm_high_level.metrics.region_report <out>
 ```
+
+`test_obstacle_paths.py` is the guard for scheme 3's planner: no path segment may
+come within 0.62 m of a cylinder centre, coverage must survive the detours, the
+waypoint list must stay even-length, and the generated `.world` files must still
+match `OBSTACLES_BY_REGION`. Every one of its assertions fails on the pre-fix
+code, which is the point.
+
+`tools/sweep_scheme3.sh` wipes `/dev/shm` between missions and kills stale
+processes with `pkill -f "[g]z sim"` — the bracket matters, since a plain
+`"gz sim"` pattern matches the invoking shell's own command line and kills it.
 
 `swarm_ws/tests/verify_09_fault_tolerance_recovery.sh` (fault injection, exit
 code) and `verify_11_benchmark_all_schemes.sh` (4-scheme sweep, feeds

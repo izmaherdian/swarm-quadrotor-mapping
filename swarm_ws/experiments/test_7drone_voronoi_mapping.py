@@ -54,10 +54,13 @@ from sensor_msgs.msg import LaserScan
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA, Int32MultiArray
 from matplotlib.path import Path as MplPath
-from shapely.geometry import Polygon as SpPolygon, MultiPolygon as SpMultiPolygon
+from shapely.geometry import (Polygon as SpPolygon, MultiPolygon as SpMultiPolygon,
+                              Point as ShapelyPoint)
 from shapely.ops import unary_union
 from swarm_high_level.world.coverage_path import (
-    clip_poly_to_region, generate_boustrophedon, poly_centroid)
+    OBSTACLE_KEEP_OUT, clip_poly_to_region, generate_boustrophedon,
+    poly_centroid)
+from swarm_high_level.world.obstacles import obstacles_for_region
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -320,6 +323,23 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.max_cmd_speed = 3.00       # Saturation limit (m/s)
         self.kp_track = 2.20            # Tracking gain lateral
         self.lead_dist = 0.70           # Jarak maju virtual carrot di depan drone (m)
+
+        # Pengaman anti-deadlock (dipakai di control_loop). 1200 tik x 0.05 s
+        # = 60 s. Radius terimanya BERBEDA untuk dua state, dan bedanya
+        # disengaja:
+        #
+        #  * titik start (1.20 m) — di sinilah sapuan dimulai, jadi menerima
+        #    terlalu jauh berarti baris pertama dimulai di luar jalur. Terukur
+        #    memadai: pengaman ini menyala pada sisa 0.64 m.
+        #  * centroid (2.50 m) — ini murni tempat PARKIR setelah pemetaan
+        #    selesai; cakupan sudah terkunci sebelum drone pulang, jadi parkir
+        #    melenceng 2 m tidak berbiaya apa pun. Radius 1.20 m terbukti
+        #    terlalu ketat: iris_2 di u_shape mengorbit stabil pada 1.21-1.48 m
+        #    dan TIDAK PERNAH masuk (0% sampel), sehingga misi tak pernah
+        #    berstatus selesai dan habis di timeout 2400 s.
+        self.TRANSIT_STUCK_TICKS = 1200
+        self.TRANSIT_STUCK_ACCEPT = 1.20
+        self.RETURN_STUCK_ACCEPT = 2.50
         self.corner_settle_ticks = 3    # Jeda 0.15 detik saat pivot statis di sudut (@20Hz)
 
         # ── Coverage Grid (100 x 100 sel) ───────────────────────────
@@ -357,54 +377,100 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.declare_parameter('scheme', 1)
         self.declare_parameter('enable_wind', False)
         self.declare_parameter('enable_obstacles', False)
+        # Rintangan DINAMIS terpisah dari statis. Skema 3 = statis saja: kedua
+        # silinder bergerak tidak di-spawn di world-nya, jadi mengaktifkan
+        # jalur dinamis di sini hanya akan mengejar odometri yang tak pernah
+        # datang dan memberi QP rintangan phantom.
+        self.declare_parameter('enable_dynamic_obstacles', False)
+        # PERSEPSI. Bila true, rintangan DITEMUKAN dari LiDAR dan tabel
+        # koordinat tidak dipakai sama sekali — tidak ada peta a-priori.
+        # Tabel tetap ada hanya untuk men-spawn silinder di Gazebo dan untuk
+        # menilai hasil (ground truth penilaian, bukan masukan kendali).
+        self.declare_parameter('use_lidar_obstacles', True)
 
         self.scheme = int(self.get_parameter('scheme').value)
         self.enable_wind = bool(self.get_parameter('enable_wind').value) or (self.scheme in [2, 4])
         self.enable_obstacles = bool(self.get_parameter('enable_obstacles').value) or (self.scheme in [3, 4])
+        self.enable_dynamic_obstacles = (
+            bool(self.get_parameter('enable_dynamic_obstacles').value)
+            or self.scheme == 4)
+
+        # ── Rintangan Statis: set khusus per wilayah ───────────────────
+        # Sembilan silinder lama hanya seluruhnya berada di dalam `rect`; di
+        # wilayah non-convex hanya 6 yang di dalam. `obstacles_for_region`
+        # memberi tiap wilayah 9 rintangan di dalam wilayahnya sendiri, dan
+        # berkas world Skema 3 dibangkitkan dari tabel yang sama.
+        # (id, x, y, radius, height, color_rgb)
+        self.truth_obstacles = (obstacles_for_region(self.region_name)
+                                if self.enable_obstacles else [])
+        self.use_lidar_obstacles = (
+            bool(self.get_parameter('use_lidar_obstacles').value)
+            and self.enable_obstacles)
+
+        # `static_obstacles` adalah apa yang DIKETAHUI sistem. Dengan persepsi
+        # aktif ia mulai KOSONG dan diisi oleh LiDAR; tanpa persepsi ia berisi
+        # tabel koordinat seperti sebelumnya.
+        self.static_obstacles = [] if self.use_lidar_obstacles else list(self.truth_obstacles)
+
+        self.obs_map = None
+        self._detect_obstacles = None
+        if self.use_lidar_obstacles:
+            try:
+                from swarm_mid_level.perception.obstacle_map import (
+                    ObstacleMap, detect)
+            except ImportError as exc:
+                raise RuntimeError(
+                    f'Gagal impor swarm_mid_level.perception: {exc}\n'
+                    '   Jalankan: colcon build --packages-select swarm_mid_level') from exc
+            self.obs_map = ObstacleMap()
+            self._detect_obstacles = detect
 
         scheme_names = {
             1: "Skema 1: Nominal Mapping (Zero Disturbance)",
             2: "Skema 2: Dryden Wind Turbulence Mapping",
-            3: "Skema 3: Obstacle Avoidance Mapping (9 Static + 2 Dynamic 'X')",
+            3: "Skema 3: Obstacle Avoidance Mapping (rintangan statis)",
             4: "Skema 4: Combined Disturbance & Obstacles Mapping"
         }
+        if not self.enable_obstacles:
+            obs_desc = 'NONAKTIF'
+        else:
+            src = ('LiDAR — tanpa peta a-priori' if self.use_lidar_obstacles
+                   else 'tabel koordinat a-priori')
+            obs_desc = (f'AKTIF ({len(self.truth_obstacles)} statis di Gazebo, '
+                        f'sumber: {src}'
+                        + (' + 2 dinamis pola X' if self.enable_dynamic_obstacles
+                           else ', tanpa rintangan dinamis')
+                        + f', wilayah {self.region_name})')
         self.get_logger().info("=========================================================================")
         self.get_logger().info(f"🚁 SWARM KOORDINATOR AKTIF: [{scheme_names.get(self.scheme, 'Skema Custom')}]")
         self.get_logger().info(f"   🌪️  Wind Disturbance: {'AKTIF' if self.enable_wind else 'NONAKTIF'}")
-        self.get_logger().info(f"   🚧 Obstacles Engine: {'AKTIF (9 Statis + 2 Dinamis Pola X)' if self.enable_obstacles else 'NONAKTIF'}")
+        self.get_logger().info(f"   🚧 Obstacles Engine: {obs_desc}")
         self.get_logger().info("=========================================================================")
 
-        # ── Definisi Rintangan Statis (9 Silinder di Sel Voronoi) ─────
-        self.static_obstacles = [
-            # (id, cell_did, x, y, radius, height, color_rgb)
-            (101, 2, -1.5,  9.5, 0.40, 4.0, (1.0, 0.60, 0.0)),
-            (102, 3,  4.0,  6.0, 0.40, 4.0, (1.0, 0.95, 0.1)),
-            (103, 3,  6.5,  9.5, 0.40, 4.0, (1.0, 0.95, 0.1)),
-            (104, 4, -8.0, -2.0, 0.40, 4.0, (0.1, 0.95, 0.2)),
-            (105, 4, -5.0,  -7.5, 0.40, 4.0, (0.1, 0.95, 0.2)),
-            (106, 4, -10.5, -12.5, 0.40, 4.0, (0.1, 0.95, 0.2)),
-            (107, 5,  6.0,  -4.0, 0.40, 4.0, (0.1, 0.85, 1.0)),
-            (108, 7,  0.0,  2.5, 0.40, 4.0, (0.9, 0.20, 1.0)),
-            (109, 7,  2.5, -9.0, 0.40, 4.0, (0.9, 0.20, 1.0)),
-        ]
-
         # ── Definisi Rintangan Dinamis (2 Silinder Pola 'X') ──────────
-        self.dynamic_obstacles = [
-            {'id': 201, 'pos': np.array([-10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.1, 0.1), 'name': 'dynamic_obs_1'},
-            {'id': 202, 'pos': np.array([ 10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.5, 0.0), 'name': 'dynamic_obs_2'},
-        ]
-        self.kf_dyn_obs = [
-            DynamicObstacleKalmanFilter(init_pos=np.array([-10.0, 10.0])),
-            DynamicObstacleKalmanFilter(init_pos=np.array([ 10.0, 10.0]))
-        ]
+        self.dynamic_obstacles = []
+        self.kf_dyn_obs = []
         self.last_dyn_obs_t = None
-        self.pub_dyn_obs_vel_1 = self.create_publisher(Twist, '/model/dynamic_obs_1/cmd_vel', 10)
-        self.pub_dyn_obs_vel_2 = self.create_publisher(Twist, '/model/dynamic_obs_2/cmd_vel', 10)
+        self.pub_dyn_obs_vel_1 = self.pub_dyn_obs_vel_2 = None
+        if self.enable_dynamic_obstacles:
+            self.dynamic_obstacles = [
+                {'id': 201, 'pos': np.array([-10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.1, 0.1), 'name': 'dynamic_obs_1'},
+                {'id': 202, 'pos': np.array([ 10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.5, 0.0), 'name': 'dynamic_obs_2'},
+            ]
+            self.kf_dyn_obs = [
+                DynamicObstacleKalmanFilter(init_pos=np.array([-10.0, 10.0])),
+                DynamicObstacleKalmanFilter(init_pos=np.array([ 10.0, 10.0]))
+            ]
+            self.pub_dyn_obs_vel_1 = self.create_publisher(Twist, '/model/dynamic_obs_1/cmd_vel', 10)
+            self.pub_dyn_obs_vel_2 = self.create_publisher(Twist, '/model/dynamic_obs_2/cmd_vel', 10)
 
         # ── Masking Grid Okupansi untuk Rintangan Statis ───────────────
         self.obstacle_mask = np.zeros((self.grid_n, self.grid_n), dtype=bool)
         if self.enable_obstacles:
-            for _, _, ox, oy, rad, _, _ in self.static_obstacles:
+            # PENILAIAN, bukan kendali: sel di bawah silinder memang tidak bisa
+            # dipetakan siapa pun, jadi penyebutnya memakai kebenaran lapangan.
+            # Ini juga menjaga angka coverage tetap sebanding dengan 18 misi lama.
+            for _, ox, oy, rad, _, _ in self.truth_obstacles:
                 cx_idx = int((ox - self.x_min) / self.dx)
                 cy_idx = int((oy - self.y_min) / self.dy)
                 r_cells = int(math.ceil((rad + 0.05) / self.dx))
@@ -448,18 +514,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
             )
 
         # ── Dynamic Obstacle Odometry Subscriptions (Ground-Truth dari Gazebo) ──
-        self.sub_dyn_odom_1 = self.create_subscription(
-            Odometry,
-            '/model/dynamic_obs_1/odometry',
-            lambda msg: self.dyn_obs_odom_callback(0, msg),
-            qos_reliable
-        )
-        self.sub_dyn_odom_2 = self.create_subscription(
-            Odometry,
-            '/model/dynamic_obs_2/odometry',
-            lambda msg: self.dyn_obs_odom_callback(1, msg),
-            qos_reliable
-        )
+        if self.enable_dynamic_obstacles:
+            self.sub_dyn_odom_1 = self.create_subscription(
+                Odometry,
+                '/model/dynamic_obs_1/odometry',
+                lambda msg: self.dyn_obs_odom_callback(0, msg),
+                qos_reliable
+            )
+            self.sub_dyn_odom_2 = self.create_subscription(
+                Odometry,
+                '/model/dynamic_obs_2/odometry',
+                lambda msg: self.dyn_obs_odom_callback(1, msg),
+                qos_reliable
+            )
 
         self.pub_markers = self.create_publisher(MarkerArray, '/mapping/markers', 10)
         self.pub_dead_cells = self.create_publisher(MarkerArray, '/mapping/dead_cells', 10)
@@ -585,7 +652,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         obs = [
             self._Obstacle(oid, np.array([ox, oy]), radius=rad,
                            kind=self._CT.CLASS_STATIC)
-            for oid, _cell, ox, oy, rad, _h, _c in self.static_obstacles
+            for oid, ox, oy, rad, _h, _c in self.static_obstacles
         ]
         for k, dyn in enumerate(self.dynamic_obstacles):
             omega = 0.15 if k == 0 else 0.11
@@ -805,6 +872,95 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
     # ── Perencanaan Centroidal Voronoi + Hungarian Minimum-Distance Assignment ──
 
+    def _push_centroid_clear(self, ctr):
+        """Geser titik parkir keluar dari zona aman rintangan mana pun.
+
+        Dipakai hanya untuk centroid (tempat hinggap setelah pemetaan tuntas),
+        bukan untuk jalur sapuan — cakupan sudah selesai saat drone pulang,
+        jadi parkir bergeser satu-dua meter tidak berbiaya apa pun.
+        """
+        if not self.enable_obstacles:
+            return ctr
+        p = np.asarray(ctr, dtype=float)[:2].copy()
+        for _oid, ox, oy, rad, _h, _c in self.static_obstacles:
+            c = np.array([ox, oy], dtype=float)
+            d = p - c
+            r = float(np.linalg.norm(d))
+            if r < OBSTACLE_KEEP_OUT:
+                u = (np.array([1.0, 0.0]) if r < 1e-6 else d / r)
+                p = c + OBSTACLE_KEEP_OUT * u
+        return p.astype(np.float32)
+
+    def _log_crash_forensics(self, did, agent, obs_id, obs_xy, d_center):
+        """Keadaan lengkap saat benturan — memisahkan dua hipotesis.
+
+        H1  silinder BELUM terkonfirmasi saat benturan -> peta terlalu lambat.
+        H2  silinder SUDAH di peta tapi QP tetap meloloskan -> masalah di
+            perakitan constraint, bukan di persepsi.
+
+        Tanpa ini keduanya terlihat sama dari luar, dan dua tebakan sebelumnya
+        sudah terbukti meleset. Jangan memperbaiki apa pun tanpa membaca ini.
+        """
+        if not self.use_lidar_obstacles:
+            return
+        # Jalur peta terdekat ke silinder yang tertabrak
+        best, bd = None, float('inf')
+        for oid, mx, my, mr, _h, _c in self.obs_map.confirmed():
+            d = float(np.linalg.norm(np.array([mx, my]) - obs_xy))
+            if d < bd:
+                best, bd = (oid, mx, my, mr), d
+        tot, conf, moving = self.obs_map.n_tracks()
+
+        if best is not None and bd < 1.0:
+            hyp = (f'H2 — SUDAH DIPETAKAN sebagai #{best[0]} '
+                   f'({best[1]:.2f}, {best[2]:.2f}) r={best[3]:.2f}, '
+                   f'meleset {bd:.2f} m dari posisi asli')
+        else:
+            hyp = (f'H1 — TIDAK ADA di peta (jalur terdekat {bd:.2f} m); '
+                   'QP tidak pernah tahu silinder ini ada')
+
+        v = np.asarray(agent.vel[:2] if hasattr(agent, 'vel') else [0.0, 0.0],
+                       dtype=float)
+        n_hat = (obs_xy - agent.pos[:2])
+        nn = float(np.linalg.norm(n_hat))
+        closing = float(n_hat @ v / nn) if nn > 1e-6 else 0.0
+        st = self._cbf_stats
+        self.get_logger().error(
+            f'   🔬 [FORENSIK iris_{did}] {hyp}\n'
+            f'      peta saat benturan : {conf}/{tot} terkonfirmasi '
+            f'({moving} ditolak karena bergerak)\n'
+            f'      state / laju       : {agent.state} | |v|={float(np.linalg.norm(v)):.2f} m/s '
+            f'| mendekat {closing:+.2f} m/s\n'
+            f'      h ke silinder ini  : {d_center - 0.62:+.3f} m\n'
+            f'      tier QP kumulatif  : T0={st["tier"][0]} T1={st["tier"][1]} '
+            f'T2={st["tier"][2]} T3={st["tier"][3]}')
+
+    def _obstacles_near_cell(self, cell_poly):
+        """Rintangan yang zona amannya menyentuh sel tersapu ``cell_poly``.
+
+        BUKAN kepemilikan eksklusif. Kode lama memakai `contains_point` atas
+        sel mentah, sehingga satu rintangan hanya dimiliki satu drone —
+        padahal zona aman 1.30 m kerap menyeberangi batas sel, dan drone
+        tetangga menyapu masuk ke sana TANPA merencanakan jalan memutar. Itu
+        terjadi di keempat preset wilayah (mis. #102 di `rect`: pemilik sel 6,
+        disapu sel 1 dan 6). Sebuah rintangan boleh dimiliki lebih dari satu
+        drone — memang itu yang benar.
+
+        Pada Skema 1/2 daftar ini WAJIB kosong: kalau tidak, boustrophedon
+        memecah baris di koordinat rintangan yang tidak ada di Gazebo dan
+        meninggalkan celah cakupan palsu.
+        """
+        if not self.enable_obstacles or len(cell_poly) < 3:
+            return []
+        try:
+            poly = SpPolygon([(float(p[0]), float(p[1])) for p in cell_poly])
+            if not poly.is_valid:
+                poly = poly.buffer(0)
+        except Exception:
+            return list(self.static_obstacles)
+        return [obs for obs in self.static_obstacles
+                if poly.intersects(ShapelyPoint(obs[1], obs[2]).buffer(OBSTACLE_KEEP_OUT))]
+
     def plan_centroidal_voronoi(self):
         """Menjalankan 25x Lloyd's Relaxation & Hungarian Assignment untuk 7 Drone."""
         self.get_logger().info('📐 Menjalankan Centroidal Voronoi (25x Lloyd) + Hungarian Assignment...')
@@ -886,19 +1042,20 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
             agent.cell_polygon = cell
             agent.raw_cell_polygon = raw_cell
-            agent.centroid = cell_ctr
+            # Titik parkir TIDAK BOLEH berada di dalam rintangan. `return_to_centroid`
+            # menembak lurus ke centroid tanpa perencanaan rintangan — hanya QP
+            # yang menahannya — jadi centroid yang jatuh di atas silinder membuat
+            # drone mendorong terus melawan CBF sampai merayap masuk. Terukur
+            # 31 Agu di u_shape: centroid iris_2 hanya 0.24 m dan iris_7 0.40 m
+            # dari pusat silinder (radius tabrakan fisik 0.62 m) — keduanya
+            # MENABRAK dan mati. Geser radial keluar sampai zona aman.
+            agent.centroid = self._push_centroid_clear(cell_ctr)
 
             # Rintangan hanya relevan bila skema mengaktifkannya. Pada Skema
             # 1/2 daftar ini HARUS kosong — kalau tidak, boustrophedon memangkas
             # baris di sekitar koordinat rintangan yang tidak ada di Gazebo dan
             # meninggalkan celah cakupan palsu.
-            if self.enable_obstacles:
-                poly_raw = MplPath(np.array(raw_cell))
-                agent.my_static_obstacles = [
-                    obs for obs in self.static_obstacles
-                    if poly_raw.contains_point(np.array([obs[2], obs[3]], dtype=float))]
-            else:
-                agent.my_static_obstacles = []
+            agent.my_static_obstacles = self._obstacles_near_cell(cell)
 
             # Sapuan SELALU bawah→atas; entry_point membuat drone masuk lewat
             # ujung rantai tepi bawah yang TERDEKAT dengan posisinya, jadi tidak
@@ -968,15 +1125,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             agent.own_waypoints = list(agent.waypoints)
             dist_to_start = float(np.linalg.norm(agent.pos[:2] - agent.waypoints[0]))
 
-            # Alokasikan rintangan statis secara eksklusif ke sel drone yang
-            # memuatnya — hanya bila skema mengaktifkan rintangan.
-            agent.my_static_obstacles = []
-            if self.enable_obstacles:
-                poly_raw = MplPath(np.array(agent.raw_cell_polygon))
-                for obs in self.static_obstacles:
-                    if poly_raw.contains_point(np.array([obs[2], obs[3]], dtype=float)):
-                        agent.my_static_obstacles.append(obs)
-
+            agent.my_static_obstacles = self._obstacles_near_cell(agent.cell_polygon)
             obs_ids = [o[0] for o in agent.my_static_obstacles]
 
             # Rancang koridor transit aman bebas dari seluruh rintangan statis di arena
@@ -989,12 +1138,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
             needs_intermediate = False
             if self.enable_obstacles:
                 for obs in self.static_obstacles:
-                    obs_center = np.array([obs[2], obs[3]], dtype=float)
+                    obs_center = np.array([obs[1], obs[2]], dtype=float)
                     r_obs = obs_center - p_stage
                     s_proj = float(np.dot(r_obs, u_tr_hat))
                     if 0.5 < s_proj < (dist_tr - 0.5):
                         p_proj = p_stage + s_proj * u_tr_hat
-                        if np.linalg.norm(obs_center - p_proj) < (obs[4] + 0.65):
+                        if np.linalg.norm(obs_center - p_proj) < (obs[3] + 0.65):
                             needs_intermediate = True
                             break
 
@@ -1054,9 +1203,36 @@ class Swarm7DroneVoronoiMappingNode(Node):
                             self.cov_grid[i, j] = True
 
     def lidar_callback(self, did, msg):
-        """Menerima dan menyimpan scan LiDAR 2D/3D dari masing-masing drone."""
-        if did in self.agents:
-            self.agents[did].lidar_ranges = np.array(msg.ranges, dtype=np.float32)
+        """Scan LiDAR -> deteksi rintangan -> peta bersama kawanan.
+
+        Sebelumnya callback ini hanya MENYIMPAN `lidar_ranges`, dan tidak ada
+        satu pun kode yang membacanya: LiDAR-nya mati total sementara rintangan
+        diambil dari tabel koordinat yang sudah diketahui. Sekarang rintangan
+        DITEMUKAN di sini, dan perencana maupun QP memakai hasil temuan itu.
+
+        Peta sengaja BERSAMA untuk seluruh kawanan: itu asumsi yang wajar pada
+        swarm yang saling berkomunikasi, dan membuat peta terbentuk jauh lebih
+        cepat daripada tiap drone memetakan sendiri-sendiri.
+        """
+        if did not in self.agents:
+            return
+        agent = self.agents[did]
+        agent.lidar_ranges = np.array(msg.ranges, dtype=np.float32)
+        if not self.use_lidar_obstacles or agent.pos[2] < 1.0:
+            return
+        # TUTUPI SETIAP drone lain, tanpa syarat ketinggian. Versi pertama
+        # hanya menutupi yang di atas 0.8 m, sehingga drone yang sedang lepas
+        # landas atau transit rendah terdeteksi sebagai silinder — puluhan
+        # rintangan hantu menumpuk di tepi bawah dekat landasan. Menutupi drone
+        # yang kebetulan tidak terlihat tidak merugikan apa pun; melewatkannya
+        # merusak peta.
+        others = [self.agents[o].pos[:2] for o in self.agents if o != did]
+        det = self._detect_obstacles(
+            agent.lidar_ranges, float(msg.angle_min), float(msg.angle_increment),
+            float(agent.pos[0]), float(agent.pos[1]), float(agent.yaw),
+            others=others,
+            arena=(self.x_min, self.y_min, self.x_max, self.y_max))
+        self.obs_map.update(det)
 
     def dyn_obs_odom_callback(self, obs_idx, msg):
         """Menerima odometri fisik riil rintangan dinamis dari Gazebo Harmonic (100% Sinkron dengan Gazebo)."""
@@ -1069,7 +1245,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
     def update_dynamic_obstacles(self, t_sim):
         """Menggerakkan 2 rintangan silinder dinamis membentuk pola 'X' diagonal secara harmonik tanpa tabrakan di (0,0) & update Kalman Filter."""
-        if not self.enable_obstacles:
+        if not self.enable_dynamic_obstacles:
             return
         omega1 = 0.15
         omega2 = 0.11
@@ -1444,7 +1620,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             relevant_obs = []
             if self.enable_obstacles:
                 for obs in self.static_obstacles:
-                    obs_c = np.array([obs[2], obs[3]], dtype=float)
+                    obs_c = np.array([obs[1], obs[2]], dtype=float)
                     for wp in ag.waypoints:
                         if np.linalg.norm(obs_c - wp) < 3.5:
                             if obs not in relevant_obs:
@@ -1466,6 +1642,25 @@ class Swarm7DroneVoronoiMappingNode(Node):
         now_time = self.get_clock().now()
         t_sim = now_time.nanoseconds * 1e-9
         self.update_dynamic_obstacles(t_sim)
+
+        # Peta LiDAR menyuapi QP saja — TIDAK menyentuh perencana.
+        #
+        # Perencanaan adalah urusan high level dan hanya berjalan sekali; ia
+        # menghasilkan boustrophedon polos, persis seperti Skema 1/2, karena
+        # peta masih kosong saat lepas landas. Penghindaran sepenuhnya urusan
+        # mid level: "state machine mengusulkan, QP memutuskan".
+        #
+        # Versi sebelumnya melanggar pembagian itu dengan merencanakan ulang
+        # baris setiap kali peta berubah. Akibatnya perencana dan QP mengejar
+        # peta yang sama pada laju berbeda: 222 lalu 161 kali rencana ulang
+        # dalam satu misi, cakupan runtuh ke 57.8% lalu 40.4%, dan drone tak
+        # pernah maju. Jangan kembalikan.
+        #
+        # Penyegaran tiap tik tetap WAJIB: sebuah jalur menjadi terkonfirmasi
+        # pada hit ke-4 tanpa jalur baru muncul, jadi menyegarkan hanya saat
+        # ada jalur baru membuat QP tidak pernah diberi tahu.
+        if self.use_lidar_obstacles:
+            self.static_obstacles = self.obs_map.confirmed()
 
         # ── Watchdog Odom Timeout (> 5.0s) & Crash Detector (Z < 0.35m selama >= 10 ticks) ────
         auto_failed = []
@@ -1500,8 +1695,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     if agent.is_alive and self.enable_obstacles and agent.pos[2] >= 0.50:
                         p_d = agent.pos[:2]
                         # 1. Cek rintangan statis (rad=0.40m + body=0.22m = 0.62m)
-                        for obs in self.static_obstacles:
-                            obs_id, cell_did, ox, oy, rad, _, _ = obs
+                        # PENILAIAN: tabrakan diukur terhadap silinder yang
+                        # BENAR-BENAR ada di Gazebo, bukan terhadap apa yang
+                        # kebetulan sudah ditemukan LiDAR — kalau tidak, drone
+                        # yang menabrak rintangan tak-terdeteksi akan lolos.
+                        for obs in self.truth_obstacles:
+                            obs_id, ox, oy, rad, _, _ = obs
                             d_center = float(np.linalg.norm(np.array([ox, oy]) - p_d))
                             if d_center < (rad + 0.22):
                                 agent.is_alive = False
@@ -1512,6 +1711,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                                     f'🚨 [OBSTACLE CRASH] iris_{did} MENABRAK Rintangan Statis #{obs_id}! '
                                     f'(d_center={d_center:.2f}m < {rad+0.22:.2f}m, Posisi: {p_d[0]:.2f}, {p_d[1]:.2f})'
                                 )
+                                self._log_crash_forensics(did, agent, obs_id,
+                                                          np.array([ox, oy]), d_center)
                                 self.publish_twist(did, 0.0, 0.0, 0.0)
                                 break
                         # 2. Cek rintangan dinamis (rad=0.45m + body=0.22m = 0.67m)
@@ -1587,6 +1788,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 if (agent.delay_timer >= 20 and yaw_diff < math.radians(4.0)) or agent.delay_timer >= 80:
                     agent.state = 'transit_to_start'
                     agent.delay_timer = 0
+                    agent.transit_ticks = 0
                     self.publish_twist(did, 0.0, 0.0, 0.0)
                     self.get_logger().info(f'  🚀 [iris_{did}] Hadap titik start ({math.degrees(target_yaw):.1f}°)! Terbang ke sel...')
 
@@ -1607,7 +1809,26 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 is_final_transit_wp = (agent.transit_wp_idx >= len(agent.transit_waypoints) - 1)
                 thresh = 0.35 if is_final_transit_wp else 0.70
 
-                if dist_to_wp < thresh:
+                # PENGAMAN ANTI-DEADLOCK. `wait_all_start` menunggu SELURUH
+                # drone, jadi satu drone yang tak pernah menyentuh bola 0.35 m
+                # menggantung seluruh kawanan selamanya. Terukur pada sweep
+                # Skema 3 (31 Agu): iris_5 di l_shape berhenti di 0.452 m dan
+                # iris_3 di plus di 0.745 m — keduanya mengorbit target selama
+                # 750 s sim, cakupan 0.0%, sementara enam drone lain tiba di
+                # 0.000-0.003 m. Setelah TRANSIT_STUCK_TICKS (60 s pada 20 Hz)
+                # jarak "cukup dekat" diterima, dengan peringatan, supaya
+                # kegagalan satu drone tidak lagi membatalkan misi.
+                agent.transit_ticks = getattr(agent, 'transit_ticks', 0) + 1
+                stuck = (is_final_transit_wp
+                         and agent.transit_ticks > self.TRANSIT_STUCK_TICKS
+                         and dist_to_wp < self.TRANSIT_STUCK_ACCEPT)
+                if stuck:
+                    self.get_logger().warning(
+                        f'  ⚠️  [iris_{did}] tidak konvergen ke titik start dalam '
+                        f'{agent.transit_ticks * 0.05:.0f}s (sisa {dist_to_wp:.2f}m > '
+                        f'{thresh:.2f}m) — diterima agar kawanan tidak menggantung.')
+
+                if dist_to_wp < thresh or stuck:
                     if is_final_transit_wp:
                         self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Titik Start Sel ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}) | Menunggu kawanan...')
                         agent.state = 'wait_all_start'
@@ -1628,7 +1849,14 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     float(agent.pos[1]) + lead_t * math.sin(angle_to_wp)
                 ], dtype=np.float32)
 
-                v_mag = min(self.transit_speed, max(0.40, 2.0 * dist_to_wp))
+                # Lantai kecepatan 0.40 m/s membuat drone TIDAK BISA berhenti
+                # di target: `_cbf_filter` menulis ref_pos = pos + T_lead*v_safe,
+                # jadi acuan selalu >= 0.33*0.40 = 0.13 m di depan drone dan ia
+                # mengorbit alih-alih mendarat di titiknya. Lantai itu berguna
+                # agar tidak merayap di transit jauh, jadi hanya diturunkan pada
+                # pendekatan akhir ke waypoint terakhir.
+                v_floor = 0.15 if (is_final_transit_wp and dist_to_wp < 1.5) else 0.40
+                v_mag = min(self.transit_speed, max(v_floor, 2.0 * dist_to_wp))
                 v_world_x = v_mag * math.cos(angle_to_wp) + np.clip(1.2 * dx, -0.40, 0.40)
                 v_world_y = v_mag * math.sin(angle_to_wp) + np.clip(1.2 * dy, -0.40, 0.40)
 
@@ -1720,6 +1948,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 if idx_end >= len(agent.waypoints):
                     agent.state = 'return_to_centroid'
+                    agent.return_ticks = 0
                     self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
                     continue
 
@@ -1779,6 +2008,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                     if agent.row_idx + 1 >= agent.num_rows:
                         agent.state = 'return_to_centroid'
+                        agent.return_ticks = 0
                         self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Kembali ke pusat sel ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f}).')
                     else:
                         next_is_rec = (agent.row_idx + 1 < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx + 1])
@@ -1946,7 +2176,23 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     float(agent.pos[1]) + lead_c * math.sin(ang_c)
                 ], dtype=np.float32)
 
-                if dist_to_c < 0.30:
+                # Pengaman yang sama seperti `transit_to_start`: acuan adalah
+                # carrot di depan drone dan `v_back` berlantai 0.40 m/s, jadi
+                # drone bisa mengorbit centroid tanpa pernah menyentuh bola
+                # 0.30 m. Karena `exit_after_success` menunggu SELURUH drone
+                # berstatus `done`, satu drone yang mengorbit membuat misi tak
+                # pernah selesai: 4 dari 6 misi sweep 31 Agu habis di timeout
+                # 2400 s meski cakupan sudah 99.5-99.6% (i2/i7 tetap `return`).
+                agent.return_ticks = getattr(agent, 'return_ticks', 0) + 1
+                stuck_c = (agent.return_ticks > self.TRANSIT_STUCK_TICKS
+                           and dist_to_c < self.RETURN_STUCK_ACCEPT)
+                if stuck_c:
+                    self.get_logger().warning(
+                        f'  ⚠️  [iris_{did}] tidak konvergen ke centroid dalam '
+                        f'{agent.return_ticks * 0.05:.0f}s (sisa {dist_to_c:.2f}m) — '
+                        'diterima sebagai selesai. Parkir, bukan pemetaan.')
+
+                if dist_to_c < 0.30 or stuck_c:
                     agent.state = 'done'
                     agent.ref_pos = agent.centroid.copy()
                     agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
@@ -1955,7 +2201,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     self.get_logger().info(f'  🎯 [iris_{did}] Tiba di Pusat Sel Voronoi ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f})! Menghadap UTARA (+90.0°).')
                     continue
 
-                v_back = min(self.transit_speed, max(0.40, 2.0 * dist_to_c))
+                v_back_floor = 0.15 if dist_to_c < 1.5 else 0.40
+                v_back = min(self.transit_speed, max(v_back_floor, 2.0 * dist_to_c))
                 v_x = v_back * math.cos(ang_c) + np.clip(1.2 * dx, -0.40, 0.40)
                 v_y = v_back * math.sin(ang_c) + np.clip(1.2 * dy, -0.40, 0.40)
 
@@ -1985,8 +2232,20 @@ class Swarm7DroneVoronoiMappingNode(Node):
         if self.step_count % 20 == 0:
             cov = self.get_coverage_percentage()
             states_summary = ' | '.join(f'i{did}:{a.state[:6]}' for did, a in self.agents.items())
+            map_txt = ''
+            if self.use_lidar_obstacles:
+                tot, conf, moving = self.obs_map.n_tracks()
+                map_txt = f' | peta {conf}/{tot} (gerak {moving})'
+                # Tiap 15 detik: DI MANA jalur-jalur itu. Jumlah saja tidak
+                # cukup untuk tahu benda apa yang sebenarnya terdeteksi.
+                if self.step_count % 300 == 0 and tot:
+                    rows = ' '.join(
+                        f'({x:+.1f},{y:+.1f})r{r:.2f}n{n}d{dr:.1f}{"M" if mv else ""}'
+                        for x, y, r, n, dr, mv in self.obs_map.dump())
+                    self.get_logger().info(f'  🗺️  [PETA] {rows}')
             self.get_logger().info(
-                f'📊 [STATUS] Cov: {cov:5.1f}% | d_min: {self.global_min_dist:4.2f}m | {states_summary}'
+                f'📊 [STATUS] Cov: {cov:5.1f}% | d_min: {self.global_min_dist:4.2f}m'
+                f'{map_txt} | {states_summary}'
             )
 
             alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
@@ -2698,7 +2957,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         # 7. Visualisasi Rintangan 3D Statis & Dinamis di RViz2
         if self.enable_obstacles:
             # Rintangan Statis (9 Silinder)
-            for obs_id, cell_did, ox, oy, rad, height, (cr, cg, cb) in self.static_obstacles:
+            for obs_id, ox, oy, rad, height, (cr, cg, cb) in self.static_obstacles:
                 m_obs = Marker()
                 m_obs.header.frame_id = 'world'
                 m_obs.header.stamp = stamp

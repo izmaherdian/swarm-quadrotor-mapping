@@ -9,7 +9,14 @@ murni numpy/shapely.
   * baris PERTAMA & TERAKHIR mengikuti tepi bawah / atas sel (rantai vertex),
     sehingga wedge di pojok/tepi miring ikut tersapu TANPA sisipan aneh di
     awal/akhir misi — drone masuk lewat pojok natural dan setelah baris
-    terakhir bisa langsung pulang.
+    terakhir bisa langsung pulang;
+  * bila ``obstacles`` diberikan, baris DIPECAH pada irisan zona aman lalu
+    seluruh jalur dilewatkan ``route_around_obstacles`` — satu lintasan-akhir
+    yang menutup baris interior, konektor, dan rantai tepi sekaligus.
+
+Kembalian selalu daftar rata berpanjang GENAP ``[s0, e0, s1, e1, ...]``:
+coordinator memakai ``len(waypoints) // 2`` sebagai jumlah baris, jadi struktur
+pasangan itu bagian dari kontrak, bukan kebetulan.
 """
 import math
 
@@ -81,18 +88,187 @@ def polygon_scanline_intersections(polygon, y):
     return xs
 
 
-def _trim_interval_for_obstacles(x_left, x_right, y, obstacles):
-    """Pangkas satu interval [x_left, x_right] agar >= ~1.35 m dari pusat rintangan."""
-    for obs in obstacles:
-        ox, oy = obs[2], obs[3]
-        if abs(y - oy) >= 1.35:
+# ── Rintangan statis ────────────────────────────────────────────────────
+#
+# Radius zona aman yang DIRENCANAKAN. Kebutuhan fisiknya 0.87 m = 0.40
+# (silinder) + 0.22 (drone) + 0.25 (`delta_static` pada CBF). Dipakai 1.30 m
+# supaya tali busur pengalih rute pun masih lega: sebuah tali yang menyubtensi
+# 70 derajat menyinggung sampai 1.30*cos(35) = 1.065 m dari pusat, masih 0.19 m
+# di atas kebutuhan fisik.
+#
+# Tali busur dibatasi 70 derajat justru agar TIDAK pendek: pada 1.30 m itu
+# panjangnya 1.49 m, jauh di atas `min_seg` 0.60 m. Busur ber-titik rapat akan
+# digabung oleh `_chain_segments` dan sudutnya terpotong balik ke dalam zona
+# aman — persis yang harus dihindari.
+OBSTACLE_KEEP_OUT = 1.30
+
+# Lantai jarak bebas saat menyederhanakan busur (lihat `_simplify_chain`).
+# Di atas kebutuhan CBF 0.87 m dengan sisa 0.23 m untuk galat lacak, jadi QP
+# tidak perlu melawan rencana.
+OBSTACLE_CLEAR_MIN = 1.10
+
+_ARC_MAX_STEP = math.radians(70.0)
+_MAX_DETOURS = 12
+
+
+def _obs_centers(obstacles):
+    """Pusat rintangan sebagai array (N, 2).
+
+    Menerima ``(x, y)`` maupun ``(id, x, y, ...)`` — dibedakan dari panjangnya,
+    supaya tes bisa memakai pasangan polos sementara coordinator mengirim
+    tuple lengkapnya.
+    """
+    cs = []
+    for o in (obstacles or ()):
+        cs.append((float(o[0]), float(o[1])) if len(o) == 2
+                  else (float(o[1]), float(o[2])))
+    return np.array(cs, dtype=float).reshape(-1, 2)
+
+
+def _split_interval_for_obstacles(x_left, x_right, y, obstacles,
+                                  keep_out=OBSTACLE_KEEP_OUT, min_len=0.60):
+    """Buang irisan zona aman dari ``[x_left, x_right]`` → daftar sub-interval.
+
+    Versi lama hanya bisa menggeser UJUNG interval, sehingga rintangan di
+    tengah baris dilewati begitu saja dan rintangan dekat ujung justru membuat
+    baris DIPERPANJANG menembusnya. Memecah interval adalah satu-satunya
+    perlakuan yang benar; mesin multi-interval untuk sel cekung sudah ada, jadi
+    hasil pecahan langsung tertangani.
+    """
+    ivs = [(float(x_left), float(x_right))]
+    for ox, oy in _obs_centers(obstacles):
+        dy = abs(y - oy)
+        if dy >= keep_out:
             continue
-        d_crit = math.sqrt(max(0.01, 1.35 ** 2 - (y - oy) ** 2))
-        if abs(x_left - ox) < d_crit:
-            x_left = (ox - d_crit - 0.10) if ox > x_left else (ox + d_crit + 0.10)
-        if abs(x_right - ox) < d_crit:
-            x_right = (ox + d_crit + 0.10) if ox < x_right else (ox - d_crit - 0.10)
-    return x_left, x_right
+        w = math.sqrt(keep_out ** 2 - dy ** 2)
+        a, b = ox - w, ox + w
+        nxt = []
+        for lo, hi in ivs:
+            if hi <= a or lo >= b:
+                nxt.append((lo, hi))
+                continue
+            if lo < a:
+                nxt.append((lo, a))
+            if hi > b:
+                nxt.append((b, hi))
+        ivs = nxt
+    return [(lo, hi) for lo, hi in ivs if hi - lo >= min_len]
+
+
+def _push_outside(p, centers, keep_out):
+    """Geser ``p`` keluar secara radial bila berada di dalam zona aman."""
+    p = np.asarray(p, dtype=float)
+    for c in centers:
+        d = p - c
+        r = float(np.hypot(*d))
+        if r < keep_out - 1e-9:
+            u = np.array([1.0, 0.0]) if r < 1e-9 else d / r
+            p = c + keep_out * u
+    return p
+
+
+def _first_blocking(a, b, centers, keep_out):
+    """Pusat rintangan pertama yang ditembus ruas ``a→b`` (None bila bersih)."""
+    ab = b - a
+    L = float(np.hypot(*ab))
+    if L < 1e-9:
+        return None
+    u = ab / L
+    best = None
+    for c in centers:
+        s = min(max(float(np.dot(c - a, u)), 0.0), L)
+        if float(np.hypot(*(a + s * u - c))) < keep_out - 1e-6:
+            if best is None or s < best[0]:
+                best = (s, c)
+    return None if best is None else best[1]
+
+
+def _arc_points(c, frm, to, keep_out):
+    """Titik-titik busur di sekeliling ``c``, dari arah ``frm`` ke arah ``to``.
+
+    Titik terakhir tepat pada sinar c→to, jadi ruas terakhir menuju ``to``
+    bersifat radial dan dijamin tidak masuk kembali ke zona aman.
+    """
+    a0 = math.atan2(frm[1] - c[1], frm[0] - c[0])
+    a1 = math.atan2(to[1] - c[1], to[0] - c[0])
+    dth = (a1 - a0 + math.pi) % (2.0 * math.pi) - math.pi
+    n = max(1, int(math.ceil(abs(dth) / _ARC_MAX_STEP)))
+    return [c + keep_out * np.array([math.cos(a0 + dth * i / n),
+                                     math.sin(a0 + dth * i / n)])
+            for i in range(1, n + 1)]
+
+
+def _simplify_chain(chain, centers, floor, min_seg=0.60):
+    """Buang titik antara selama ruas penggantinya masih >= ``floor`` dari pusat.
+
+    Busur mentah meninggalkan titik kembar (ujung busur jatuh persis di
+    tujuannya, karena ``_push_outside`` sudah menaruh tujuan di lingkaran yang
+    sama) dan sesekali tali busur 0.1 m. Segmen sependek itu lebih pendek dari
+    jarak henti 0.60 m di 1.6 m/s, jadi dijamin terlewati dan muncul sebagai
+    overshoot. Penarikan tali di sini hanya membuang titik yang penghapusannya
+    TERBUKTI masih aman, jadi jarak bebas tidak pernah ditukar dengan kerapian.
+    """
+    if len(chain) < 3:
+        return chain
+    out = [chain[0]]
+    for i in range(1, len(chain) - 1):
+        if _first_blocking(out[-1], chain[i + 1], centers, floor) is None:
+            continue                        # penghapusannya TERBUKTI aman
+        out.append(chain[i])
+    if float(np.hypot(*(chain[-1] - out[-1]))) > 1e-6:
+        out.append(chain[-1])
+    else:
+        out[-1] = chain[-1]                 # ganti ujungnya, jangan duplikat
+    return out
+
+
+def _safe_chain(a, b, centers, keep_out):
+    """Rantai ``[a, ..., b]`` yang menjaga jarak ``keep_out`` dari tiap pusat."""
+    chain = [a]
+    cur = a
+    for _ in range(_MAX_DETOURS):
+        c = _first_blocking(cur, b, centers, keep_out)
+        if c is None:
+            break
+        pts = _arc_points(c, cur, b, keep_out)
+        chain.extend(pts)
+        cur = pts[-1]
+    chain.append(b)
+    return _simplify_chain(chain, centers, OBSTACLE_CLEAR_MIN)
+
+
+def route_around_obstacles(flat, obstacles, keep_out=OBSTACLE_KEEP_OUT):
+    """Alihkan rute daftar rata ``[s0, e0, s1, e1, ...]`` mengitari rintangan.
+
+    Dijalankan SEKALI di akhir, di atas jalur yang sudah dirakit, sehingga
+    baris interior, konektor antar-segmen, DAN rantai tepi sel tertangani
+    sekaligus — rantai tepi sebelumnya tidak sadar-rintangan sama sekali.
+
+    Struktur pasangan dipertahankan: indeks genap tetap awal sebuah segmen.
+    Bila sebuah pengalihan perlu disisipkan, segmen-segmennya berbagi ujung
+    (langkah antar-pasangan jadi nol panjang) — pola yang sama dengan
+    ``_chain_segments`` untuk rantai tepi.
+
+    Busur ini merangkap penyapu: pada radius 1.30 m dengan radius sensor
+    0.95 m, cincin di sekeliling silinder ikut terpetakan, jadi pengalihan
+    rute tidak meninggalkan lubang cakupan.
+    """
+    centers = _obs_centers(obstacles)
+    if not len(centers) or len(flat) < 2:
+        return [np.asarray(p, dtype=float) for p in flat]
+
+    pts = [_push_outside(p, centers, keep_out) for p in flat]
+    out = []
+    for k in range(len(pts) - 1):
+        a, b = pts[k], pts[k + 1]
+        chain = _safe_chain(a, b, centers, keep_out)
+        if len(chain) == 2:
+            if k % 2 == 0:                 # baris/segmen sapuan
+                out.extend([a, b])
+            continue                       # langkah lurus: tetap implisit
+        for i in range(len(chain) - 1):    # pengalihan → segmen eksplisit
+            out.extend([chain[i], chain[i + 1]])
+    return out
 
 
 def _augment_ring(polygon, y):
@@ -211,8 +387,8 @@ def generate_boustrophedon(polygon, sweep_spacing=1.45, margin=0.02,
             for k in range(0, len(xs) - 1, 2):
                 xl, xr = xs[k] + margin, xs[k + 1] - margin
                 if obstacles:
-                    xl, xr = _trim_interval_for_obstacles(xl, xr, y, obstacles)
-                if xr - xl >= 0.30:
+                    segs.extend(_split_interval_for_obstacles(xl, xr, y, obstacles))
+                elif xr - xl >= 0.30:
                     segs.append((xl, xr))
             if segs:
                 levels.append((y, segs))
@@ -238,6 +414,11 @@ def generate_boustrophedon(polygon, sweep_spacing=1.45, margin=0.02,
             remaining.pop(idx)
 
     flat.extend(_chain_segments(_orient(top, cur)))
+
+    # Lintasan-akhir sadar-rintangan: menutup baris interior, konektor, DAN
+    # rantai tepi sekaligus.
+    if obstacles:
+        flat = route_around_obstacles(flat, obstacles)
 
     if len(flat) < 2:
         return [poly_centroid(polygon)]

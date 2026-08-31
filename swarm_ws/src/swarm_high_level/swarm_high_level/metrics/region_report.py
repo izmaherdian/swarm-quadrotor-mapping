@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Laporan Skema 1 & 2 x {PID-LQR, PID-Hinf} pada beberapa wilayah non-convex.
+"""Laporan Skema 1/2/3 x {PID-LQR, PID-Hinf} pada beberapa wilayah non-convex.
 
 Membaca HANYA artefak nyata:
   * stdout coordinator  -> coverage, d_min, tabrakan, overshoot, diagnostik CBF
@@ -22,10 +22,12 @@ import sys
 
 import numpy as np
 
+from ..world.obstacles import OBSTACLE_RADIUS, OBSTACLES_BY_REGION
 from .telemetry import parse_coordinator_log
 
 CTRL = {'lqr': 'PID-LQR', 'hinf': 'PID-H∞'}
 TAKEOFF_SETTLE_S = 20.0
+DRONE_RADIUS = 0.22
 
 
 def load_csvs(run_dir, prefix):
@@ -66,7 +68,35 @@ def sweeping_mask(df):
     return stable & (spd > 0.6) & (t >= TAKEOFF_SETTLE_S)
 
 
-def per_run(run_dir, prefix):
+def obstacle_clearance_m(data, region):
+    """Clearance FISIK terkecil ke silinder statis, dari lintasan CSV.
+
+    Hanya bermakna untuk Skema 3/4. Untuk Skema 1/2 pemanggil harus melewatkan
+    ``region=None``: di sana tidak ada silinder yang di-spawn, jadi jarak ke
+    tabel rintangan adalah angka phantom, bukan pengukuran.
+
+    Rintangan DINAMIS sengaja tidak dihitung — posisinya bergantung waktu
+    absolut simulasi yang tidak sinkron dengan `Time_s` pada CSV; angka untuk
+    silinder bergerak harus diambil dari coordinator.
+    """
+    if not region:
+        return None
+    table = OBSTACLES_BY_REGION.get(region)
+    if not table:
+        return None
+    best = float('inf')
+    for df in data.values():
+        m = df['Z'] > 0.5
+        if not m.sum():
+            continue
+        xs, ys = df['X'][m], df['Y'][m]
+        for _oid, ox, oy in table:
+            d = np.hypot(xs - ox, ys - oy) - (OBSTACLE_RADIUS + DRONE_RADIUS)
+            best = min(best, float(d.min()))
+    return None if not np.isfinite(best) else best
+
+
+def per_run(run_dir, prefix, region=None):
     log = os.path.join(run_dir, 'coordinator.log')
     out = {'dir': run_dir, 'ok': False}
     if os.path.isfile(log):
@@ -119,6 +149,11 @@ def per_run(run_dir, prefix):
         'duration_s': float(np.max(dur)),
         'ok': True,
     })
+    # Hanya diisi bila skema memang men-spawn rintangan (region diberikan).
+    d_obs = obstacle_clearance_m(data, region)
+    if d_obs is not None:
+        out['obs_clearance_m'] = d_obs
+        out['n_obstacles'] = len(OBSTACLES_BY_REGION[region])
     if yaw:
         Y = np.concatenate(yaw); R = np.concatenate(roll); P = np.concatenate(pitch)
         C = np.concatenate(ct); L = np.concatenate(lag)
@@ -143,7 +178,10 @@ def main(argv):
         name = os.path.basename(d)
         parts = name.split('_')
         scheme, ctrl, region = parts[0], parts[-1], '_'.join(parts[1:-1])
-        res[(scheme, region, ctrl)] = per_run(d, ctrl)
+        # Clearance rintangan hanya diukur bila skema memang men-spawn
+        # silinder; pada Skema 1/2 angkanya akan phantom, jadi tetap n/a.
+        obs_region = region if scheme in ('s3', 's4') else None
+        res[(scheme, region, ctrl)] = per_run(d, ctrl, region=obs_region)
 
     if not res:
         print(f'Tidak ada run di {root}')
@@ -165,6 +203,8 @@ def main(argv):
         ('Roll p95 saat sapu (°)', 'roll_sweep_p95_deg', '.2f'),
         ('Pitch p95 saat sapu (°)', 'pitch_sweep_p95_deg', '.2f'),
         ('d_min antar-drone (m)', 'd_min_inter_drone_m', '.2f'),
+        ('Clearance rintangan (m)', 'obs_clearance_m', '.3f'),
+        ('Jumlah rintangan', 'n_obstacles', 'd'),
         ('Durasi misi (s-sim)', 'duration_s', '.0f'),
         ('Panjang lintasan (m)', 'path_len_m', '.0f'),
         ('Integral torsi', 'effort_total', '.2f'),

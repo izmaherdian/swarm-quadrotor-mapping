@@ -84,7 +84,8 @@ NOMINAL_SPEED = 2.85
 ARRIVE_TOL = 0.35
 
 
-def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True):
+def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True,
+        static_only=False):
     plant = PlantModel.from_config()
     cfg = CBFConfig()
     avoid = CBFAvoidance(cfg, plant)
@@ -115,12 +116,16 @@ def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True):
         obstacles = [
             Obstacle(oid, np.array([x, y]), radius=OBS_RADIUS, kind=T.CLASS_STATIC)
             for oid, x, y in STATIC_OBSTACLES
-        ] + [
-            Obstacle(201, p1, v1, DYN_RADIUS, accel_bound=10.0 * OMEGA[0] ** 2,
-                     kind=T.CLASS_DYNAMIC),
-            Obstacle(202, p2, v2, DYN_RADIUS, accel_bound=10.0 * OMEGA[1] ** 2,
-                     kind=T.CLASS_DYNAMIC),
         ]
+        # Skema 3 statis-saja: kedua silinder bergerak tidak di-spawn di world,
+        # jadi memasukkannya ke QP akan menjadi rintangan phantom.
+        if not static_only:
+            obstacles += [
+                Obstacle(201, p1, v1, DYN_RADIUS, accel_bound=10.0 * OMEGA[0] ** 2,
+                         kind=T.CLASS_DYNAMIC),
+                Obstacle(202, p2, v2, DYN_RADIUS, accel_bound=10.0 * OMEGA[1] ** 2,
+                         kind=T.CLASS_DYNAMIC),
+            ]
         avoid.set_world(obstacles, bounds)
 
         tasks = {}
@@ -160,11 +165,12 @@ def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True):
                 h_static_min = min(h_static_min, h)
                 if h < 0:
                     crashes += 1
-            for p in (p1, p2):
-                h = float(np.linalg.norm(ag.pos - p)) - (DYN_RADIUS + cfg.drone_radius)
-                h_dyn_min = min(h_dyn_min, h)
-                if h < 0:
-                    crashes += 1
+            if not static_only:
+                for p in (p1, p2):
+                    h = float(np.linalg.norm(ag.pos - p)) - (DYN_RADIUS + cfg.drone_radius)
+                    h_dyn_min = min(h_dyn_min, h)
+                    if h < 0:
+                        crashes += 1
 
         P = np.array([a.pos for a in agents.values()])
         D = np.linalg.norm(P[:, None, :] - P[None, :, :], axis=2)
@@ -178,11 +184,14 @@ def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True):
 
     if verbose:
         print('=' * 68)
-        print(f'  FAST-SIM SKEMA 3 — {seconds:.0f}s simulasi, v_nom={speed:.2f} m/s')
+        mode = 'STATIS SAJA' if static_only else 'statis + dinamis'
+        print(f'  FAST-SIM SKEMA 3 [{mode}] — {seconds:.0f}s simulasi, '
+              f'v_nom={speed:.2f} m/s')
         print('=' * 68)
         print(f'  Tabrakan (h < 0)            : {crashes}')
         print(f'  Clearance min rintangan stat: {h_static_min:+.3f} m')
-        print(f'  Clearance min rintangan dyn : {h_dyn_min:+.3f} m')
+        print('  Clearance min rintangan dyn : '
+              + ('n/a (tidak di-spawn)' if static_only else f'{h_dyn_min:+.3f} m'))
         print(f'  Jarak antar-drone minimum   : {d_v2v_min:.3f} m  '
               f'(batas keras {cfg.v2v_hard})')
         print(f'  Drone menuntaskan rute      : {done}/{len(agents)}')
@@ -207,7 +216,9 @@ def run(seconds=200.0, dt=0.05, speed=NOMINAL_SPEED, verbose=True):
 
 
 if __name__ == '__main__':
-    secs = float(sys.argv[1]) if len(sys.argv) > 1 else 200.0
-    spd = float(sys.argv[2]) if len(sys.argv) > 2 else NOMINAL_SPEED
-    res = run(secs, speed=spd)
+    argv = [a for a in sys.argv[1:] if a != '--static-only']
+    static_only = '--static-only' in sys.argv
+    secs = float(argv[0]) if len(argv) > 0 else 200.0
+    spd = float(argv[1]) if len(argv) > 1 else NOMINAL_SPEED
+    res = run(secs, speed=spd, static_only=static_only)
     sys.exit(0 if res['crashes'] == 0 else 1)

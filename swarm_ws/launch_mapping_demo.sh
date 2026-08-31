@@ -6,7 +6,7 @@
 # Pilihan 4 Skema Pemetaan:
 #   --scheme 1 | -s 1   : Skema 1 - Nominal Mapping (Baseline, Zero Disturbance)
 #   --scheme 2 | -s 2   : Skema 2 - Dryden Wind Turbulence Mapping (σ=2.5N, τ=0.5s)
-#   --scheme 3 | -s 3   : Skema 3 - Obstacle Avoidance (9 Statis + 2 Dinamis Pola 'X')
+#   --scheme 3 | -s 3   : Skema 3 - Obstacle Avoidance (9 rintangan statis)
 #   --scheme 4 | -s 4   : Skema 4 - Combined Wind & Obstacles Disturbance Mapping
 #
 # Pilihan Mode Kontroler Low-Level:
@@ -100,7 +100,7 @@ while [[ $# -gt 0 ]]; do
       echo -e "${BOLD}Pilihan Skema Pengujian (--scheme / -s):${NC}"
       echo "  -s 1  : Skema 1 (Nominal / Baseline - Zero Disturbance)"
       echo "  -s 2  : Skema 2 (Dryden Wind Turbulence Disturbances)"
-      echo "  -s 3  : Skema 3 (Obstacle Avoidance: 9 Statis + 2 Dinamis Pola 'X')"
+      echo "  -s 3  : Skema 3 (Obstacle Avoidance: 9 rintangan statis per wilayah)"
       echo "  -s 4  : Skema 4 (Combined: Dryden Wind + Obstacles Statis & Dinamis)"
       echo ""
       echo -e "${BOLD}Pilihan Kontroler Low-Level:${NC}"
@@ -135,24 +135,38 @@ case $SCHEME in
     WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
     ENABLE_WIND="false"
     ENABLE_OBSTACLES="false"
+    ENABLE_DYN_OBSTACLES="false"
     ;;
   2)
     SCHEME_NAME="Skema 2: Dryden Wind Turbulence Mapping (σ=2.5N, τ=0.5s + Gust)"
     WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
     ENABLE_WIND="true"
     ENABLE_OBSTACLES="false"
+    ENABLE_DYN_OBSTACLES="false"
     ;;
   3)
-    SCHEME_NAME="Skema 3: Obstacle Avoidance Mapping (9 Statis + 2 Dinamis Pola 'X')"
-    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    # Skema 3 = rintangan STATIS saja. Tiap wilayah punya berkas world
+    # sendiri berisi 9 silinder DI DALAM wilayah itu, dibangkitkan oleh
+    # tools/gen_obstacle_worlds.py, tanpa silinder dinamis sama sekali.
+    SCHEME_NAME="Skema 3: Obstacle Avoidance Mapping (9 rintangan statis)"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles_${REGION}.world"
+    if [ ! -f "$WORLD_FILE" ]; then
+      echo -e "${RED}❌ World Skema 3 untuk wilayah '$REGION' tidak ada:${NC}"
+      echo -e "   $WORLD_FILE"
+      echo -e "   Wilayah yang punya world Skema 3: rect, l_shape, u_shape, plus."
+      echo -e "   Bila baru menambah wilayah, jalankan: ${BOLD}python3 tools/gen_obstacle_worlds.py${NC}"
+      exit 1
+    fi
     ENABLE_WIND="false"
     ENABLE_OBSTACLES="true"
+    ENABLE_DYN_OBSTACLES="false"
     ;;
   4)
     SCHEME_NAME="Skema 4: Combined Dryden Wind & Obstacles Disturbance Mapping"
     WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
     ENABLE_WIND="true"
     ENABLE_OBSTACLES="true"
+    ENABLE_DYN_OBSTACLES="true"
     ;;
   *)
     echo -e "${RED}❌ Skema '$SCHEME' tidak valid! Pilih antara 1, 2, 3, atau 4.${NC}"
@@ -166,7 +180,7 @@ echo -e "  📋 SKEMA PENGUJIAN        : ${YELLOW}${BOLD}[$SCHEME_NAME]${NC}"
 echo -e "  🎮 KONTROLER LOW-LEVEL     : ${CONTROLLER_COLOR}${BOLD}[$CONTROLLER_TITLE]${NC}"
 echo -e "  🌍 GAZEBO WORLD            : ${BOLD}$(basename $WORLD_FILE)${NC}"
 echo -e "  🌪️  DRYDEN WIND TURBULENCE : ${BOLD}$ENABLE_WIND${NC}"
-echo -e "  🚧 RINTANGAN (OBSTACLES)  : ${BOLD}$ENABLE_OBSTACLES${NC}"
+echo -e "  🚧 RINTANGAN (OBSTACLES)  : ${BOLD}$ENABLE_OBSTACLES${NC} (statis)${ENABLE_DYN_OBSTACLES:+ + dinamis=$ENABLE_DYN_OBSTACLES}"
 echo -e "  🗺️  WILAYAH PEMETAAN      : ${BOLD}$REGION${NC}"
 echo -e "  🛡️  PENGHINDARAN          : ${BOLD}CBF-QP${NC}"
 echo "  💡 Terminal 2 Fault Injection: ./kill_drone.sh <id...> (Contoh: ./kill_drone.sh 4)"
@@ -280,5 +294,6 @@ python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
     -p scheme:="$SCHEME" \
     -p enable_wind:="$ENABLE_WIND" \
     -p enable_obstacles:="$ENABLE_OBSTACLES" \
+    -p enable_dynamic_obstacles:="$ENABLE_DYN_OBSTACLES" \
     -p region:="$REGION" \
     "${SWEEP_ARG[@]}"

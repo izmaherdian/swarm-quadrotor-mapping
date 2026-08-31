@@ -101,7 +101,7 @@ def path_length_m(df):
     return float(np.sum(np.hypot(np.diff(df['X']), np.diff(df['Y']))))
 
 
-def per_drone_metrics(df, drone_radius=0.22):
+def per_drone_metrics(df, drone_radius=0.22, region='rect'):
     """Metrik satu drone. Fase lepas landas dibuang dari penilaian tracking."""
     from ..world import obstacles as W
 
@@ -138,8 +138,8 @@ def per_drone_metrics(df, drone_radius=0.22):
     airborne = m & (df['Z'] > 0.5)
     d_obs = float('inf')
     xs, ys = df['X'][airborne], df['Y'][airborne]
-    for _oid, _cell, ox, oy in W.STATIC_OBSTACLES:
-        d = np.hypot(xs - ox, ys - oy) - (W.STATIC_RADIUS + drone_radius)
+    for _oid, ox, oy in W.OBSTACLES_BY_REGION.get(region, W.STATIC_OBSTACLES):
+        d = np.hypot(xs - ox, ys - oy) - (W.OBSTACLE_RADIUS + drone_radius)
         if d.size:
             d_obs = min(d_obs, float(d.min()))
 
@@ -157,11 +157,11 @@ def per_drone_metrics(df, drone_radius=0.22):
     }
 
 
-def aggregate(drone_data, drone_radius=0.22):
+def aggregate(drone_data, drone_radius=0.22, region='rect'):
     """Gabungkan metrik seluruh drone menjadi satu ringkasan per run."""
     if not drone_data:
         return None
-    per = {did: per_drone_metrics(df, drone_radius)
+    per = {did: per_drone_metrics(df, drone_radius, region)
            for did, df in sorted(drone_data.items())}
 
     def agg(key, how='mean'):

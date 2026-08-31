@@ -18,8 +18,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
+from matplotlib.patches import Circle
 
 from .region_report import load_csvs
+from ..world.obstacles import OBSTACLES_BY_REGION, OBSTACLE_RADIUS
 from ..world.region import load_region
 
 # Palet kategorikal tervalidasi (slot 1 & 2), mode terang.
@@ -41,7 +43,15 @@ def _style(ax):
     ax.set_axisbelow(True)
 
 
-SCHEME_NAME = {'s1': 'Skema 1 (nominal)', 's2': 'Skema 2 (angin Dryden)'}
+SCHEME_NAME = {'s1': 'Skema 1 (nominal)', 's2': 'Skema 2 (angin Dryden)',
+               's3': 'Skema 3 (rintangan statis)'}
+
+# Skema mana yang benar-benar men-spawn silinder. Menggambar rintangan pada
+# Skema 1/2 akan menampilkan halangan yang TIDAK ADA di Gazebo.
+OBSTACLE_SCHEMES = ('s3', 's4')
+
+# Diisi ulang dari data yang benar-benar ada di `main`.
+SCHEMES = ('s1', 's2')
 
 
 def fig_trajectories(runs, regions, out, sch, summ=None):
@@ -56,6 +66,12 @@ def fig_trajectories(runs, regions, out, sch, summ=None):
             _style(ax)
             rr = np.vstack([ring, ring[0]])
             ax.plot(rr[:, 0], rr[:, 1], color=INK, lw=1.6, zorder=3)
+            if sch in OBSTACLE_SCHEMES:
+                for _oid, ox, oy in OBSTACLES_BY_REGION.get(reg, ()):
+                    ax.add_patch(Circle((ox, oy), OBSTACLE_RADIUS, facecolor=INK,
+                                        edgecolor='none', zorder=4))
+                    ax.add_patch(Circle((ox, oy), 1.30, facecolor='none',
+                                        edgecolor=INK2, lw=0.7, ls=':', zorder=4))
             d = runs.get((sch, reg, ctrl))
             if not d:
                 ax.text(0.5, 0.5, 'data tidak ada', ha='center', va='center',
@@ -93,10 +109,12 @@ def fig_metric_bars(summ, regions, out):
                ('alt_rms_cm', 'Altitude RMS (cm)'),
                ('roll_sweep_p95_deg', 'Roll p95 saat sapu (°)'),
                ('effort_total', 'Integral torsi')]
-    fig, axes = plt.subplots(2, len(metrics),
-                             figsize=(3.5 * len(metrics), 7.2), facecolor=SURFACE)
+    fig, axes = plt.subplots(len(SCHEMES), len(metrics),
+                             figsize=(3.5 * len(metrics), 3.6 * len(SCHEMES)),
+                             facecolor=SURFACE)
+    axes = np.atleast_2d(axes)
     x = np.arange(len(regions)); w = 0.36
-    for r, sch in enumerate(('s1', 's2')):
+    for r, sch in enumerate(SCHEMES):
         for c, (key, label) in enumerate(metrics):
             ax = axes[r][c]; _style(ax)
             for i, ctrl in enumerate(('lqr', 'hinf')):
@@ -132,7 +150,7 @@ def fig_coverage(logs, regions, out):
     axes = np.atleast_1d(axes)
     for i, reg in enumerate(regions):
         ax = axes[i]; _style(ax)
-        for sch, ls in (('s1', '-'), ('s2', '--')):
+        for sch, ls in zip(SCHEMES, ('-', '--', ':')):
             for ctrl in ('lqr', 'hinf'):
                 s = logs.get(f'{sch}|{reg}|{ctrl}')
                 if not s:
@@ -146,8 +164,8 @@ def fig_coverage(logs, regions, out):
         ax.set_ylim(0, 105)
     handles = [Line2D([0], [0], color=CTRL_COLOR[c], lw=2.4, label=CTRL_NAME[c])
                for c in ('lqr', 'hinf')]
-    handles += [Line2D([0], [0], color=INK2, lw=1.8, ls=s, label=n)
-                for s, n in (('-', 'Skema 1'), ('--', 'Skema 2'))]
+    handles += [Line2D([0], [0], color=INK2, lw=1.8, ls=s, label=f'Skema {sc[1:]}')
+                for sc, s in zip(SCHEMES, ('-', '--', ':'))]
     fig.legend(handles=handles, loc='upper center', ncol=4, frameon=False, fontsize=9)
     fig.tight_layout(rect=[0, 0, 1, 0.87])
     p = os.path.join(out, 'fig3_coverage.png')
@@ -180,22 +198,25 @@ def main(argv):
     sfile = os.path.join(out, 'region_summary.json')
     summ = json.load(open(sfile)) if os.path.isfile(sfile) else {}
 
-    runs, logs, regions = {}, {}, []
+    runs, logs, regions, schemes = {}, {}, [], []
     for d in sorted(glob.glob(os.path.join(root, 's*_*_*'))):
         parts = os.path.basename(d).split('_')
         sch, ctrl, reg = parts[0], parts[-1], '_'.join(parts[1:-1])
         if reg not in regions:
             regions.append(reg)
+        if sch not in schemes:
+            schemes.append(sch)
         runs[(sch, reg, ctrl)] = load_csvs(d, ctrl)
         cv = read_cov(os.path.join(d, 'coordinator.log'))
         if cv:
             logs[f'{sch}|{reg}|{ctrl}'] = cv
-    regions.sort()
+    regions.sort(); schemes.sort()
+    global SCHEMES
+    SCHEMES = tuple(schemes)
     if not regions:
         print(f'Tidak ada run di {root}'); return 1
 
-    made = [fig_trajectories(runs, regions, out, sch, summ)
-            for sch in ('s1', 's2')]
+    made = [fig_trajectories(runs, regions, out, sch, summ) for sch in SCHEMES]
     if summ:
         made.append(fig_metric_bars(summ, regions, out))
     if logs:
