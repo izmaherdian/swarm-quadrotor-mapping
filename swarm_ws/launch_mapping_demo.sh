@@ -163,9 +163,9 @@ case $SCHEME in
     ENABLE_DYN_OBSTACLES="false"
     ;;
   4)
-    SCHEME_NAME="Skema 4: Combined Dryden Wind & Obstacles Disturbance Mapping"
+    SCHEME_NAME="Skema 4: Static & Dynamic Obstacle Avoidance (9 Statis + 2 Dinamis Pola X)"
     WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
-    ENABLE_WIND="true"
+    ENABLE_WIND="false"
     ENABLE_OBSTACLES="true"
     ENABLE_DYN_OBSTACLES="true"
     ;;

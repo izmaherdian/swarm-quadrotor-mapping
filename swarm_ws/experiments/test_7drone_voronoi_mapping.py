@@ -343,10 +343,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.RETURN_STUCK_ACCEPT = 2.50
 
         # Pelonggaran pegangan garis di dekat rintangan:
-        # Mulai melonggar pada 1.20 m dan mencapai lantainya pada 0.50 m.
-        self.CT_RELAX_RANGE = 1.20
+        self.CT_RELAX_RANGE = 1.60
         self.CT_RELAX_NEAR = 0.50
-        self.CT_RELAX_FLOOR = 0.25
+        self.CT_RELAX_FLOOR = 0.15
         self.corner_settle_ticks = 3    # Jeda 0.15 detik saat pivot statis di sudut (@20Hz)
 
         # ── Coverage Grid (100 x 100 sel) ───────────────────────────
@@ -626,9 +625,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.cbf_plant = PlantModel.from_config(solver='lqr')
         self.cbf_cfg = CBFConfig()
         self.cbf_cfg.v_max = self.max_cmd_speed
-        self.cbf_cfg.delta_static = 0.25  # Buffer aman rintangan statis 0.25m (terbukti optimal)
-        self.cbf_cfg.cone_deg = 25.0      # Kerucut bias tangensial moderat
-        self.cbf_cfg.kappa = 0.55         # Dorongan tangensial lembut & presisi
+        self.cbf_cfg.delta_static = 0.25   # Buffer aman rintangan statis (0.25m)
+        self.cbf_cfg.delta_dynamic = 0.45  # Buffer aman rintangan dinamis (0.45m)
+        self.cbf_cfg.cone_deg = 25.0       # Kerucut bias tangensial deadlock
+        self.cbf_cfg.kappa = 0.60          # Dorongan tangensial tangkas (Trial 4)
         # Anggaran percepatan yang "dicuri" angin dari otoritas menghindar.
         # BELUM DIIDENTIFIKASI — ini perkiraan, bukan hasil ukur.
         #
@@ -1262,6 +1262,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         # yang kebetulan tidak terlihat tidak merugikan apa pun; melewatkannya
         # merusak peta.
         others = [self.agents[o].pos[:2] for o in self.agents if o != did]
+        if self.enable_dynamic_obstacles:
+            for dyn in self.dynamic_obstacles:
+                others.append(np.asarray(dyn['pos'][:2], dtype=float))
         det = self._detect_obstacles(
             agent.lidar_ranges, float(msg.angle_min), float(msg.angle_increment),
             float(agent.pos[0]), float(agent.pos[1]), float(agent.yaw),
@@ -3021,6 +3024,25 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
         # 7. Visualisasi Rintangan 3D Statis & Dinamis di RViz2
         if self.enable_obstacles:
+            current_ids = {int(obs[0]) for obs in self.static_obstacles}
+            if hasattr(self, '_prev_static_obs_ids'):
+                for old_id in (self._prev_static_obs_ids - current_ids):
+                    m_del = Marker()
+                    m_del.header.frame_id = 'world'
+                    m_del.header.stamp = stamp
+                    m_del.ns = 'static_obstacles'
+                    m_del.id = old_id
+                    m_del.action = Marker.DELETE
+                    ma.markers.append(m_del)
+                    m_bub_del = Marker()
+                    m_bub_del.header.frame_id = 'world'
+                    m_bub_del.header.stamp = stamp
+                    m_bub_del.ns = 'obstacle_safety_bubbles'
+                    m_bub_del.id = old_id + 500
+                    m_bub_del.action = Marker.DELETE
+                    ma.markers.append(m_bub_del)
+            self._prev_static_obs_ids = current_ids
+
             # Rintangan Statis (9 Silinder)
             for obs_id, ox, oy, rad, height, (cr, cg, cb) in self.static_obstacles:
                 m_obs = Marker()
