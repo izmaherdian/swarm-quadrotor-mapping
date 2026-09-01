@@ -87,11 +87,11 @@ class DeadlockBreaker:
                      else cfg.delta_static)
             R_zone = obs.radius + cfg.drone_radius + delta
             h = d - R_zone
-            if h < 0.0:
-                v = v + cfg.k_separate * (-h) * n_hat
+            if h < 0.15:
+                v = v + max(cfg.k_separate, 3.5) * (0.15 - h) * n_hat
 
             # Pelepasan sisi hanya jika drone sudah benar-benar menjauh keluar dari zona rintangan
-            if d > R_zone + 0.60:
+            if d > R_zone + 0.80:
                 self.release_side(agent.aid, obs.oid)
                 continue
 
@@ -102,8 +102,9 @@ class DeadlockBreaker:
                 sign = self._pick_side(agent.aid, obs.oid, n_hat, u_hat,
                                        cell_polygon, obs.pos)
                 t_hat = np.array([-n_hat[1], n_hat[0]])
-                fade = max(0.0, min(1.0, (R_zone + 0.60 - d) / 0.60))
-                v = v + sign * cfg.kappa * speed * fade * t_hat
+                fade = max(0.0, min(1.0, (R_zone + 0.80 - d) / 0.80))
+                v_push = max(speed, 1.20)
+                v = v + sign * cfg.kappa * v_push * fade * t_hat
 
         # ── Antar-drone: aturan tangan kanan + pemulihan jarak ──
         #

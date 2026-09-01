@@ -169,8 +169,15 @@ case $SCHEME in
     ENABLE_OBSTACLES="true"
     ENABLE_DYN_OBSTACLES="true"
     ;;
+  5)
+    SCHEME_NAME="Skema 5: Combined Multi-Hazard Disturbance Mapping (Dryden Wind + 9 Statis + 2 Dinamis Pola X)"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    ENABLE_WIND="true"
+    ENABLE_OBSTACLES="true"
+    ENABLE_DYN_OBSTACLES="true"
+    ;;
   *)
-    echo -e "${RED}❌ Skema '$SCHEME' tidak valid! Pilih antara 1, 2, 3, atau 4.${NC}"
+    echo -e "${RED}❌ Skema '$SCHEME' tidak valid! Pilih antara 1, 2, 3, 4, atau 5.${NC}"
     exit 1
     ;;
 esac

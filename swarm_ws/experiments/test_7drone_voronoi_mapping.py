@@ -440,8 +440,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         scheme_names = {
             1: "Skema 1: Nominal Mapping (Zero Disturbance)",
             2: "Skema 2: Dryden Wind Turbulence Mapping",
-            3: "Skema 3: Obstacle Avoidance Mapping (rintangan statis)",
-            4: "Skema 4: Combined Disturbance & Obstacles Mapping"
+            3: "Skema 3: Obstacle Avoidance Mapping (9 rintangan statis)",
+            4: "Skema 4: Static & Dynamic Obstacle Avoidance (9 statis + 2 dinamis pola X)",
+            5: "Skema 5: Combined Multi-Hazard Disturbance Mapping (Dryden Wind + 9 Statis + 2 Dinamis Pola X)"
         }
         if not self.enable_obstacles:
             obs_desc = 'NONAKTIF'
@@ -626,9 +627,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.cbf_cfg = CBFConfig()
         self.cbf_cfg.v_max = self.max_cmd_speed
         self.cbf_cfg.delta_static = 0.25   # Buffer aman rintangan statis (0.25m)
-        self.cbf_cfg.delta_dynamic = 0.45  # Buffer aman rintangan dinamis (0.45m)
+        self.cbf_cfg.delta_dynamic = 0.50  # Buffer aman rintangan dinamis di bawah hembusan angin (0.50m)
         self.cbf_cfg.cone_deg = 25.0       # Kerucut bias tangensial deadlock
-        self.cbf_cfg.kappa = 0.60          # Dorongan tangensial tangkas (Trial 4)
+        self.cbf_cfg.kappa = 0.70          # Dorongan tangensial tangkas melawan angin (Trial 3 Winner)
         # Anggaran percepatan yang "dicuri" angin dari otoritas menghindar.
         # BELUM DIIDENTIFIKASI — ini perkiraan, bukan hasil ukur.
         #
@@ -3103,7 +3104,11 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 m_dyn.color = ColorRGBA(r=float(d_col[0]), g=float(d_col[1]), b=float(d_col[2]), a=0.95)
                 ma.markers.append(m_dyn)
 
-        self.pub_markers.publish(ma)
+        try:
+            if rclpy.ok():
+                self.pub_markers.publish(ma)
+        except Exception:
+            pass
 
 
 def main(args=None):
@@ -3111,11 +3116,18 @@ def main(args=None):
     node = Swarm7DroneVoronoiMappingNode()
     try:
         rclpy.spin(node)
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit, Exception):
         pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        try:
+            node.destroy_node()
+        except Exception:
+            pass
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':
