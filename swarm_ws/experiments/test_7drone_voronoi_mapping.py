@@ -343,9 +343,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.RETURN_STUCK_ACCEPT = 2.50
 
         # Pelonggaran pegangan garis di dekat rintangan:
-        self.CT_RELAX_RANGE = 1.80
+        self.CT_RELAX_RANGE = 1.60
         self.CT_RELAX_NEAR = 0.50
-        self.CT_RELAX_FLOOR = 0.10
+        self.CT_RELAX_FLOOR = 0.15
         self.corner_settle_ticks = 3    # Jeda 0.15 detik saat pivot statis di sudut (@20Hz)
 
         # ── Coverage Grid (100 x 100 sel) ───────────────────────────
@@ -626,10 +626,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.cbf_plant = PlantModel.from_config(solver='lqr')
         self.cbf_cfg = CBFConfig()
         self.cbf_cfg.v_max = self.max_cmd_speed
-        self.cbf_cfg.delta_static = 0.38   # Buffer aman rintangan statis ekstra kuat saat angin kencang (0.38m)
-        self.cbf_cfg.delta_dynamic = 0.55  # Buffer aman rintangan dinamis di bawah hembusan angin (0.55m)
+        self.cbf_cfg.delta_static = 0.25   # Buffer aman rintangan statis (0.25m terbukti 97.9% coverage)
+        self.cbf_cfg.delta_dynamic = 0.50  # Buffer aman rintangan dinamis di bawah hembusan angin (0.50m)
         self.cbf_cfg.cone_deg = 25.0       # Kerucut bias tangensial deadlock
-        self.cbf_cfg.kappa = 0.75          # Dorongan tangensial tangkas bertenaga tinggi melawan angin
+        self.cbf_cfg.kappa = 0.72          # Dorongan tangensial tangkas melawan angin (Trial 3 Winner)
         # Anggaran percepatan yang "dicuri" angin dari otoritas menghindar.
         # BELUM DIIDENTIFIKASI — ini perkiraan, bukan hasil ukur.
         #
@@ -644,7 +644,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         # membuat constraint MUSTAHIL dipenuhi -> QP jatuh ke Tier 2 ->
         # pelanggaran diterima. Terlalu konservatif menghasilkan tabrakan,
         # bukan mencegahnya.
-        self.declare_parameter('cbf_wind_accel', 0.5)
+        self.declare_parameter('cbf_wind_accel', 0.50)
         self.cbf_wind_accel = float(self.get_parameter('cbf_wind_accel').value)
 
         self.cbf = CBFAvoidance(self.cbf_cfg, self.cbf_plant)
@@ -813,6 +813,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
             ref = wp0 + s_long * u_line + (d - s_long * u_line)
         else:
             agent.rviz_nominal_carrot = ref.astype(np.float32)
+
+        if self.enable_obstacles:
+            ref = self._ref_clear(ref)
 
         agent.ref_pos = ref.astype(np.float32)
         agent.cbf_v_prev = res.v_safe
@@ -1911,7 +1914,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'wait_all_start':
                 start_wp = np.array(agent.waypoints[0], dtype=np.float32)
-                agent.ref_pos = start_wp.copy()
+                agent.ref_pos = self._ref_clear(start_wp)
                 self.send_world_twist(did, 0.0, 0.0, agent.yaw)
 
                 alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']

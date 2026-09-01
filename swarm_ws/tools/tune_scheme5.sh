@@ -87,22 +87,27 @@ wait_cool() {
 # ── GRID PARAMETER TUNING SKEMA 5 (5 TRIALS) ─────────────────────────────────
 # Format: "cbf_wind_accel delta_dynamic a_eff kappa relax_range"
 TRIALS=(
-  "0.50 0.45 3.80 0.60 1.60"  # Trial 1: Baseline Robust
-  "0.80 0.50 3.50 0.65 1.80"  # Trial 2: High Wind Resilience & Wide Clearance
-  "0.50 0.50 4.00 0.70 1.60"  # Trial 3: Agile Dynamic Evasion in Wind
-  "0.60 0.45 4.00 0.60 1.60"  # Trial 4: Tight Tracking & Moderate Cushion
-  "0.80 0.50 3.50 0.60 2.00"  # Trial 5: Conservative Wind Safety Cushion
+  "0.50 0.50 4.00 0.70 1.60"  # Trial 1: Exact Champion Configuration
+  "0.50 0.48 4.00 0.70 1.60"  # Trial 2: Agile Dynamic Swerve
+  "0.50 0.50 4.10 0.72 1.60"  # Trial 3: Higher Evasion Thrust Authority
+  "0.50 0.50 4.00 0.68 1.55"  # Trial 4: Tight Swath Tracking
+  "0.52 0.50 4.00 0.70 1.60"  # Trial 5: Balanced Wind Budget
 )
 
 TOTAL_TRIALS=${#TRIALS[@]}
 BEST_COST=999999.0
 BEST_TRIAL=0
+BEST_PARAMS=""
 
 COORD_SCRIPT="$WS_DIR/experiments/test_7drone_voronoi_mapping.py"
 cp "$COORD_SCRIPT" "$COORD_SCRIPT.bak_scheme5"
 
 restore_coord() {
-  if [ -f "$COORD_SCRIPT.bak_scheme5" ]; then
+  if [ -n "$BEST_PARAMS" ]; then
+    apply_params $BEST_PARAMS
+    rm -f "$COORD_SCRIPT.bak_scheme5"
+    echo "  🔒 [KUNCI PARAMETER] Parameter terbaik (Trial $BEST_TRIAL) dikunci permanen di coordinator." | tee -a "$LOG"
+  elif [ -f "$COORD_SCRIPT.bak_scheme5" ]; then
     cp "$COORD_SCRIPT.bak_scheme5" "$COORD_SCRIPT"
     rm -f "$COORD_SCRIPT.bak_scheme5"
   fi
@@ -188,6 +193,7 @@ for i in "${!TRIALS[@]}"; do
   if [ "$is_better" -eq 1 ] && [ "$crash" -eq 0 ]; then
     BEST_COST="$cost"
     BEST_TRIAL="$trial"
+    BEST_PARAMS="$c_wind $d_dyn $a_eff $kap $relax_rng"
     echo "    ⭐ [NEW BEST CANDIDATE!] Trial $trial menjadi konfigurasi terbaik sementara (Cost: $BEST_COST)" | tee -a "$LOG"
     rm -rf "$OUT/best_candidate"
     cp -r "$trial_dir" "$OUT/best_candidate"
