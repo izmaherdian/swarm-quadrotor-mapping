@@ -99,7 +99,9 @@ class PIDHinfNode(Node):
         # Konstanta Fisika dan Matriks Mixer
         self.g = self.params['g']
         self.m = self.params['mass']
-        kf, km = self.act_phys['kf'], self.act_phys['km']
+        self.kf = self.act_phys['kf']
+        self.km = self.act_phys['km']
+        kf, km = self.kf, self.km
         self.w_max, self.w_min = self.act_phys['omega_max'], self.act_phys['omega_min']
         d = self.params['arm_length'] * 0.707106781  # sin(45 deg)
         
@@ -488,25 +490,40 @@ class PIDHinfNode(Node):
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
-        # Dynamic Torque Desaturation (Thrust Priority > Attitude Torques)
-        # Menjamin seluruh motor selalu berada pada rentang aktif 250 - 1050 rad/s tanpa pernah mati (0 rad/s)
-        w_sq_cmd = self.M_inv @ U_cmd
+        # Dynamic Mixer Desaturation with Attitude Priority (Roll/Pitch Torque Priority > Collective Thrust > Yaw)
+        # Menjamin drone SELALU memiliki otoritas torsi penuh untuk level out saat diterpa hembusan angin kencang
         w_floor_sq = 250.0**2
         w_ceil_sq = 1050.0**2
+        
+        w_sq_cmd = self.M_inv @ U_cmd
         if np.min(w_sq_cmd) < w_floor_sq or np.max(w_sq_cmd) > w_ceil_sq:
-            for scale_y in [0.70, 0.40, 0.20, 0.0]:
-                U_cmd_test = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid * scale_y])
-                w_sq_test = self.M_inv @ U_cmd_test
+            # Tahap 1: Kurangi torsi yaw terlebih dahulu (prioritas terendah)
+            desaturated = False
+            for scale_y in [0.70, 0.40, 0.10, 0.0]:
+                U_test = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid * scale_y])
+                w_sq_test = self.M_inv @ U_test
                 if np.min(w_sq_test) >= w_floor_sq and np.max(w_sq_test) <= w_ceil_sq:
                     w_sq_cmd = w_sq_test
+                    desaturated = True
                     break
-            else:
-                for scale in [0.85, 0.70, 0.50, 0.30, 0.10, 0.0]:
-                    U_cmd_scaled = np.array([u_thrust, ux_pid * scale, uy_pid * scale, 0.0])
-                    w_sq_test = self.M_inv @ U_cmd_scaled
-                    if np.min(w_sq_test) >= w_floor_sq and np.max(w_sq_test) <= w_ceil_sq:
-                        w_sq_cmd = w_sq_test
-                        break
+            
+            # Tahap 2: Jika masih saturasi, sesuaikan collective thrust demi MEMPERTAHANKAN torsi roll & pitch 100%
+            if not desaturated:
+                U_diff = np.array([0.0, ux_pid, uy_pid, 0.0])
+                w_sq_diff = self.M_inv @ U_diff
+                diff_span = np.max(w_sq_diff) - np.min(w_sq_diff)
+                max_span = w_ceil_sq - w_floor_sq
+                
+                if diff_span > max_span:
+                    w_sq_diff *= (max_span / max(diff_span, 1e-6))
+                
+                w_sq_base = u_thrust / (4.0 * self.kf)
+                w_sq_base_clamped = np.clip(
+                    w_sq_base,
+                    w_floor_sq - np.min(w_sq_diff),
+                    w_ceil_sq - np.max(w_sq_diff)
+                )
+                w_sq_cmd = w_sq_base_clamped + w_sq_diff
 
         w_cmd = np.sqrt(np.maximum(w_sq_cmd, 0)) 
         w_cmd = np.clip(w_cmd, self.w_min, self.w_max)

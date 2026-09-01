@@ -32,10 +32,19 @@ import numpy as np
 
 
 def phi(h, a_eff, T_d, v_c):
-    """Laju mendekat maksimum yang diizinkan pada clearance h. Menerima skalar/array."""
+    """Laju mendekat maksimum yang diizinkan pada clearance h. Menerima skalar/array.
+    
+    Untuk h >= 0: batasan pengereman kuadratik (akar).
+    Untuk h < 0: pemulihan aktif h_dot >= gamma_recov * |h| (Extended Class-K CBF).
+    """
     h = np.asarray(h, dtype=float)
     disc = a_eff * a_eff * T_d * T_d + 2.0 * a_eff * h - v_c * v_c
-    return np.maximum(0.0, -a_eff * T_d + np.sqrt(np.maximum(0.0, disc)))
+    val_pos = np.maximum(0.0, -a_eff * T_d + np.sqrt(np.maximum(0.0, disc)))
+    
+    # Extended Class-K CBF: phi(h) < 0 untuk h < 0 -> mewajibkan laju keluar n^T u >= gamma * |h|
+    gamma_recov = 1.8
+    val_neg = gamma_recov * h
+    return np.where(h < 0.0, val_neg, val_pos)
 
 
 def phi_zero_h(a_eff, T_d, v_c):
