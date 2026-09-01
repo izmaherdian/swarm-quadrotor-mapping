@@ -60,7 +60,12 @@ def generate_launch_description():
             _spawn_x = arg.split(':=', 1)[1]
         elif arg.startswith('spawn_y:='):
             _spawn_y = arg.split(':=', 1)[1]
-    base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', _results_base)
+    if os.path.isabs(_results_base):
+        base_results_dir = _results_base
+    elif _results_base.startswith('results/'):
+        base_results_dir = os.path.join(ws_root, _results_base)
+    else:
+        base_results_dir = os.path.join(ws_root, 'src', 'swarm_sim', 'results', _results_base)
     config_dir = os.path.join(ws_root, 'src', 'swarm_low_level', 'config')
 
     results_lqr  = os.path.join(base_results_dir, 'pid_lqr')

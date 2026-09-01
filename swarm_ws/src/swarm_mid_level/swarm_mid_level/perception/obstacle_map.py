@@ -41,9 +41,26 @@ WALL_MARGIN = 0.80
 R_MIN, R_MAX = 0.15, 1.20
 
 
+def euler_to_rot(roll, pitch, yaw):
+    """Matriks rotasi 3D dari sudut Euler Z-Y-X (Roll-Pitch-Yaw)."""
+    cr, sr = np.cos(roll), np.sin(roll)
+    cp, sp = np.cos(pitch), np.sin(pitch)
+    cy, sy = np.cos(yaw), np.sin(yaw)
+    return np.array([
+        [cp * cy, sr * sp * cy - cr * sy, cr * sp * cy + sr * sy],
+        [cp * sy, sr * sp * sy + cr * cy, cr * sp * sy - sr * cy],
+        [-sp,     sr * cp,                cr * cp]
+    ], dtype=float)
+
+
 def scan_to_points(ranges, angle_min, angle_inc, x, y, yaw,
-                   range_max=MAX_USE_RANGE):
-    """Pantulan LiDAR -> titik-titik dunia (N, 2)."""
+                   z=2.0, roll=0.0, pitch=0.0,
+                   range_max=MAX_USE_RANGE, z_min=0.35, z_max=3.50):
+    """Pantulan LiDAR -> titik-titik dunia (N, 2) dengan kompensasi 3D tilt & Z-Gating.
+
+    Menolak pantulan lantai/tanah saat hidung drone menunduk (pitch) atau miring (roll)
+    serta pantulan langit-langit/atap.
+    """
     r = np.asarray(ranges, dtype=float)
     n = r.size
     if n == 0:
@@ -51,9 +68,28 @@ def scan_to_points(ranges, angle_min, angle_inc, x, y, yaw,
     ok = np.isfinite(r) & (r > 0.05) & (r < range_max)
     if not ok.any():
         return np.empty((0, 2))
-    a = angle_min + angle_inc * np.arange(n)[ok] + yaw
+
+    angles = angle_min + angle_inc * np.arange(n)[ok]
     d = r[ok]
-    return np.column_stack((x + d * np.cos(a), y + d * np.sin(a)))
+
+    # Koordinat di frame bodi sensor (mount z = +0.08m)
+    xb = d * np.cos(angles)
+    yb = d * np.sin(angles)
+    zb = np.full_like(xb, 0.08)
+    Pb = np.vstack([xb, yb, zb])
+
+    R = euler_to_rot(roll, pitch, yaw)
+    pos_w = np.array([[x], [y], [z]], dtype=float)
+    Pw = pos_w + R @ Pb
+
+    # Z-Gating: buang pantulan tanah (z < z_min) dan langit (z > z_max)
+    zw = Pw[2, :]
+    valid_z = (zw >= z_min) & (zw <= z_max)
+
+    if not valid_z.any():
+        return np.empty((0, 2))
+
+    return Pw[:2, valid_z].T
 
 
 def _reject(pts, others, arena):
@@ -124,9 +160,11 @@ def fit_circle(pts, sensor_xy):
 
 
 def detect(ranges, angle_min, angle_inc, x, y, yaw,
+           z=2.0, roll=0.0, pitch=0.0,
            others=None, arena=None, range_max=MAX_USE_RANGE):
     """Satu scan -> daftar ``(pusat_xy, radius)`` kandidat rintangan."""
-    pts = scan_to_points(ranges, angle_min, angle_inc, x, y, yaw, range_max)
+    pts = scan_to_points(ranges, angle_min, angle_inc, x, y, yaw,
+                         z=z, roll=roll, pitch=pitch, range_max=range_max)
     pts = _reject(pts, others, arena)
     out = []
     for c in _clusters(pts):
@@ -147,14 +185,61 @@ class ObstacleMap:
     dirata-rata berjalan supaya derau satu frame tidak menggeser peta.
     """
 
-    def __init__(self, assoc_dist=1.20, min_hits=4, radius_pad=0.05,
-                 move_reject=0.70, move_strikes=3):
+    def __init__(self, assoc_dist=1.20, min_hits=12, radius_pad=0.05,
+                 move_reject=0.70, move_strikes=3, merge_dist=1.30):
         self.assoc_dist = float(assoc_dist)
+        # 12, bukan 4. Silinder ASLI mengumpulkan ribuan hit; hantu berhenti
+        # di 5-8. Ambang 4 meloloskan hantu itu ke QP, dan drone memutarinya —
+        # "gerak melingkar padahal tidak ada apa-apa". Pada 10 Hz, 12 hit =
+        # 1.2 s; deteksi mulai 8 m sementara drone hanya 1.6 m/s, jadi
+        # konfirmasi tetap datang jauh sebelum rintangan tercapai.
         self.min_hits = int(min_hits)
         self.radius_pad = float(radius_pad)
         self.move_reject = float(move_reject)
         self.move_strikes = int(move_strikes)
+        # Satu silinder yang dilihat dari dua sisi bisa melahirkan dua jalur
+        # berjarak ~1.1 m (terukur). Keduanya lalu jadi "rintangan" terpisah
+        # dan drone memutari benda yang sama dua kali.
+        self.merge_dist = float(merge_dist)
         self._tracks = []   # {'c', 'r', 'n', 'c0', 'out', 'moving'}
+
+    def _merge_close(self):
+        """Gabungkan jalur yang terlalu berdekatan untuk jadi benda berbeda.
+
+        Dijalankan setelah tiap pembaruan. Jalur dengan hit terbanyak menang;
+        pusat dan radius dirata-rata berbobot jumlah hit, sehingga jalur satelit
+        yang tipis tidak menggeser jalur utama yang sudah mapan.
+        """
+        merged = True
+        while merged:
+            merged = False
+            for i in range(len(self._tracks)):
+                for j in range(i + 1, len(self._tracks)):
+                    a, b = self._tracks[i], self._tracks[j]
+                    # HANYA jalur matang. `merge_dist` (1.30) lebih besar dari
+                    # `assoc_dist` (1.20), jadi tanpa syarat ini setiap jalur
+                    # yang baru lahir langsung tergabung balik ke induknya —
+                    # termasuk pecahan benda BERGERAK, yang lalu terkumpul
+                    # hit-nya dan lolos sebagai rintangan statis.
+                    if a['n'] < self.min_hits or b['n'] < self.min_hits:
+                        continue
+                    if float(np.linalg.norm(a['c'] - b['c'])) >= self.merge_dist:
+                        continue
+                    # Hapus lewat INDEKS: `list.remove` memakai `==`, dan
+                    # dict ini berisi array numpy sehingga perbandingannya
+                    # ambigu (ValueError).
+                    ki, di = (i, j) if a['n'] >= b['n'] else (j, i)
+                    keep, drop = self._tracks[ki], self._tracks[di]
+                    w = drop['n'] / float(keep['n'] + drop['n'])
+                    keep['c'] = (1.0 - w) * keep['c'] + w * drop['c']
+                    keep['r'] = (1.0 - w) * keep['r'] + w * drop['r']
+                    keep['n'] += drop['n']
+                    keep['moving'] = bool(keep['moving'] and drop['moving'])
+                    del self._tracks[di]
+                    merged = True
+                    break
+                if merged:
+                    break
 
     def update(self, detections):
         """Gabungkan deteksi satu scan ke peta. Kembalikan jumlah jalur baru."""
@@ -212,6 +297,8 @@ class ObstacleMap:
                     best['moving'] = True
             else:
                 best['out'] = 0
+        if added:
+            self._merge_close()
         return added
 
     def confirmed(self):

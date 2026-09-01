@@ -203,9 +203,23 @@
 
 Swarm quadrotor systems support autonomous geodetic mapping in disaster response,
 precision agriculture, environmental surveillance, and infrastructure inspection.
-Partitioning a territory among several agents converts a sequential survey into a
-parallel one, but doing so requires region partitioning, robust flight control under
-disturbance, and continued operation after agent failure.
+Partitioning a territory among several agents converts a sequential survey into a parallel
+one, and the saving grows with the size of the area.
+
+The demands this places on the system are easiest to see in a concrete case. Consider
+mapping a landslide scar a few hundred metres across, a few days after the event. The
+boundary is irregular and encloses ground that must not be overflown, so the survey region
+is non-convex. Debris and standing structures are not on any map, so obstacles must be
+found in flight instead of looked up. Gusts channel through the terrain, and a quadrotor
+that drifts off its sweep line leaves a gap in the map, not merely a tracking error. If one
+vehicle is lost, the area it had been assigned is still unsurveyed, and the remaining
+vehicles have to absorb it before the light goes. A system that handles only the first of
+these is of little use in the field.
+
+Meeting all four demands at once therefore requires region partitioning that tolerates
+non-convex geometry, obstacle handling that does not presume prior knowledge, flight
+control that holds a line under disturbance, and coverage that survives the loss of an
+agent.
 
 Four gaps persist across the literature reviewed in the next section. First, most
 coverage algorithms assume a \emph{convex} operational region
@@ -216,20 +230,30 @@ developed and reported separately, hiding the integration mismatches that appear
 when they are connected. Third, fault tolerance under actuator or communication failure
 is underexplored \cit{okeeffeAnticipatingDegradation2025}, although the probability that
 \emph{some} agent fails grows with swarm size. Fourth, validation is predominantly
-carried out on kinematic point-mass models rather than full quadrotor dynamics
+carried out on kinematic point-mass models, not on full quadrotor dynamics
 \cit{belkheiriLinearizationControl2012}; path lengths, mission durations, and safety
 margins obtained that way are measured on a vehicle whose tilt limit, motor lag, and
 dead time do not exist.
 
-This paper contributes: (i) a polygon-aware coverage planner whose extremal sweep rows
-follow the cell boundary, eliminating the unswept wedges a fixed-pitch sweep leaves at
-tapered corners; (ii) a CBF-QP that folds static obstacles, moving obstacles, arena
-walls, and reciprocal inter-agent spacing into one quadratic program with an
-actuator-consistent class-$\mathcal{K}$ function derived from the identified closed-loop
-plant; (iii) a like-for-like comparison of LQR and $H_\infty$ gain synthesis on an
-identical cascade, including the selection procedure for the attenuation bound $\gamma$;
-and (iv) an evaluation on full six-degree-of-freedom dynamics over three non-convex
-regions, under nominal, turbulent, and agent-failure conditions.
+This paper makes four contributions.
+
+\begin{enumerate}[nosep,leftmargin=*,topsep=4pt,label=(\roman*)]
+    \item A polygon-aware coverage planner whose extremal sweep rows follow the cell
+          boundary. This removes the unswept wedges that a fixed-pitch sweep leaves at
+          tapered corners.
+    \item A CBF-QP that folds static obstacles, moving obstacles, arena walls, and
+          reciprocal inter-agent spacing into a single quadratic program. Its
+          class-$\mathcal{K}$ function is derived from the identified closed-loop plant, so
+          every admissible command is one the vehicle can execute.
+    \item A like-for-like comparison of LQR and $H_\infty$ gain synthesis on an identical
+          cascade, including an explicit procedure for selecting the attenuation bound
+          $\gamma$.
+    \item An evaluation on full six-degree-of-freedom dynamics over three non-convex
+          regions, under nominal, turbulent, and agent-failure conditions.
+\end{enumerate}
+
+The remainder of the paper surveys the related literature, describes the three layers and
+the simulation environment, and reports the measured results.
 
 % =====================================================================
 \headingone{Related Work}
@@ -266,7 +290,7 @@ leaves systematic gaps at tapered corners --- precisely the geometry that non-co
 Voronoi partitioning produces most often. Route optimisation in this family typically
 targets the number of turns and the total path length
 \cit{huRoutePlanning2021,galceranCoveragePathPlanning2013}, and is normally evaluated on
-kinematic agents, so the turn cost is a count rather than a dynamic penalty.
+kinematic agents, so the turn cost is a count and carries no dynamic penalty.
 
 \headingtwo{Reciprocal Collision Avoidance and Safety Filters}
 
@@ -280,7 +304,7 @@ canonical formulation the class-$\mathcal{K}$ function is linear, $\alpha(h)=\ga
 with $\gamma$ chosen by tuning. That choice is adequate when the actuator can deliver the
 implied deceleration, but a quadrotor's lateral acceleration is bounded by its tilt limit
 and its command path carries dead time, so the admissible approach speed near contact is
-dictated by braking capability rather than by a tuning constant. The barrier used here,
+dictated by braking capability, not by a tuning constant. The barrier used here,
 Eq.~\eqref{eq:e14}, is derived from that braking capability directly.
 
 \headingtwo{Fault Tolerance in Swarms}
@@ -291,7 +315,7 @@ predictive alternative, resolving degradation before it becomes failure, and rep
 comparable or better performance than a reactive baseline. The mechanism used here is
 reactive by design --- heartbeat timeout, compound-polygon merge, helper reallocation ---
 because the failures of interest are abrupt losses rather than gradual degradation, but
-the two are complementary rather than exclusive.
+the two approaches are complementary.
 
 % =====================================================================
 \headingone{Methodology}
@@ -305,18 +329,33 @@ reference and outputs rotor speeds. Odometry closes the loop at every level. The
 machine never writes a velocity command directly: it writes a desired velocity that is
 filtered through the QP in a single function, so the avoidance layer is separable from
 the planner.
+
+The stack is formulated per agent. Each vehicle carries its own state machine, its own
+sweep assignment, and its own two-variable quadratic program, and the constraint rows of
+that program need nothing beyond the agent's own state, the positions and manoeuvring
+weights of its neighbours, and the confirmed obstacle set. Nothing in the formulation
+requires a global optimisation. The present study nevertheless executes all seven agents
+inside a single coordinator process, because the reciprocal split of Eq.~\eqref{eq:lambda}
+is exact only when both weights are read from the same instant; a deployment that
+distributes the agents across vehicles would have to work with neighbour weights that
+arrive over a link and may be stale, which is taken up among the limitations.
 % Diagram arsitektur: docs/Diagram-Swarm-Quadrotor-Mapping-v1.jpg, disalin ke
 % figures/architecture.jpg. Versi v1 sudah memuat label yang benar (CBF-QP
 % Solver; Gazebo Harmonic Physics tanpa PX4 SITL), jadi tidak perlu koreksi.
-% CATATAN: teks "Coverage >= 95%" tercetak di dalam JPG dan TIDAK bisa diubah
-% dari LaTeX — kalau angka final sudah masuk, perbarui gambarnya di drawio.
+% Sumbernya Diagram-Swarm-Quadrotor-Mapping.drawio (1 Sep 2026), sudah selaras
+% dengan naskah: CBF-QP Solver, "Reciprocal Collision Avoidance", Gazebo tanpa
+% PX4 SITL, dan keluaran misi tanpa angka coverage yang dipakukan.
+% Kalau .drawio diubah lagi: ekspor JPG -> timpa docs/…-v1.jpg -> salin ke sini.
 \begin{figure}[tbp]
     \centering
     \includegraphics[width=\textwidth]{figures/architecture.jpg}
-    \caption{Three-layer control architecture for resilient swarm geodetic mapping. Each
-        agent runs the full stack locally and communicates over a peer-to-peer DDS mesh.
-        Command signals flow downward, state feedback upward, and heartbeat loss triggers
-        re-partitioning in the FT-CC module.}
+    \caption{Three-layer control architecture for resilient swarm geodetic mapping. The
+        per-agent stacks show how the method is formulated: every vehicle carries the full
+        stack and needs only its neighbours' states, which is what would allow the agents to
+        be distributed. In the study reported here the seven stacks are executed inside one
+        coordinator process, so that the reciprocal responsibility split is computed from a
+        single swarm snapshot. Command signals flow downward, state feedback upward, and
+        heartbeat loss triggers re-partitioning in the FT-CC module.}
     \label{fig:arch}
 \end{figure}
 
@@ -356,7 +395,7 @@ centroidal Voronoi coverage control
     |V_i^{(k)}|=\iint_{V_i^{(k)}}\mathrm{d}A,
 \end{equation}
 
-run for $12$ iterations. Clipping acts on the polygon itself rather than a bounding box,
+run for $12$ iterations. Clipping acts on the polygon itself and not on a bounding box,
 so concave boundaries and interior exclusions need no diffeomorphism, geodesic metric, or
 auxiliary markers \citt{leeAdaptiveCentroidalVoronoi2024}{breitenmoserVoronoiCoverage2010}. Each cell is then eroded by a margin
 $\delta_c=0.35$~m before planning \cit{caoDistributedWeightedCoverage2023}.
@@ -534,7 +573,7 @@ Figure~\ref{fig:wedge} contrasts the two constructions.
     \label{fig:wedge}
 \end{figure}
 
- Chain vertices closer
+Chain vertices closer
 than $\ell_{\min}=0.60$~m are merged: a segment shorter than the braking distance at cruise
 speed cannot be decelerated into and appears as end-of-row overshoot, while the sensor
 radius $r_s=0.95$~m keeps the merged vertices covered. The entry end of $\mathcal{C}^-_i$ is
@@ -566,7 +605,7 @@ after $n_{\min}=4$ sightings,
 with the centre and radius kept as running means so that a single noisy frame cannot shift
 the map. The confirmation threshold is what keeps edge reflections and missed drone
 rejections from populating the map with phantom cylinders; a track whose centre drifts
-further than $0.70$~m from its anchor is discarded as a moving object rather than promoted.
+further than $0.70$~m from its anchor is discarded as a moving object and never promoted.
 
 When a track is confirmed, the agents whose swept cells its keep-out disc intersects
 replan. Only rows \emph{above} the current sweep line are replaced: sweeps run bottom to
@@ -809,7 +848,7 @@ inequality on the control input, and pairing it with a quadratic program yields 
 invasive safety filter \citt{amesControlBarrierFunction2017}{amesControlBarrierFunctions2019};
 the reciprocal multi-agent form is due to Wang \emph{et al.}
 \cit{wangSafetyBarrierCertificates2017}. This section instantiates that construction with a
-class-$\mathcal{K}$ function derived from the vehicle rather than tuned.
+class-$\mathcal{K}$ function that is derived from the vehicle, not tuned.
 
 \headingthree{Closed-Loop Plant Identification}
 
@@ -840,7 +879,7 @@ exact stopping distance from speed $s$,
     \label{eq:e12}
     D(s)=
     \begin{cases}
-        \dfrac{s^2+v_c^2}{2a_{\max}}, & s>v_c,   \\[8pt]
+        \dfrac{s^2+v_c^2}{2a_{\max}}, & s>v_c,    \\[8pt]
         \dfrac{s}{k_v},               & s\le v_c.
     \end{cases}
 \end{equation}
@@ -1013,7 +1052,7 @@ inadmissible near $h\to 0$. Figure~\ref{fig:barrier} shows both properties.
     \label{fig:barrier}
 \end{figure}
 
- The acceleration budget per constraint class $c$ is
+The acceleration budget per constraint class $c$ is
 
 \begin{equation}
     \label{eq:e16}
@@ -1043,7 +1082,7 @@ obstacle $k$,
 
 Because the row normal is $-\hat{\mathbf{n}}_k$, the active-constraint solution is a pure
 normal correction, $\mathbf{u}^\star=\mathbf{v}_{\mathrm{nom}}+(\beta-
-\hat{\mathbf{n}}^{\!\top}\mathbf{v}_{\mathrm{nom}})\hat{\mathbf{n}}$: the tangential
+    \hat{\mathbf{n}}^{\!\top}\mathbf{v}_{\mathrm{nom}})\hat{\mathbf{n}}$: the tangential
 component passes through unchanged and the agent skirts the obstacle while still making
 progress. Inter-agent rows are reciprocal, with responsibility split
 $\lambda_{ij}+\lambda_{ji}=1$ weighted by mission state as set out below, and are issued at
@@ -1066,7 +1105,7 @@ Arena walls and sweep-row stop planes use the outward normal directly,
 \end{equation}
 
 which replaces the hand-tuned end-of-row feedforward ramp: zero overshoot follows from the
-same theorem rather than from a tuned constant. Speed and rate limits are inscribed regular
+same theorem, not from a tuned constant. Speed and rate limits are inscribed regular
 $n$-gons, guaranteed never to overstate the true disc,
 
 \begin{equation}
@@ -1104,8 +1143,9 @@ intersection of a pair, so the complete KKT candidate set
 
 of $1+m+\binom{m}{2}$ points is enumerated, filtered for feasibility, and minimised over.
 The result is exact rather than iterative, with no convergence tolerance and no silent
-failure. All agents are solved from a single swarm snapshot, which is what makes the
-reciprocal split exact.
+failure. In this study all agents are solved from a single swarm snapshot, which is what makes the
+reciprocal split exact; the rows themselves are per agent, so the same formulation admits a
+distributed implementation once stale neighbour weights are accounted for.
 
 Each agent carries a manoeuvring willingness $w_i$ fixed by its mission state, and a pair
 splits the avoidance burden in proportion to it,
@@ -1118,11 +1158,11 @@ splits the avoidance burden in proportion to it,
 \end{equation}
 
 so summing the two agents' rows recovers the joint condition $\dot h\ge-\varphi(h)$ with no
-communication or negotiation. The weights encode who gives way: an agent sweeping a row or
-holding its start yaw takes $w=0.25$ and is protected, keeping its mapped line straight; an
-agent pausing at a row end takes $w=0.50$; an agent in transit, stepping between rows, or
-returning to its centroid takes $w=1.00$; and an agent already finished or waiting for the
-swarm takes $w=1.50$ and yields to everyone.
+communication or negotiation. The weights encode who gives way. An agent sweeping a row or holding its
+start yaw takes $w=0.25$, so it is protected and its mapped line stays straight. An agent
+pausing at a row end takes $w=0.50$, and one in transit, stepping between rows, or
+returning to its centroid takes $w=1.00$. An agent that has finished, or is waiting for the
+swarm, takes $w=1.50$ and yields to everyone.
 
 Feasibility is not assumed. Constraint classes are partitioned in advance into \emph{hard}
 (static obstacles, moving obstacles, the minimum inter-agent radius), \emph{soft} (arena
@@ -1156,13 +1196,13 @@ the vehicle cannot produce. Figure~\ref{fig:qp} shows both cases.
 \begin{figure}[tbp]
     \centering
     \begin{tikzpicture}[
-            every node/.style={font=\scriptsize},
-            lbl/.style={font=\tiny},
-            plab/.style={font=\small},
-            hardl/.style={draw=red!65!black, line width=0.9pt},
-            softl/.style={draw=black!50, line width=0.75pt, dash pattern=on 2.2pt off 1.5pt},
-            kinl/.style={draw=layerlow, line width=0.9pt},
-            lead/.style={-{Latex[scale=0.6]}, line width=0.4pt}
+        every node/.style={font=\scriptsize},
+        lbl/.style={font=\tiny},
+        plab/.style={font=\small},
+        hardl/.style={draw=red!65!black, line width=0.9pt},
+        softl/.style={draw=black!50, line width=0.75pt, dash pattern=on 2.2pt off 1.5pt},
+        kinl/.style={draw=layerlow, line width=0.9pt},
+        lead/.style={-{Latex[scale=0.6]}, line width=0.4pt}
         ]
         % oktagon: pusat (2.0,1.8), circumradius 1.6
         \def\Oct{(3.60,1.80) -- (3.13,2.93) -- (2.00,3.40) -- (0.87,2.93) --
@@ -1244,8 +1284,8 @@ the vehicle cannot produce. Figure~\ref{fig:qp} shows both cases.
         never released, so no tier can command a velocity the vehicle cannot produce.}
     \label{fig:qp}
 \end{figure}
- The fraction of ticks resolved above Tier~0 is reported as
-$P(\mathrm{tier}>0)$; a value near zero means the ladder is a safety net rather than an
+The fraction of ticks resolved above Tier~0 is reported as
+$P(\mathrm{tier}>0)$; a value near zero means the ladder is a safety net, not an
 operating mode. Deadlock recovery adds a locked tangential bias to the objective target
 only,
 
@@ -1275,6 +1315,176 @@ $(\tau_x,\tau_y,\tau_z)$, the rigid-body dynamics are \cit{beardSmallUnmannedAir
     I\dot{\boldsymbol{\omega}}+\boldsymbol{\omega}\times I\boldsymbol{\omega}=\boldsymbol{\tau}.
 \end{equation}
 
+Figure~\ref{fig:fbd} is the free-body diagram and fixes the conventions used throughout.
+
+% ---------------------------------------------------------------------
+% Free-body diagram quadrotor.
+% KONVENSI: ENU (z ke ATAS), sesuai Eq. m*pddot = [0,0,-mg] + R[0,0,T].
+% JANGAN diganti NED tanpa mengubah persamaan itu juga.
+% Drag TIDAK digambar: model di naskah ini memang tidak memuatnya.
+% Tata letak rotor diturunkan dari matriks mixer (lihat komentar Eq. mixer).
+% Proyeksi isometrik manual: sx = 0.866(X-Y), sy = 0.5(X+Y) + Z.
+% ---------------------------------------------------------------------
+% SATU gambar free-body diagram 6-DOF. Menggantikan dua gambar terpisah.
+% KONVENSI: ENU (z ATAS), sesuai m*pddot = [0,0,-mg] + R[0,0,T].
+%           Drag TIDAK digambar — model di naskah ini tidak memuatnya.
+% Tata letak rotor diturunkan dari matriks mixer pid_lqr_node.py:
+%   tau_x = kf*d(-w1+w2+w3-w4) -> y = (-d,+d,+d,-d)
+%   tau_y = kf*d(-w1+w2-w3+w4) -> x = (-d,+d,-d,+d)
+%   tau_z = km(-w1-w2+w3+w4)   -> pasangan diagonal {1,2} vs {3,4}
+% Proyeksi isometrik: sx = 0.866(X-Y), sy = 0.5(X+Y) + Z.
+% Panjang lengan l diuraikan jadi d di x_B dan d di -y_B (garis putus-putus),
+% itulah cara menampilkan d = l sin45 tanpa panel tampak-atas terpisah.
+% ---------------------------------------------------------------------
+\begin{figure}[tbp]
+    \centering
+    \begin{tikzpicture}[
+        every node/.style={font=\scriptsize},
+        lbl/.style={font=\tiny},
+        arm/.style={line width=2.1pt, draw=black!60, line cap=round},
+        rot/.style={circle, draw=black!72, line width=0.65pt, fill=black!7,
+                minimum size=0.60cm, inner sep=0pt},
+        blade/.style={draw=black!55, line width=0.5pt, fill=black!4},
+        thr/.style={-{Latex[scale=0.9]}, draw=layersim, line width=1.25pt},
+        tq/.style={-{Latex[scale=0.62]}, draw=layermid, line width=0.75pt},
+        eul/.style={-{Latex[scale=0.72]}, draw=layerhigh, line width=0.9pt},
+        bax/.style={-{Latex[scale=0.8]}, draw=black!85, line width=0.8pt},
+        wax/.style={-{Latex[scale=0.8]}, draw=black!50, line width=0.75pt},
+        dimn/.style={{Latex[scale=0.5]}-{Latex[scale=0.5]}, draw=black!65, line width=0.4pt},
+        gline/.style={draw=black!40, line width=0.35pt, dashed}
+        ]
+
+        % ================= kerangka inersia {W} =================
+        \begin{scope}[shift={(2.15,0.70)}]
+            \fill[black!8, draw=black!40, line width=0.4pt]
+            (0,0) -- (1.30,0.75) -- (0.34,1.30) -- (-0.96,0.55) -- cycle;
+            \fill[black!80] (0,0) circle (0.055);
+            \draw[wax] (0,0) -- (1.58,0.91) node[lbl, right, inner sep=1.5pt] {$x_W$};
+            \draw[wax] (0,0) -- (-1.42,0.82) node[lbl, left, inner sep=1.5pt] {$y_W$};
+            \draw[wax] (0,0) -- (0,1.78) node[lbl, above, inner sep=1.5pt] {$z_W$};
+            \node[lbl, anchor=north, align=center] at (0.05,-0.22)
+            {inertial frame $\{W\}$\\east--north--up};
+        \end{scope}
+
+        % gravitasi
+        \draw[-{Latex[scale=0.9]}, black!85, line width=1.1pt] (0.10,3.05) -- (0.10,2.00);
+        \node[lbl, anchor=south, align=center] at (0.10,3.12) {gravity\\$-z_W$};
+
+        % rotasi badan -> dunia
+        \draw[-{Latex[scale=0.85]}, black!70, line width=0.75pt, dashed]
+        (3.95,2.05) to[bend left=20] (6.30,2.72);
+        \node[lbl, anchor=south] at (5.15,2.96) {$R^W_B(\phi,\theta,\psi)$};
+
+        % ================= wahana =================
+        \begin{scope}[shift={(9.05,2.05)}, rotate=-12, scale=1.08]
+            \coordinate (c)  at (0,0);
+            \coordinate (p1) at (0,-1.15);       % body (-d,-d)
+            \coordinate (p2) at (0, 1.15);       % body (+d,+d)
+            \coordinate (p3) at (-1.99,0);       % body (-d,+d)
+            \coordinate (p4) at ( 1.99,0);       % body (+d,-d)
+
+            % uraian lengan: komponen d sepanjang x_B (komponen -y_B sama besar)
+            \draw[gline] (c) -- (0.995,0.575) -- (p4);
+            \draw[dimn] (0.34,-0.30) -- (1.26,0.23);
+            % Label ditempatkan EKSPLISIT di bawah garis dimensi. Anchor
+            % above/below bawaan menaruhnya di y~0.06, tepat di atas lengan
+            % rotor 3-4 yang merupakan garis horizontal y=0.
+            \node[lbl, inner sep=1pt] at (0.98,-0.2) {$d$};
+
+            \draw[arm] (p1) -- (p2);
+            \draw[arm] (p3) -- (p4);
+            \fill[black!16, draw=black!60, line width=0.6pt] (c) circle (0.27);
+
+            \foreach \p/\n in {p1/1, p2/2, p3/3, p4/4}{
+                    \draw[blade] (\p) ellipse (0.46 and 0.19);
+                    \draw[thr] (\p) -- ++(0,1.20);
+                    \node[rot] at (\p) {\fontsize{5.4}{6}\selectfont\bfseries \n};}
+
+            % torsi reaksi pada cakram rotor: diagonal {1,2} vs {3,4} berlawanan
+            \foreach \p in {p1,p2}
+            \draw[tq] ([shift={(18:0.44 and 0.185)}]\p) arc (18:-262:0.44 and 0.185);
+            \foreach \p in {p3,p4}
+            \draw[tq] ([shift={(162:0.44 and 0.185)}]\p) arc (162:442:0.44 and 0.185);
+
+            % panjang lengan
+            \draw[dimn] (-0.20,-0.24) -- node[lbl, below, inner sep=1.5pt] {$l$} (-1.90,-0.24);
+
+            % sumbu badan
+            \draw[bax] (c) -- (1.88,1.086) node[lbl, above right, inner sep=1pt] {$x_B$};
+            \draw[bax] (c) -- (-1.88,1.086) node[lbl, above left, inner sep=1pt] {$y_B$};
+            \draw[bax] (c) -- (0,1.92) node[lbl, left, inner sep=2pt] {$z_B$};
+
+            % sudut Euler di ujung tiap sumbu
+            % busur di TENGAH sumbu, label sudut di sisi luar busur
+            \begin{scope}[shift={(1.34,0.774)}, rotate=120]
+                \draw[eul] (0.23,0) arc (0:282:0.23 and 0.095);
+            \end{scope}
+            \node[lbl, text=layerhigh] at (1.62,0.44) {$\phi$};
+            \begin{scope}[shift={(-1.34,0.774)}, rotate=60]
+                \draw[eul] (0.23,0) arc (0:282:0.23 and 0.095);
+            \end{scope}
+            \node[lbl, text=layerhigh] at (-1.62,0.44) {$\theta$};
+            \draw[eul] (0.29,2.16) arc (0:292:0.29 and 0.145);
+            \node[lbl, text=layerhigh] at (0.52,2.30) {$\psi$};
+
+            % ditaruh di ruang kosong bawah-kiri, bukan di kanan: sisi kanan
+            % sudah dipakai kotak anotasi.
+            \node[lbl, text=layersim, anchor=west] at (-2.95,-1.28) {$T_i=k_f\omega_i^2$};
+            \node[lbl, text=layermid, anchor=west] at (-2.95,-1.70) {$\tau_i=k_m\omega_i^2$};
+        \end{scope}
+
+        % pusat massa dan berat
+        \fill[black!85] (9.05,2.05) circle (0.055);
+        \draw[gline] (9.05,2.05) -- (10.72,2.05);
+        \draw[-{Latex[scale=0.9]}, black!85, line width=1.0pt] (10.72,2.05) -- (10.72,0.62);
+        \node[lbl, anchor=west] at (10.80,0.76) {$mg$};
+
+        % ================= blok anotasi =================
+        \begin{scope}[shift={(12.30,0.42)}]
+            \draw[black!35, line width=0.4pt, rounded corners=2pt] (-0.22,-0.18) rectangle (3.34,3.02);
+            \node[lbl, anchor=north west, align=left] at (-0.05,2.90)
+            {\textbf{Six degrees of freedom}\\[1pt]
+                position $\mathbf{p}=(x,y,z)$ in $\{W\}$\\
+                attitude $(\phi,\theta,\psi)$ of $\{B\}$};
+            \draw[black!25, line width=0.35pt] (-0.05,1.94) -- (3.17,1.94);
+            \node[lbl, anchor=north west, align=left] at (-0.05,1.86)
+            {\textbf{Moments from the mixer}\\[1pt]
+                $\tau_x>0:\ \omega_2,\omega_3$ raised\\
+                $\tau_y>0:\ \omega_2,\omega_4$ raised\\
+                $\tau_z>0:\ \omega_3,\omega_4$ raised};
+            \draw[black!25, line width=0.35pt] (-0.05,0.66) -- (3.17,0.66);
+            \node[lbl, anchor=north west, align=left] at (-0.05,0.58)
+            {$T\cos\theta=mg\ \Rightarrow\ a=g\tan\theta$\\
+                $a_{\max}=g\tan\theta_{\max}$};
+        \end{scope}
+
+    \end{tikzpicture}
+    \caption{Free-body diagram of the quadrotor and the conventions used throughout. The
+        inertial frame $\{W\}$ is east--north--up, so gravity acts along $-z_W$ and the
+        translational dynamics take the form of Eq.~\eqref{eq:e24}; $R^W_B(\phi,\theta,\psi)$
+        maps body to world; the weight acts at the centre of mass, marked by the dot. Roll $\phi$ is about $x_B$, pitch $\theta$ about $y_B$ and yaw
+        $\psi$ about $z_B$ shown in their positive senses. Rotor $i$ produces thrust
+        $T_i=k_f\omega_i^2$ along $+z_B$ and a reaction torque $\tau_i=k_m\omega_i^2$ opposing
+        its own rotation; the diagonal pairs $\{1,2\}$ and $\{3,4\}$ counter-rotate, so the
+        reaction torques cancel in hover and net yaw comes from unbalancing them. The dashed
+        construction resolves the arm $l$ into its components $d=l\sin45^\circ$ along $x_B$
+        and $-y_B$, the moment arm over which differential thrust produces roll and pitch.
+        Because altitude is held, $T\cos\theta=mg$ and the tilt limit caps lateral
+        acceleration at $a_{\max}=g\tan\theta_{\max}$ --- the bound on which the barrier of
+        Eq.~\eqref{eq:e14} is built, which is what ties the safety layer to the vehicle rather
+        than to a tuning constant. Aerodynamic drag is not shown because it is not modelled
+        here; its omission is revisited among the limitations.}
+    \label{fig:fbd}
+\end{figure}
+
+
+% ---------------------------------------------------------------------
+% Skematik quadrotor + gaya + konvensi roll/pitch/yaw.
+% Tata letak rotor DITURUNKAN dari matriks mixer (pid_lqr_node.py):
+%   tau_x = kf*d(-w1+w2+w3-w4)  -> y = (-d,+d,+d,-d)
+%   tau_y = kf*d(-w1+w2-w3+w4)  -> x = (-d,+d,-d,+d)
+%   tau_z = km(-w1-w2+w3+w4)    -> pasangan diagonal {1,2} vs {3,4}
+% Proyeksi isometrik manual: sx=(X-Y)cos30, sy=(X+Y)sin30+Z.
 Linearising about hover ($\phi,\theta\approx 0$, $T\approx mg$) decouples the system into
 four double-integrator subsystems, each of the form
 $\dot{\mathbf{x}}=A\mathbf{x}+Bu$, $y=C\mathbf{x}$ with
@@ -1327,13 +1537,13 @@ equation (HARE) \cit{doyleStateSpaceHinf1989} instead,
     \tilde R=\begin{bmatrix}R_a&0\\0&-\gamma^2 I\end{bmatrix},
 \end{equation}
 
-so that the closed loop satisfies $\|T_{zw}\|_\infty<\gamma$. Both syntheses produce a
-state-feedback gain $K_a$ that is mapped onto the PID triple through the structure matrix
+so that the closed loop satisfies $\|T_{zw}\|_\infty<\gamma$. Both syntheses produce a state-feedback gain $K_a$. It is mapped onto the PID triple
+through the structure matrix
 
 \begin{equation}
     \label{eq:e29}
     \Gamma=\begin{bmatrix}
-        C^{\!\top} & (CA)^{\!\top} & (CA^2)^{\!\top}\\[2pt]
+        C^{\!\top} & (CA)^{\!\top} & (CA^2)^{\!\top} \\[2pt]
         0          & (CB)^{\!\top} & (CAB)^{\!\top}
     \end{bmatrix},
     \qquad
@@ -1389,14 +1599,14 @@ Figure~\ref{fig:cascade} shows the resulting cascade.
 \begin{figure}[tbp]
     \centering
     \begin{tikzpicture}[
-            every node/.style={font=\scriptsize},
-            blk/.style={draw, rounded corners=2pt, line width=0.7pt, align=center,
-                    minimum height=0.85cm, minimum width=1.7cm, fill=white, inner sep=2.5pt},
-            sum/.style={circle, draw, line width=0.6pt, inner sep=0pt, minimum size=0.44cm},
-            sig/.style={-{Latex[scale=0.85]}, line width=0.75pt},
-            fb/.style={-{Latex[scale=0.85]}, line width=0.6pt, dashed, black!60},
-            lbl/.style={font=\tiny, inner sep=1.8pt},
-            note/.style={font=\tiny, align=center, inner sep=1.5pt}
+        every node/.style={font=\scriptsize},
+        blk/.style={draw, rounded corners=2pt, line width=0.7pt, align=center,
+                minimum height=0.85cm, minimum width=1.7cm, fill=white, inner sep=2.5pt},
+        sum/.style={circle, draw, line width=0.6pt, inner sep=0pt, minimum size=0.44cm},
+        sig/.style={-{Latex[scale=0.85]}, line width=0.75pt},
+        fb/.style={-{Latex[scale=0.85]}, line width=0.6pt, dashed, black!60},
+        lbl/.style={font=\tiny, inner sep=1.8pt},
+        note/.style={font=\tiny, align=center, inner sep=1.5pt}
         ]
 
         % ================= baris utama (y = 0) =================
@@ -1446,7 +1656,7 @@ Figure~\ref{fig:cascade} shows the resulting cascade.
         \node[blk, minimum width=3.1cm, minimum height=1.0cm, draw=layerhigh,
             fill=layerhigh!10] (syn) at (2.95,-3.75)
         {Gain synthesis\\[-1pt]\scriptsize LQR: ARE, Eq.~\eqref{eq:e27}\\[-2pt]
-        \scriptsize $H_\infty$: HARE, Eq.~\eqref{eq:e28}};
+            \scriptsize $H_\infty$: HARE, Eq.~\eqref{eq:e28}};
         \draw[-{Latex[scale=0.8]}, layerhigh, line width=0.7pt, dotted]
         (2.35,-3.25) -- (2.35,-1.55) -- (2.35,-0.45);
         \draw[-{Latex[scale=0.8]}, layerhigh, line width=0.7pt, dotted]
@@ -1504,10 +1714,10 @@ manoeuvres. Rotor speeds follow by inverting the mixer, with $d=l\sin 45^\circ$,
     \label{eq:e35}
     \begin{bmatrix}T\\\tau_x\\\tau_y\\\tau_z\end{bmatrix}
     =\underbrace{\begin{bmatrix}
-            k_f    & k_f   & k_f   & k_f    \\
-            -k_fd  & k_fd  & k_fd  & -k_fd  \\
-            -k_fd  & k_fd  & -k_fd & k_fd   \\
-            -k_m   & -k_m  & k_m   & k_m
+            k_f   & k_f  & k_f   & k_f   \\
+            -k_fd & k_fd & k_fd  & -k_fd \\
+            -k_fd & k_fd & -k_fd & k_fd  \\
+            -k_m  & -k_m & k_m   & k_m
         \end{bmatrix}}_{M}
     \begin{bmatrix}\omega_1^2\\\omega_2^2\\\omega_3^2\\\omega_4^2\end{bmatrix},
     \qquad
@@ -1542,14 +1752,14 @@ channel that $B_w$ in Eq.~\eqref{eq:e28} represents.
         \label{tab:weights}
         \begin{tabular}{llcc}
             \toprule
-            \textbf{Subsystem / loop} & $\boldsymbol{B}$ & $\boldsymbol{Q}$ & $\boldsymbol{R}$ \\
+            \textbf{Subsystem / loop} & $\boldsymbol{B}$       & $\boldsymbol{Q}$           & $\boldsymbol{R}$ \\
             \midrule
-            Longitudinal $x$, outer   & $[0,\,g]^{\!\top}$      & $\mathrm{diag}(0.05,0.30)$ & $1.00$ \\
-            Pitch $\theta$, inner     & $[0,\,1/I_y]^{\!\top}$  & $\mathrm{diag}(2.0,\;0.2)$ & $0.08$ \\
-            Lateral $y$, outer        & $[0,\,-g]^{\!\top}$     & $\mathrm{diag}(0.05,0.30)$ & $1.00$ \\
-            Roll $\phi$, inner        & $[0,\,1/I_x]^{\!\top}$  & $\mathrm{diag}(2.0,\;0.2)$ & $0.08$ \\
-            Altitude $z$              & $[0,\,1/m]^{\!\top}$    & $\mathrm{diag}(1,\;1000)$  & $1.00$ \\
-            Yaw $\psi$                & $[0,\,1/I_z]^{\!\top}$  & $\mathrm{diag}(1.0,\;4.0)$ & $4.00$ \\
+            Longitudinal $x$, outer   & $[0,\,g]^{\!\top}$     & $\mathrm{diag}(0.05,0.30)$ & $1.00$           \\
+            Pitch $\theta$, inner     & $[0,\,1/I_y]^{\!\top}$ & $\mathrm{diag}(2.0,\;0.2)$ & $0.08$           \\
+            Lateral $y$, outer        & $[0,\,-g]^{\!\top}$    & $\mathrm{diag}(0.05,0.30)$ & $1.00$           \\
+            Roll $\phi$, inner        & $[0,\,1/I_x]^{\!\top}$ & $\mathrm{diag}(2.0,\;0.2)$ & $0.08$           \\
+            Altitude $z$              & $[0,\,1/m]^{\!\top}$   & $\mathrm{diag}(1,\;1000)$  & $1.00$           \\
+            Yaw $\psi$                & $[0,\,1/I_z]^{\!\top}$ & $\mathrm{diag}(1.0,\;4.0)$ & $4.00$           \\
             \bottomrule
         \end{tabular}
     \end{minipage}\hfill
@@ -1559,12 +1769,12 @@ channel that $B_w$ in Eq.~\eqref{eq:e28} represents.
         \label{tab:gamma}
         \begin{tabular}{lcc}
             \toprule
-            \textbf{Subsystem} & $\boldsymbol{\gamma_{\min}}$ & $\boldsymbol{\gamma}$ \\
+            \textbf{Subsystem}              & $\boldsymbol{\gamma_{\min}}$ & $\boldsymbol{\gamma}$ \\
             \midrule
-            Outer position $x$, $y$         & $2.54$ & $3.30$  \\
-            Inner attitude $\phi$, $\theta$ & $2.54$ & $3.31$  \\
-            Altitude $z$                    & $4.61$ & $6.00$  \\
-            Yaw $\psi$                      & $9.02$ & $11.73$ \\
+            Outer position $x$, $y$         & $2.54$                       & $3.30$                \\
+            Inner attitude $\phi$, $\theta$ & $2.54$                       & $3.31$                \\
+            Altitude $z$                    & $4.61$                       & $6.00$                \\
+            Yaw $\psi$                      & $9.02$                       & $11.73$               \\
             \bottomrule
         \end{tabular}
     \end{minipage}
@@ -1586,7 +1796,7 @@ cascade would otherwise dominate the closed-loop response.
 \headingthree{Scenarios: A Load Ladder}
 
 The evaluation adds one stressor at a time, so that any change in behaviour is
-attributable to the stressor just introduced rather than to an untangleable combination.
+attributable to the stressor just introduced, not to an untangleable combination.
 Four conditions are flown, each over the same three non-convex regions --- L-shape,
 U-shape, plus-shape --- and with both controllers:
 
@@ -1609,7 +1819,7 @@ U-shape, plus-shape --- and with both controllers:
 \end{enumerate}
 
 Conditions~3 and~4 differ by the failures alone, which is what makes the coverage loss
-attributable to agent loss rather than to the obstacle field. Every mission logs per-agent
+attributable to agent loss, not to the obstacle field. Every mission logs per-agent
 telemetry to CSV; all reported values derive from those logs.
 
 \headingthree{Repetitions and Statistical Treatment}
@@ -1637,19 +1847,19 @@ the 12 for conditions~1 and~2 are already available.
         \label{tab:params}
         \begin{tabular}{llr@{\,}l}
             \toprule
-            \textbf{Quantity} & \textbf{Sym.} & \multicolumn{2}{c}{\textbf{Value}} \\
+            \textbf{Quantity}     & \textbf{Sym.}      & \multicolumn{2}{c}{\textbf{Value}}                    \\
             \midrule
-            Mass                  & $m$                & $1.50$    & kg               \\
-            Roll/pitch inertia    & $I_x\!=\!I_y$      & $0.0291$  & kg\,m$^2$        \\
-            Yaw inertia           & $I_z$              & $0.0552$  & kg\,m$^2$        \\
-            Arm length            & $l$                & $0.22$    & m                \\
-            Maximum tilt          & $\theta_{\max}$    & $15$      & deg              \\
-            Thrust coefficient    & $k_f$              & $8.549$e--6 & N/(rad/s)$^2$  \\
-            Torque coefficient    & $k_m$              & $1.368$e--7 & N\,m/(rad/s)$^2$ \\
-            Motor time constant   & $\tau_m$           & $0.02$    & s                \\
-            Max.\ rotor speed     & $\omega_{\max}$    & $1100$    & rad/s            \\
-            Roll/pitch torque cap & $\tau_{rp}^{\max}$ & $0.80$    & N\,m             \\
-            Yaw torque cap        & $\tau_{y}^{\max}$  & $0.08$    & N\,m             \\
+            Mass                  & $m$                & $1.50$                             & kg               \\
+            Roll/pitch inertia    & $I_x\!=\!I_y$      & $0.0291$                           & kg\,m$^2$        \\
+            Yaw inertia           & $I_z$              & $0.0552$                           & kg\,m$^2$        \\
+            Arm length            & $l$                & $0.22$                             & m                \\
+            Maximum tilt          & $\theta_{\max}$    & $15$                               & deg              \\
+            Thrust coefficient    & $k_f$              & $8.549$e--6                        & N/(rad/s)$^2$    \\
+            Torque coefficient    & $k_m$              & $1.368$e--7                        & N\,m/(rad/s)$^2$ \\
+            Motor time constant   & $\tau_m$           & $0.02$                             & s                \\
+            Max.\ rotor speed     & $\omega_{\max}$    & $1100$                             & rad/s            \\
+            Roll/pitch torque cap & $\tau_{rp}^{\max}$ & $0.80$                             & N\,m             \\
+            Yaw torque cap        & $\tau_{y}^{\max}$  & $0.08$                             & N\,m             \\
             \bottomrule
         \end{tabular}
     \end{minipage}\hfill
@@ -1658,20 +1868,20 @@ the 12 for conditions~1 and~2 are already available.
         \label{tab:mission}
         \begin{tabular}{llr@{\,}l}
             \toprule
-            \textbf{Quantity} & \textbf{Sym.} & \multicolumn{2}{c}{\textbf{Value}} \\
+            \textbf{Quantity}         & \textbf{Sym.}        & \multicolumn{2}{c}{\textbf{Value}}             \\
             \midrule
-            Attitude feedforward  & $k_{\mathrm{ff}}$    & $0.15$   & rad/(m/s) \\
-            Reference lead time   & $T_{\mathrm{lead}}$  & $0.3287$ & s         \\
-            Control dead time     & $T_d$                & $0.15$   & s         \\
-            Sweep speed           & $v_{\mathrm{sweep}}$ & $1.6$    & m/s       \\
-            Command speed cap     & $v_{\max}$           & $3.0$    & m/s       \\
-            Sensor radius         & $r_s$                & $0.95$   & m         \\
-            Obstacle keep-out     & $R^{\mathrm{ko}}$    & $1.30$   & m         \\
-            Voronoi clip margin   & $\delta_c$           & $0.35$   & m         \\
-            V2V hard / soft       & $R_{\mathrm{h/s}}$   & $0.70$/$1.20$ & m    \\
-            Track confirmation    & $n_{\min}$           & $4$      & hits      \\
-            Wind $\sigma_w$, $\tau_w$  & ---             & $2.5$, $0.5$ & N,\,s \\
-            Number of agents      & $N$                  & $7$      &           \\
+            Attitude feedforward      & $k_{\mathrm{ff}}$    & $0.15$                             & rad/(m/s) \\
+            Reference lead time       & $T_{\mathrm{lead}}$  & $0.3287$                           & s         \\
+            Control dead time         & $T_d$                & $0.15$                             & s         \\
+            Sweep speed               & $v_{\mathrm{sweep}}$ & $1.6$                              & m/s       \\
+            Command speed cap         & $v_{\max}$           & $3.0$                              & m/s       \\
+            Sensor radius             & $r_s$                & $0.95$                             & m         \\
+            Obstacle keep-out         & $R^{\mathrm{ko}}$    & $1.30$                             & m         \\
+            Voronoi clip margin       & $\delta_c$           & $0.35$                             & m         \\
+            V2V hard / soft           & $R_{\mathrm{h/s}}$   & $0.70$/$1.20$                      & m         \\
+            Track confirmation        & $n_{\min}$           & $4$                                & hits      \\
+            Wind $\sigma_w$, $\tau_w$ & ---                  & $2.5$, $0.5$                       & N,\,s     \\
+            Number of agents          & $N$                  & $7$                                &           \\
             \bottomrule
         \end{tabular}
     \end{minipage}
@@ -1778,9 +1988,9 @@ sweep over the identical cells. \TODO{jalankan ablasi perencana (offline, tanpa 
             \toprule
             \textbf{Region} & $\boldsymbol{\eta}$ \textbf{(\%)} & \textbf{Dur.\ (s)} & \textbf{Path (m)} & $\boldsymbol{d_{\min}}$ \textbf{(m)} \\
             \midrule
-            L-shape & \val{--.-} & \val{---} & \val{---} & \val{--.--} \\
-            U-shape & \val{--.-} & \val{---} & \val{---} & \val{--.--} \\
-            Plus    & \val{--.-} & \val{---} & \val{---} & \val{--.--} \\
+            L-shape         & \val{--.-}                        & \val{---}          & \val{---}         & \val{--.--}                          \\
+            U-shape         & \val{--.-}                        & \val{---}          & \val{---}         & \val{--.--}                          \\
+            Plus            & \val{--.-}                        & \val{---}          & \val{---}         & \val{--.--}                          \\
             \bottomrule
         \end{tabular}
     \end{minipage}\hfill
@@ -1792,9 +2002,9 @@ sweep over the identical cells. \TODO{jalankan ablasi perencana (offline, tanpa 
             \toprule
             \textbf{Region} & \textbf{Fixed pitch} & \textbf{Bnd.\ chain} \\
             \midrule
-            L-shape & \val{--.-} & \val{--.-} \\
-            U-shape & \val{--.-} & \val{--.-} \\
-            Plus    & \val{--.-} & \val{--.-} \\
+            L-shape         & \val{--.-}           & \val{--.-}           \\
+            U-shape         & \val{--.-}           & \val{--.-}           \\
+            Plus            & \val{--.-}           & \val{--.-}           \\
             \bottomrule
         \end{tabular}
     \end{minipage}
@@ -1815,20 +2025,20 @@ line; what degrades is tracking. Table~\ref{tab:r2} reports the contrast.
     \label{tab:r2}
     \begin{tabular}{lccccc}
         \toprule
-                                  & \multicolumn{2}{c}{\textbf{Nominal}} & \multicolumn{2}{c}{\textbf{Turbulence}} &                  \\
+                                  & \multicolumn{2}{c}{\textbf{Nominal}} & \multicolumn{2}{c}{\textbf{Turbulence}} &                                                                  \\
         \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-        \textbf{Metric}           & LQR & $H_\infty$ & LQR & $H_\infty$ & $\boldsymbol{p}$ \\
+        \textbf{Metric}           & LQR                                  & $H_\infty$                              & LQR                   & $H_\infty$            & $\boldsymbol{p}$ \\
         \midrule
-        Cross-track RMS (cm)      & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        Cross-track p95 (cm)      & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        Cross-track max (cm)      & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        Longitudinal lag (cm)     & \val{--.-}  & \val{--.-}  & \val{--.-$\pm$--.-}   & \val{--.-$\pm$--.-}   & \val{0.0--} \\
-        Altitude RMS (cm)         & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        Roll p95, sweeping (deg)  & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        Pitch p95, sweeping (deg) & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
+        Cross-track RMS (cm)      & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        Cross-track p95 (cm)      & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        Cross-track max (cm)      & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        Longitudinal lag (cm)     & \val{--.-}                           & \val{--.-}                              & \val{--.-$\pm$--.-}   & \val{--.-$\pm$--.-}   & \val{0.0--}      \\
+        Altitude RMS (cm)         & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        Roll p95, sweeping (deg)  & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        Pitch p95, sweeping (deg) & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
         \addlinespace
-        Torque integral $J_\tau$  & \val{--.--} & \val{--.--} & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--} \\
-        RPM RMS                   & \val{---}   & \val{---}   & \val{---$\pm$-.-}     & \val{---$\pm$-.-}     & \val{0.0--} \\
+        Torque integral $J_\tau$  & \val{--.--}                          & \val{--.--}                             & \val{--.--$\pm$--.--} & \val{--.--$\pm$--.--} & \val{0.0--}      \\
+        RPM RMS                   & \val{---}                            & \val{---}                               & \val{---$\pm$-.-}     & \val{---$\pm$-.-}     & \val{0.0--}      \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -1858,17 +2068,17 @@ simulation.
     \label{tab:degen}
     \begin{tabular}{lccc}
         \toprule
-        \textbf{Subsystem} & $\boldsymbol{\gamma}$ & $\boldsymbol{K_p}$ & \textbf{Dev.\ from LQR (\%)} \\
+        \textbf{Subsystem}   & $\boldsymbol{\gamma}$ & $\boldsymbol{K_p}$ & \textbf{Dev.\ from LQR (\%)} \\
         \midrule
-        \multicolumn{4}{l}{\emph{Earlier setting, far above $\gamma_{\min}$}} \\
-        \quad Outer position & $80$    & \val{--.----} & \val{--.-} \\
-        \quad Inner attitude & $64$    & \val{--.----} & \val{--.-} \\
-        \quad Yaw            & $64$    & \val{--.----} & \val{--.-} \\
+        \multicolumn{4}{l}{\emph{Earlier setting, far above $\gamma_{\min}$}}                            \\
+        \quad Outer position & $80$                  & \val{--.----}      & \val{--.-}                   \\
+        \quad Inner attitude & $64$                  & \val{--.----}      & \val{--.-}                   \\
+        \quad Yaw            & $64$                  & \val{--.----}      & \val{--.-}                   \\
         \addlinespace
-        \multicolumn{4}{l}{\emph{Operating setting, $\gamma=1.3\,\gamma_{\min}$}} \\
-        \quad Outer position & $3.30$  & \val{--.----} & \val{--.-} \\
-        \quad Inner attitude & $3.31$  & \val{--.----} & \val{--.-} \\
-        \quad Yaw            & $11.73$ & \val{--.----} & \val{--.-} \\
+        \multicolumn{4}{l}{\emph{Operating setting, $\gamma=1.3\,\gamma_{\min}$}}                        \\
+        \quad Outer position & $3.30$                & \val{--.----}      & \val{--.-}                   \\
+        \quad Inner attitude & $3.31$                & \val{--.----}      & \val{--.-}                   \\
+        \quad Yaw            & $11.73$               & \val{--.----}      & \val{--.-}                   \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -1890,7 +2100,7 @@ is smaller than the sensing radius, Eq.~\eqref{eq:pitch}, the annulus around eac
 is mapped during the detour, so $\Delta\eta$ is expected to stay small even as the path
 lengthens. The clearance and feasibility rows test the barrier itself: a
 $P(\mathrm{tier}>0)$ that stays near zero means the quadratic program was solvable at its
-nominal tier almost everywhere, so the relaxation ladder is a safety net rather than an
+nominal tier almost everywhere, so the relaxation ladder is a safety net, not an
 operating mode.
 
 Because the map starts empty, the detours in this condition can only be planned once a
@@ -1903,20 +2113,20 @@ mission time. \TODO{isi dari log ObstacleMap: bandingkan track terkonfirmasi ter
 \begin{table}[tbp]
     \centering\footnotesize
     \caption{Online obstacle discovery. Nine cylinders are present in each region; the
-            planner sees only confirmed tracks.}
-        \label{tab:percep}
-        \begin{tabular}{lccc}
-            \toprule
-            \textbf{Quantity} & \textbf{L-shape} & \textbf{U-shape} & \textbf{Plus} \\
-            \midrule
-            Cylinders confirmed (of 9)      & \val{-}    & \val{-}    & \val{-}    \\
-            False tracks confirmed          & \val{-}    & \val{-}    & \val{-}    \\
-            Time to first confirmation (s)  & \val{--.-} & \val{--.-} & \val{--.-} \\
-            Time to last confirmation (s)   & \val{---}  & \val{---}  & \val{---}  \\
-            Detection range, median (m)     & \val{--.-} & \val{--.-} & \val{--.-} \\
-            Rows replanned after discovery  & \val{--}   & \val{--}   & \val{--}   \\
-            \bottomrule
-        \end{tabular}
+        planner sees only confirmed tracks.}
+    \label{tab:percep}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Quantity}              & \textbf{L-shape} & \textbf{U-shape} & \textbf{Plus} \\
+        \midrule
+        Cylinders confirmed (of 9)     & \val{-}          & \val{-}          & \val{-}       \\
+        False tracks confirmed         & \val{-}          & \val{-}          & \val{-}       \\
+        Time to first confirmation (s) & \val{--.-}       & \val{--.-}       & \val{--.-}    \\
+        Time to last confirmation (s)  & \val{---}        & \val{---}        & \val{---}     \\
+        Detection range, median (m)    & \val{--.-}       & \val{--.-}       & \val{--.-}    \\
+        Rows replanned after discovery & \val{--}         & \val{--}         & \val{--}      \\
+        \bottomrule
+    \end{tabular}
 \end{table}
 
 \begin{figure}[tbp]
@@ -1939,17 +2149,17 @@ mission time. \TODO{isi dari log ObstacleMap: bandingkan track terkonfirmasi ter
     \label{tab:r3}
     \begin{tabular}{lcccccc}
         \toprule
-                                        & \multicolumn{2}{c}{\textbf{L-shape}} & \multicolumn{2}{c}{\textbf{U-shape}} & \multicolumn{2}{c}{\textbf{Plus}} \\
+                                        & \multicolumn{2}{c}{\textbf{L-shape}} & \multicolumn{2}{c}{\textbf{U-shape}} & \multicolumn{2}{c}{\textbf{Plus}}                                           \\
         \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-        \textbf{Metric}                 & LQR & $H_\infty$ & LQR & $H_\infty$ & LQR & $H_\infty$ \\
+        \textbf{Metric}                 & LQR                                  & $H_\infty$                           & LQR                               & $H_\infty$  & LQR         & $H_\infty$  \\
         \midrule
-        Final coverage $\eta$ (\%)      & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} \\
-        Coverage loss $\Delta\eta$ (pp) & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} \\
-        Path length increase (\%)       & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} & \val{--.-} \\
-        Min.\ obstacle clearance (m)    & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} \\
-        $d_{\min}$ inter-agent (m)      & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} \\
-        $P(\mathrm{tier}>0)$ (\%)       & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} & \val{--.--} \\
-        Collisions                      & \val{--}   & \val{--}   & \val{--}   & \val{--}   & \val{--}   & \val{--}   \\
+        Final coverage $\eta$ (\%)      & \val{--.-}                           & \val{--.-}                           & \val{--.-}                        & \val{--.-}  & \val{--.-}  & \val{--.-}  \\
+        Coverage loss $\Delta\eta$ (pp) & \val{--.-}                           & \val{--.-}                           & \val{--.-}                        & \val{--.-}  & \val{--.-}  & \val{--.-}  \\
+        Path length increase (\%)       & \val{--.-}                           & \val{--.-}                           & \val{--.-}                        & \val{--.-}  & \val{--.-}  & \val{--.-}  \\
+        Min.\ obstacle clearance (m)    & \val{--.--}                          & \val{--.--}                          & \val{--.--}                       & \val{--.--} & \val{--.--} & \val{--.--} \\
+        $d_{\min}$ inter-agent (m)      & \val{--.--}                          & \val{--.--}                          & \val{--.--}                       & \val{--.--} & \val{--.--} & \val{--.--} \\
+        $P(\mathrm{tier}>0)$ (\%)       & \val{--.--}                          & \val{--.--}                          & \val{--.--}                       & \val{--.--} & \val{--.--} & \val{--.--} \\
+        Collisions                      & \val{--}                             & \val{--}                             & \val{--}                          & \val{--}    & \val{--}    & \val{--}    \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -1980,16 +2190,16 @@ of the obstacle field. \TODO{isi dari kondisi 4 (18 misi)}
         \label{tab:r4}
         \begin{tabular}{lccc}
             \toprule
-            \textbf{Metric} & \textbf{L} & \textbf{U} & \textbf{Plus} \\
+            \textbf{Metric}                       & \textbf{L} & \textbf{U} & \textbf{Plus} \\
             \midrule
-            $\Delta t_{\mathrm{det}}$, fail 1 (s) & \val{--.-} & \val{--.-} & \val{--.-} \\
-            $\Delta t_{\mathrm{det}}$, fail 2 (s) & \val{--.-} & \val{--.-} & \val{--.-} \\
-            $\Delta t_{\mathrm{rec}}$, fail 1 (s) & \val{--.-} & \val{--.-} & \val{--.-} \\
-            $\Delta t_{\mathrm{rec}}$, fail 2 (s) & \val{--.-} & \val{--.-} & \val{--.-} \\
+            $\Delta t_{\mathrm{det}}$, fail 1 (s) & \val{--.-} & \val{--.-} & \val{--.-}    \\
+            $\Delta t_{\mathrm{det}}$, fail 2 (s) & \val{--.-} & \val{--.-} & \val{--.-}    \\
+            $\Delta t_{\mathrm{rec}}$, fail 1 (s) & \val{--.-} & \val{--.-} & \val{--.-}    \\
+            $\Delta t_{\mathrm{rec}}$, fail 2 (s) & \val{--.-} & \val{--.-} & \val{--.-}    \\
             \addlinespace
-            Final coverage $\eta$ (\%)            & \val{--.-} & \val{--.-} & \val{--.-} \\
-            Coverage loss $\Delta\eta$ (pp)       & \val{--.-} & \val{--.-} & \val{--.-} \\
-            Duration increase (\%)                & \val{--.-} & \val{--.-} & \val{--.-} \\
+            Final coverage $\eta$ (\%)            & \val{--.-} & \val{--.-} & \val{--.-}    \\
+            Coverage loss $\Delta\eta$ (pp)       & \val{--.-} & \val{--.-} & \val{--.-}    \\
+            Duration increase (\%)                & \val{--.-} & \val{--.-} & \val{--.-}    \\
             \bottomrule
         \end{tabular}
     \end{minipage}\hfill
@@ -1999,16 +2209,16 @@ of the obstacle field. \TODO{isi dari kondisi 4 (18 misi)}
         \label{tab:r4b}
         \begin{tabular}{lccc}
             \toprule
-            \textbf{Metric} & \textbf{L} & \textbf{U} & \textbf{Plus} \\
+            \textbf{Metric}            & \textbf{L}  & \textbf{U}  & \textbf{Plus} \\
             \midrule
-            Recovery rows, fail 1     & \val{--} & \val{--} & \val{--} \\
-            Recovery rows, fail 2     & \val{--} & \val{--} & \val{--} \\
-            Rows rescued as orphans   & \val{--} & \val{--} & \val{--} \\
-            Helper agents allocated   & \val{--} & \val{--} & \val{--} \\
+            Recovery rows, fail 1      & \val{--}    & \val{--}    & \val{--}      \\
+            Recovery rows, fail 2      & \val{--}    & \val{--}    & \val{--}      \\
+            Rows rescued as orphans    & \val{--}    & \val{--}    & \val{--}      \\
+            Helper agents allocated    & \val{--}    & \val{--}    & \val{--}      \\
             \addlinespace
-            $d_{\min}$, recovery (m)  & \val{--.--} & \val{--.--} & \val{--.--} \\
-            Min.\ obstacle clear.\ (m)& \val{--.--} & \val{--.--} & \val{--.--} \\
-            Collisions                & \val{--} & \val{--} & \val{--} \\
+            $d_{\min}$, recovery (m)   & \val{--.--} & \val{--.--} & \val{--.--}   \\
+            Min.\ obstacle clear.\ (m) & \val{--.--} & \val{--.--} & \val{--.--}   \\
+            Collisions                 & \val{--}    & \val{--}    & \val{--}      \\
             \bottomrule
         \end{tabular}
     \end{minipage}
@@ -2051,31 +2261,31 @@ constraint set actually solved and Table~\ref{tab:cost} the resulting solve time
         \label{tab:rows}
         \begin{tabular}{lcc}
             \toprule
-            \textbf{Row class} & \textbf{Median} & \textbf{Max} \\
+            \textbf{Row class}  & \textbf{Median} & \textbf{Max} \\
             \midrule
-            Static obstacles     & \val{-}  & \val{-}  \\
-            Inter-agent (V2V)    & \val{-}  & \val{-}  \\
-            Walls + stop planes  & \val{-}  & \val{-}  \\
-            Speed + rate box     & 16       & 16       \\
+            Static obstacles    & \val{-}         & \val{-}      \\
+            Inter-agent (V2V)   & \val{-}         & \val{-}      \\
+            Walls + stop planes & \val{-}         & \val{-}      \\
+            Speed + rate box    & 16              & 16           \\
             \midrule
-            Total $m$            & \val{--} & \val{--} \\
+            Total $m$           & \val{--}        & \val{--}     \\
             \bottomrule
         \end{tabular}
     \end{minipage}\hfill
     \begin{minipage}[t]{0.50\textwidth}\centering\footnotesize
         \caption{CBF-QP solve time per agent per tick, from a standalone benchmark of the
-        solver over representative constraint sets.}
-    \label{tab:cost}
-    \begin{tabular}{lcc}
-        \toprule
-        \textbf{Quantity}                              & \textbf{Median} & \textbf{p99} \\
-        \midrule
-        Constraint rows $m$                            & \val{--}   & \val{--}   \\
-        Solve time ($\mu$s)                            & \val{---}  & \val{---}  \\
-        Per-tick budget for 7 agents ($\mu$s)          & \val{----} & \val{----} \\
-        Fraction of the \val{--}~ms control period (\%) & \val{--.-} & \val{--.-} \\
-        \bottomrule
-    \end{tabular}
+            solver over representative constraint sets.}
+        \label{tab:cost}
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{Quantity}                               & \textbf{Median} & \textbf{p99} \\
+            \midrule
+            Constraint rows $m$                             & \val{--}        & \val{--}     \\
+            Solve time ($\mu$s)                             & \val{---}       & \val{---}    \\
+            Per-tick budget for 7 agents ($\mu$s)           & \val{----}      & \val{----}   \\
+            Fraction of the \val{--}~ms control period (\%) & \val{--.-}      & \val{--.-}   \\
+            \bottomrule
+        \end{tabular}
     \end{minipage}
 \end{table}
 
@@ -2103,14 +2313,14 @@ non-convex domains at all. No claim of superiority is made on its basis.
     \label{tab:baseline}
     \begin{tabular}{llcccc}
         \toprule
-        \textbf{Work} & \textbf{Domain} & \textbf{Agents} & \textbf{Coverage} & \textbf{Full 6-DOF} & \textbf{Fault tol.} \\
+        \textbf{Work}                                                    & \textbf{Domain} & \textbf{Agents} & \textbf{Coverage} & \textbf{Full 6-DOF} & \textbf{Fault tol.} \\
         \midrule
-        Cort\'es \emph{et al.} \cit{cortesCoverageControl2004}            & convex     & \val{--} & \val{n/r}  & no  & no  \\
-        Breitenmoser \emph{et al.} \cit{breitenmoserVoronoiCoverage2010} & non-convex & \val{--} & \val{--.-} & no  & no  \\
-        Lee and Lee \cit{leeAdaptiveCentroidalVoronoi2024}                & non-convex & \val{--} & \val{--.-} & no  & \val{--} \\
-        Cao \emph{et al.} \cit{caoDistributedWeightedCoverage2023}        & non-convex & \val{--} & \val{--.-} & no  & no  \\
+        Cort\'es \emph{et al.} \cit{cortesCoverageControl2004}           & convex          & \val{--}        & \val{n/r}         & no                  & no                  \\
+        Breitenmoser \emph{et al.} \cit{breitenmoserVoronoiCoverage2010} & non-convex      & \val{--}        & \val{--.-}        & no                  & no                  \\
+        Lee and Lee \cit{leeAdaptiveCentroidalVoronoi2024}               & non-convex      & \val{--}        & \val{--.-}        & no                  & \val{--}            \\
+        Cao \emph{et al.} \cit{caoDistributedWeightedCoverage2023}       & non-convex      & \val{--}        & \val{--.-}        & no                  & no                  \\
         \addlinespace
-        This work                                                         & non-convex & 7        & \val{--.-} & yes & yes \\
+        This work                                                        & non-convex      & 7               & \val{--.-}        & yes                 & yes                 \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -2141,6 +2351,19 @@ enough to report and no moving-obstacle results are claimed.
 terminates at most two of seven agents; behaviour under larger or simultaneous losses, and
 under communication loss without vehicle loss, is untested.
 
+\emph{Execution is centralised.} The formulation is per agent, but the seven agents are
+solved inside one process so that the reciprocal split of Eq.~\eqref{eq:lambda} is exact.
+Distributing them across vehicles would replace each neighbour's current weight $w_j$ with
+a value received over a link. Because $w_j$ changes whenever agent $j$ changes mission
+state, a stale value breaks $\lambda_{ij}+\lambda_{ji}=1$ and with it the joint condition
+$\dot h\ge-\varphi(h)$: if both agents happen to believe they are the protected one, neither
+gives way. A distributed deployment would therefore need either a conservative fallback,
+$\lambda_{ij}=1$ whenever the last update from $j$ is older than a bounded age, or a fixed
+symmetric split at the cost of the mission-state weighting. Neither variant is evaluated
+here. The partitioning layer is less affected, since decentralised centroidal Voronoi
+coverage is established \cit{cortesCoverageControl2004}, whereas FT-CC would additionally
+require the survivors to agree on which agent has failed and which rows each will take.
+
 \emph{Baselines are not re-implemented.} Table~\ref{tab:baseline} positions this work
 against published figures obtained under different domains, agent counts, and sensing
 models. It is not a controlled comparison, and no claim of superiority over those methods
@@ -2159,7 +2382,7 @@ Eqs.~\eqref{eq:e1}--\eqref{eq:e3}, and sweeps each cell with a boustrophedon pat
 cell boundary, Eq.~\eqref{eq:e5}, removing the unswept wedges a fixed-pitch sweep leaves at tapered
 corners. The mid-level layer resolves all safety constraints in one quadratic program per
 agent per tick, Eq.~\eqref{eq:e21}, whose class-$\mathcal{K}$ function, Eq.~\eqref{eq:e14}, is derived from the
-identified closed-loop plant rather than tuned. The low-level layer compares LQR and
+identified closed-loop plant, not tuned by hand. The low-level layer compares LQR and
 $H_\infty$ synthesis, Eqs.~\eqref{eq:e27}--\eqref{eq:e30}, on an identical cascade.
 
 Evaluated along a load ladder that adds one stressor at a time over three non-convex

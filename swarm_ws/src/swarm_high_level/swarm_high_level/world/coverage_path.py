@@ -349,83 +349,92 @@ def _orient(chain, ref, far=False):
 def generate_boustrophedon(polygon, sweep_spacing=1.45, margin=0.02,
                            start_from_top=False, obstacles=None,
                            entry_point=None, prefer_far=False):
-    """Rute sapuan sel — kembalikan daftar rata ``[s0, e0, s1, e1, ...]``.
+    """Rute sapuan sel — kembalikan daftar rata [s0, e0, s1, e1, ...].
 
-    Struktur SELALU bawah→atas: rantai tepi BAWAH → baris horizontal interior
-    → rantai tepi ATAS. Baris interior tetap horizontal; hanya rantai tepi yang
-    mengikuti sisi miring sel.
+    Struktur SELALU bawah -> atas secara monoton: baris 0 dimulai langsung dari
+    tepi bawah sel tanpa gerakan mundur (backtracking).
 
-    ``entry_point`` (posisi drone) menentukan di ujung MANA rantai bawah drone
-    masuk — dipilih yang terdekat, jadi transit tidak memutar ke sisi jauh.
-    Arah tiap baris berikutnya dirantai secara greedy dari ujung baris
-    sebelumnya, yang secara alami menghasilkan zigzag.
-    ``prefer_far=True`` membalik pilihan itu (dipakai untuk deconflict start).
+    ``entry_point`` (posisi drone) menentukan di ujung mana baris bawah drone
+    masuk (kiri atau kanan) — dipilih yang terdekat agar transit efisien.
+    ``prefer_far=True`` membalik pilihan itu untuk combinatorial deconfliction.
     """
     if len(polygon) < 3:
         return [poly_centroid(polygon)]
 
     pts = np.array(polygon, dtype=float)
     min_y, max_y = float(pts[:, 1].min()), float(pts[:, 1].max())
+    height = max_y - min_y
+    if height < 0.30:
+        c = poly_centroid(polygon)
+        return [c, c]
+
+    # Inset tepi bawah dan atas (0.35m) berada aman di dalam radius sensor 0.95m
+    edge_inset = min(0.40, 0.25 * height)
+    y_start = min_y + edge_inset
+    y_end = max_y - edge_inset
+
+    n_rows = max(1, int(math.ceil((y_end - y_start) / sweep_spacing)) + 1)
+    ys = [0.5 * (min_y + max_y)] if n_rows == 1 else list(np.linspace(y_start, y_end, n_rows))
+
+    levels = []
+    for y in ys:
+        xs = polygon_scanline_intersections(polygon, y)
+        segs = []
+        for k in range(0, len(xs) - 1, 2):
+            xl, xr = xs[k] + margin, xs[k + 1] - margin
+            if obstacles:
+                segs.extend(_split_interval_for_obstacles(xl, xr, y, obstacles))
+            elif xr - xl >= 0.20:
+                segs.append((xl, xr))
+        if segs:
+            levels.append((y, segs))
+
+    if not levels:
+        c = poly_centroid(polygon)
+        return [c, c]
+
     entry = None if entry_point is None else np.asarray(entry_point, float)[:2]
 
-    # Pita interior [lo, hi]; di luar itu ditangani rantai tepi bawah/atas.
-    height = max_y - min_y
-    inset = min(0.90, 0.40 * height)
-    lo, hi = min_y + inset, max_y - inset
+    # Pilih titik mulai baris 0 (kiri atau kanan) berdasarkan entry_point
+    y0, segs0 = levels[0]
+    xl0, xr0 = segs0[0]
+    if entry is not None:
+        d_left = float(np.hypot(xl0 - entry[0], y0 - entry[1]))
+        d_right = float(np.hypot(xr0 - entry[0], y0 - entry[1]))
+        want_right_start = (d_right < d_left) if not prefer_far else (d_right > d_left)
+    else:
+        want_right_start = False
 
-    bottom = _cap_chain(polygon, lo, below=True)
-    top = _cap_chain(polygon, hi, below=False)
+    flat = []
+    cur = None
 
-    # Level-level interior beserta interval-x-nya (bisa >1 di sel cekung).
-    levels = []
-    if hi - lo >= 0.30:
-        n = max(1, int(math.ceil((hi - lo) / sweep_spacing)))
-        ys = [0.5 * (lo + hi)] if n == 1 else list(np.linspace(lo, hi, n))
-        for y in ys:
-            xs = polygon_scanline_intersections(polygon, y)
-            segs = []
-            for k in range(0, len(xs) - 1, 2):
-                xl, xr = xs[k] + margin, xs[k + 1] - margin
-                if obstacles:
-                    segs.extend(_split_interval_for_obstacles(xl, xr, y, obstacles))
-                elif xr - xl >= 0.30:
-                    segs.append((xl, xr))
-            if segs:
-                levels.append((y, segs))
+    for level_idx, (y, segs) in enumerate(levels):
+        if level_idx == 0:
+            if want_right_start:
+                s, e = np.array([xr0, y0]), np.array([xl0, y0])
+            else:
+                s, e = np.array([xl0, y0]), np.array([xr0, y0])
+            flat.extend([s, e])
+            cur = e
+        else:
+            # Sambungkan secara greedy zigzag kontinu dari ujung baris sebelumnya (cur)
+            remaining = list(segs)
+            while remaining:
+                best = None
+                for idx, (xl, xr) in enumerate(remaining):
+                    for a, b in (((xl, y), (xr, y)), ((xr, y), (xl, y))):
+                        d = float(np.hypot(a[0] - cur[0], a[1] - cur[1]))
+                        if best is None or d < best[0]:
+                            best = (d, idx, np.array(a), np.array(b))
+                _, idx, a, b = best
+                flat.extend([a, b])
+                cur = b
+                remaining.pop(idx)
 
-    # Rakit: rantai bawah (ujung terdekat ke drone) → interior → rantai atas.
-    bottom = _orient(bottom, entry, far=prefer_far)
-    flat = _chain_segments(bottom)
-    cur = np.asarray(bottom[-1], float) if bottom else entry
-
-    for (y, segs) in levels:
-        remaining = list(segs)
-        while remaining:
-            best = None
-            for idx, (xl, xr) in enumerate(remaining):
-                for a, b in (((xl, y), (xr, y)), ((xr, y), (xl, y))):
-                    d = 0.0 if cur is None else float(
-                        np.hypot(a[0] - cur[0], a[1] - cur[1]))
-                    if best is None or d < best[0]:
-                        best = (d, idx, np.array(a), np.array(b))
-            _, idx, a, b = best
-            flat.extend([a, b])
-            cur = b
-            remaining.pop(idx)
-
-    flat.extend(_chain_segments(_orient(top, cur)))
-
-    # Lintasan-akhir sadar-rintangan: menutup baris interior, konektor, DAN
-    # rantai tepi sekaligus.
     if obstacles:
         flat = route_around_obstacles(flat, obstacles)
 
-    if len(flat) < 2:
-        return [poly_centroid(polygon)]
-
     if start_from_top:
-        # Balik urutan & arah semua segmen: sapuan jadi atas→bawah. Tidak
-        # dipakai selama semua drone lepas landas dari bawah arena.
         flat = flat[::-1]
 
     return [np.asarray(p, dtype=float) for p in flat]

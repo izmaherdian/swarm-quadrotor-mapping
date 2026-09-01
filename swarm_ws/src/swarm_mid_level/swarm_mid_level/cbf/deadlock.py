@@ -79,31 +79,31 @@ class DeadlockBreaker:
             d_vec = agent.pos - obs.pos
             d = float(np.linalg.norm(d_vec))
             if d > cfg.include_radius or d < 1e-6:
+                self.release_side(agent.aid, obs.oid)
                 continue
             n_hat = d_vec / d
 
-            # Pemulihan saat sudah TERLANJUR di dalam bantalan aman.
-            #
-            # Constraint CBF hanya mencegah mendekat; ia tidak memulihkan.
-            # Bila QP sempat infeasible (Tier 2) drone menerima slack kecil
-            # 0.01-0.10 per tick — tampak sepele, tetapi terakumulasi: pada
-            # uji Skema 4 h_min meluncur 0.61 -> 0.30 -> 0.05 -> -0.09 lalu
-            # menyentuh rintangan. Tanpa suku ini tidak ada yang mendorong
-            # drone keluar lagi.
             delta = (cfg.delta_dynamic if obs.kind == T.CLASS_DYNAMIC
                      else cfg.delta_static)
-            h = d - (obs.radius + cfg.drone_radius + delta)
+            R_zone = obs.radius + cfg.drone_radius + delta
+            h = d - R_zone
             if h < 0.0:
                 v = v + cfg.k_separate * (-h) * n_hat
 
-            # -n_hat = arah dari drone ke rintangan
-            if float(-n_hat @ u_hat) < cos_cone:
+            # Pelepasan sisi hanya jika drone sudah benar-benar menjauh keluar dari zona rintangan
+            if d > R_zone + 0.60:
                 self.release_side(agent.aid, obs.oid)
                 continue
-            sign = self._pick_side(agent.aid, obs.oid, n_hat, u_hat,
-                                   cell_polygon, obs.pos)
-            t_hat = np.array([-n_hat[1], n_hat[0]])
-            v = v + sign * cfg.kappa * speed * t_hat
+
+            # Jika sudah memiliki sisi terkunci atau sedang menghadap rintangan
+            key = (agent.aid, obs.oid)
+            is_facing = float(-n_hat @ u_hat) >= cos_cone
+            if key in self._side or is_facing:
+                sign = self._pick_side(agent.aid, obs.oid, n_hat, u_hat,
+                                       cell_polygon, obs.pos)
+                t_hat = np.array([-n_hat[1], n_hat[0]])
+                fade = max(0.0, min(1.0, (R_zone + 0.60 - d) / 0.60))
+                v = v + sign * cfg.kappa * speed * fade * t_hat
 
         # ── Antar-drone: aturan tangan kanan + pemulihan jarak ──
         #

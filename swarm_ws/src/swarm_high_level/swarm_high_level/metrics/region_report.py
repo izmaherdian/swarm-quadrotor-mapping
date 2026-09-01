@@ -194,7 +194,7 @@ def main(argv):
         ('TABRAKAN', 'collisions', 'd'),
         ('Watchdog', 'watchdogs', 'd'),
         ('Overshoot maks (cm)', 'overshoot_max_cm', '.2f'),
-        ('Cross-track RMS (cm)', 'ct_rms_cm', '.2f'),
+        ('Cross-track RMSE (cm)', 'ct_rms_cm', '.2f'),
         ('Cross-track p95 (cm)', 'ct_p95_cm', '.2f'),
         ('Cross-track maks (cm)', 'ct_max_cm', '.2f'),
         ('Lag longitudinal (cm)', 'lag_rms_cm', '.1f'),

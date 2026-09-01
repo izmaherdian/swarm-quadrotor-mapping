@@ -23,8 +23,9 @@ RVIZ_CONFIG="$WS_DIR/src/swarm_sim/rviz/multi_agent.rviz"
 source /opt/ros/lyrical/setup.bash 2>/dev/null || source /opt/ros/jazzy/setup.bash 2>/dev/null || source /opt/ros/humble/setup.bash 2>/dev/null || true
 source "$WS_DIR/install/setup.bash"
 
-# Export Gazebo Resource Path
+# Export Gazebo Resource Path & Python Path
 export GZ_SIM_RESOURCE_PATH="$WS_DIR/src/swarm_sim/models:$GZ_SIM_RESOURCE_PATH"
+export PYTHONPATH="$WS_DIR/src/swarm_high_level:$WS_DIR/src/swarm_mid_level:$WS_DIR/src/swarm_low_level:${PYTHONPATH:-}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -296,4 +297,4 @@ python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
     -p enable_obstacles:="$ENABLE_OBSTACLES" \
     -p enable_dynamic_obstacles:="$ENABLE_DYN_OBSTACLES" \
     -p region:="$REGION" \
-    "${SWEEP_ARG[@]}"
+    ${SWEEP_ARG[@]+"${SWEEP_ARG[@]}"}
