@@ -1968,7 +1968,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 target_yaw = math.atan2(line_dir[1], line_dir[0])
                 agent.target_yaw = target_yaw
 
-                agent.ref_pos = np.array(wp_start, dtype=np.float32)
+                agent.ref_pos = self._ref_clear(wp_start)
                 wz_cmd = self.compute_wz(agent.yaw, target_yaw)
                 self.publish_twist(did, 0.0, 0.0, wz_cmd)
                 agent.delay_timer = getattr(agent, 'delay_timer', 0) + 1
@@ -2085,16 +2085,23 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_corr_lat = -np.clip(self.kp_track * e_lat, -ct_cap, ct_cap) \
                     * np.array([-u_line[1], u_line[0]])
 
-                if self.enable_obstacles and self.static_obstacles:
-                    for _oid, ox, oy, rad, _h, _c in self.static_obstacles:
-                        obs_c = np.array([ox, oy])
+                if self.enable_obstacles:
+                    all_obs_to_check = []
+                    if self.static_obstacles:
+                        for _oid, ox, oy, rad, _h, _c in self.static_obstacles:
+                            all_obs_to_check.append((np.array([ox, oy]), rad))
+                    if self.enable_dynamic_obstacles:
+                        for dyn in self.dynamic_obstacles:
+                            all_obs_to_check.append((np.asarray(dyn['pos'][:2], dtype=float), 0.45))
+
+                    for obs_c, rad in all_obs_to_check:
                         d_vec = agent.pos[:2] - obs_c
                         d_dist = float(np.linalg.norm(d_vec))
-                        if d_dist < rad + 1.20:
+                        if d_dist < rad + 1.40:
                             # Jika koreksi lateral justru menarik drone ke arah pusat rintangan,
-                            # redam tarikan tersebut agar drone melaju maju bebas melewati rintangan!
+                            # redam tarikan tersebut agar drone bebas bermanuver menghindar!
                             if np.dot(v_corr_lat, -d_vec) > 0:
-                                v_corr_lat *= max(0.0, (d_dist - (rad + 0.30)) / 0.90)
+                                v_corr_lat *= max(0.0, (d_dist - (rad + 0.35)) / 1.05)
 
                 v_world = v_ff + v_corr_lat
                 v_world_x = float(v_world[0])
@@ -2173,7 +2180,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 next_row_dir = next_end - next_start
                 target_yaw = math.atan2(next_row_dir[1], next_row_dir[0])
                 agent.target_yaw = target_yaw
-                agent.ref_pos = next_start.copy().astype(np.float32)
+                agent.ref_pos = self._ref_clear(next_start)
 
                 wz_cmd = self.compute_wz(agent.yaw, target_yaw)
                 self.publish_twist(did, 0.0, 0.0, wz_cmd)
@@ -2394,7 +2401,18 @@ class Swarm7DroneVoronoiMappingNode(Node):
             r = float(np.linalg.norm(d))
             if r < R:
                 u = np.array([1.0, 0.0]) if r < 1e-6 else d / r
-                p = c + R * u
+                p = c + (R + 0.05) * u
+
+        if self.enable_dynamic_obstacles:
+            for dyn in self.dynamic_obstacles:
+                c = np.asarray(dyn['pos'][:2], dtype=float)
+                R = 0.45 + self.cbf_cfg.drone_radius + self.cbf_cfg.delta_dynamic
+                d = p - c
+                r = float(np.linalg.norm(d))
+                if r < R:
+                    u = np.array([1.0, 0.0]) if r < 1e-6 else d / r
+                    p = c + (R + 0.05) * u
+
         return p.astype(np.float32)
 
     def send_world_twist(self, did, v_world_x, v_world_y, current_yaw):
