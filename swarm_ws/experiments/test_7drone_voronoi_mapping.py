@@ -343,9 +343,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.RETURN_STUCK_ACCEPT = 2.50
 
         # Pelonggaran pegangan garis di dekat rintangan:
-        self.CT_RELAX_RANGE = 1.60
+        self.CT_RELAX_RANGE = 1.80
         self.CT_RELAX_NEAR = 0.50
-        self.CT_RELAX_FLOOR = 0.15
+        self.CT_RELAX_FLOOR = 0.10
         self.corner_settle_ticks = 3    # Jeda 0.15 detik saat pivot statis di sudut (@20Hz)
 
         # ── Coverage Grid (100 x 100 sel) ───────────────────────────
@@ -626,10 +626,10 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.cbf_plant = PlantModel.from_config(solver='lqr')
         self.cbf_cfg = CBFConfig()
         self.cbf_cfg.v_max = self.max_cmd_speed
-        self.cbf_cfg.delta_static = 0.25   # Buffer aman rintangan statis (0.25m)
-        self.cbf_cfg.delta_dynamic = 0.50  # Buffer aman rintangan dinamis di bawah hembusan angin (0.50m)
+        self.cbf_cfg.delta_static = 0.38   # Buffer aman rintangan statis ekstra kuat saat angin kencang (0.38m)
+        self.cbf_cfg.delta_dynamic = 0.55  # Buffer aman rintangan dinamis di bawah hembusan angin (0.55m)
         self.cbf_cfg.cone_deg = 25.0       # Kerucut bias tangensial deadlock
-        self.cbf_cfg.kappa = 0.70          # Dorongan tangensial tangkas melawan angin (Trial 3 Winner)
+        self.cbf_cfg.kappa = 0.75          # Dorongan tangensial tangkas bertenaga tinggi melawan angin
         # Anggaran percepatan yang "dicuri" angin dari otoritas menghindar.
         # BELUM DIIDENTIFIKASI — ini perkiraan, bukan hasil ukur.
         #
@@ -1720,24 +1720,24 @@ class Swarm7DroneVoronoiMappingNode(Node):
         if self.voronoi_planned:
             for did, agent in self.agents.items():
                 if agent.is_alive and agent.state != 'dead':
-                    # Deteksi crash/jatuh ke tanah (Z < 0.35m terkonfirmasi selama 10 ticks = 0.5s)
+                    # Deteksi crash/jatuh ke tanah (Z < 0.25m terkonfirmasi selama 20 ticks = 1.0s)
                     if agent.odom_received and agent.state != 'wait_takeoff':
-                        if agent.pos[2] < 0.35:
+                        if agent.pos[2] < 0.25:
                             agent.crash_ticks = getattr(agent, 'crash_ticks', 0) + 1
                         else:
                             agent.crash_ticks = 0
 
-                        if agent.crash_ticks >= 10:
+                        if agent.crash_ticks >= 20:
                             agent.is_alive = False
                             agent.state = 'dead'
                             self.dead_drones.add(did)
                             auto_failed.append(did)
                             self.get_logger().error(f'🚨 [WATCHDOG CRASH] iris_{did} terdeteksi jatuh di tanah (Z={agent.pos[2]:.2f}m)!')
 
-                    # Deteksi kehilangan heartbeat odom (> 5.0s)
+                    # Deteksi kehilangan heartbeat odom (> 8.0s untuk toleransi beban GUI)
                     if agent.is_alive and agent.last_odom_time is not None:
                         dt_odom = (now_time - agent.last_odom_time).nanoseconds * 1e-9
-                        if dt_odom > 5.0 and agent.state != 'wait_takeoff':
+                        if dt_odom > 8.0 and agent.state != 'wait_takeoff':
                             agent.is_alive = False
                             agent.state = 'dead'
                             self.dead_drones.add(did)
