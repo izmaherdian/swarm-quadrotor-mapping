@@ -388,8 +388,15 @@ class PIDHinfNode(Node):
         self.filt_z[1] += (self.w_n_sq * (self.current_z_target - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
         self.filt_z[0] += self.filt_z[1] * dt_control
         
-        # Yaw: bypass filter second-order — gunakan yaw_cmd langsung agar tidak ada lag ganda
-        yaw_cmd_norm = (self.yaw_cmd + np.pi) % (2 * np.pi) - np.pi
+        # Smooth Yaw Target Ramping (Maksimal 1.5 rad/s / ~86 deg/s) untuk mencegah lonjakan torsi yaw saat belok pojok
+        MAX_YAW_RATE = 1.5  # rad/s
+        if not hasattr(self, 'current_yaw_target'):
+            self.current_yaw_target = yaw
+        
+        dyaw = math.atan2(math.sin(self.yaw_cmd - self.current_yaw_target), math.cos(self.yaw_cmd - self.current_yaw_target))
+        dyaw_clipped = np.clip(dyaw, -MAX_YAW_RATE * dt_control, MAX_YAW_RATE * dt_control)
+        self.current_yaw_target = (self.current_yaw_target + dyaw_clipped + np.pi) % (2 * np.pi) - np.pi
+        yaw_cmd_norm = self.current_yaw_target
         cos_yaw = math.cos(yaw)
         sin_yaw = math.sin(yaw)
 
@@ -486,7 +493,16 @@ class PIDHinfNode(Node):
         
         # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
-        uyaw_pid = np.clip(self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang + self.k_ff_yaw * self.yaw_rate_cmd, -self.limits['tau_y_max'], self.limits['tau_y_max'])
+        
+        # Yaw Authority Governor: saat drone sedang miring (roll/pitch > 6 deg),
+        # kurangi torsi yaw agar tidak mengorbankan diferensial roll/pitch!
+        max_tilt = max(abs(phi), abs(theta))
+        yaw_authority_scale = max(0.0, min(1.0, 1.0 - (max_tilt - math.radians(6.0)) / math.radians(10.0)))
+        uyaw_max = self.limits['tau_y_max'] * yaw_authority_scale
+        uyaw_pid = np.clip(
+            self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang + self.k_ff_yaw * self.yaw_rate_cmd,
+            -uyaw_max, uyaw_max
+        )
         
         U_cmd = np.array([u_thrust, ux_pid, uy_pid, uyaw_pid])
         
