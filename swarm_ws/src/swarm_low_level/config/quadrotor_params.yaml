@@ -11,7 +11,7 @@ actuator_limits:
   thrust_min: -14.715 # N (perturbasi minimum, setara thrust 0 N pada hover 14.715 N)
   thrust_max: 15.285  # N (total thrust max 30 N, TWR ~2.04:1)
   tau_rp_max: 0.80    # Nm (Batas Torsi Roll/Pitch optimal untuk kontrol gesit dan aman)
-  tau_y_max: 0.035    # Nm (Batas Torsi Yaw terkalibrasi agar motor tidak saturasi saat manuver/angin)
+  tau_y_max: 0.08     # Nm (Batas Torsi Yaw realistis untuk mencegah saturasi motor dan goyangan roll/pitch)
   angle_max: 0.262    # rad (Batas kemiringan Roll/Pitch, 15 derajat untuk mapping stabil)
 
 actuator_physics:
