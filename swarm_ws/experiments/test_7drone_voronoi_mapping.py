@@ -379,27 +379,31 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.mission_completed = False
         self._done_step = None
 
-        # ── Parameter 4 Skema Pemetaan & Konfigurasi Lingkungan ──────
+        # ── Parameter 5 Skema Pemetaan & Konfigurasi Lingkungan ──────
         self.declare_parameter('scheme', 1)
         self.declare_parameter('enable_wind', False)
         self.declare_parameter('enable_obstacles', False)
-        # Rintangan DINAMIS terpisah dari statis. Skema 3 = statis saja: kedua
-        # silinder bergerak tidak di-spawn di world-nya, jadi mengaktifkan
-        # jalur dinamis di sini hanya akan mengejar odometri yang tak pernah
-        # datang dan memberi QP rintangan phantom.
         self.declare_parameter('enable_dynamic_obstacles', False)
-        # PERSEPSI. Bila true, rintangan DITEMUKAN dari LiDAR dan tabel
-        # koordinat tidak dipakai sama sekali — tidak ada peta a-priori.
-        # Tabel tetap ada hanya untuk men-spawn silinder di Gazebo dan untuk
-        # menilai hasil (ground truth penilaian, bukan masukan kendali).
         self.declare_parameter('use_lidar_obstacles', True)
+        self.declare_parameter('auto_fault_injection', True)
+        self.declare_parameter('fault_trigger1_cov', 18.0)
+        self.declare_parameter('fault_trigger2_cov', 32.0)
+        self.declare_parameter('victim1_id', 4)
+        self.declare_parameter('victim2_id', 2)
 
         self.scheme = int(self.get_parameter('scheme').value)
-        self.enable_wind = bool(self.get_parameter('enable_wind').value) or (self.scheme in [2, 4])
-        self.enable_obstacles = bool(self.get_parameter('enable_obstacles').value) or (self.scheme in [3, 4])
+        self.enable_wind = bool(self.get_parameter('enable_wind').value) or (self.scheme in [2, 5])
+        self.enable_obstacles = bool(self.get_parameter('enable_obstacles').value) or (self.scheme in [3, 4, 5])
         self.enable_dynamic_obstacles = (
             bool(self.get_parameter('enable_dynamic_obstacles').value)
-            or self.scheme == 4)
+            or self.scheme in [4, 5])
+        self.auto_fault_injection = (
+            bool(self.get_parameter('auto_fault_injection').value)
+            and self.scheme == 5)
+        self.fault_trigger1_cov = float(self.get_parameter('fault_trigger1_cov').value)
+        self.fault_trigger2_cov = float(self.get_parameter('fault_trigger2_cov').value)
+        self.victim1_id = int(self.get_parameter('victim1_id').value)
+        self.victim2_id = int(self.get_parameter('victim2_id').value)
 
         # ── Rintangan Statis: set khusus per wilayah ───────────────────
         # Sembilan silinder lama hanya seluruhnya berada di dalam `rect`; di
@@ -1844,7 +1848,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     agent.transit_waypoints = [agent.waypoints[0].copy()]
                     agent.transit_wp_idx = 0
 
-                curr_target_wp = agent.transit_waypoints[agent.transit_wp_idx]
+                raw_target_wp = agent.transit_waypoints[agent.transit_wp_idx]
+                curr_target_wp = self._ref_clear(raw_target_wp)
                 dx = curr_target_wp[0] - float(agent.pos[0])
                 dy = curr_target_wp[1] - float(agent.pos[1])
                 dist_to_wp = math.hypot(dx, dy)
@@ -1881,7 +1886,8 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         continue
                     else:
                         agent.transit_wp_idx += 1
-                        curr_target_wp = agent.transit_waypoints[agent.transit_wp_idx]
+                        raw_target_wp = agent.transit_waypoints[agent.transit_wp_idx]
+                        curr_target_wp = self._ref_clear(raw_target_wp)
                         dx = curr_target_wp[0] - float(agent.pos[0])
                         dy = curr_target_wp[1] - float(agent.pos[1])
                         dist_to_wp = math.hypot(dx, dy)
@@ -1905,8 +1911,6 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 v_world_y = v_mag * math.sin(angle_to_wp) + np.clip(1.2 * dy, -0.40, 0.40)
 
                 # Full V2V avoidance during transit
-
-
                 self.send_world_twist(did, v_world_x, v_world_y, angle_to_wp)
 
             # ─────────────────────────────────────────────────────────
@@ -1914,8 +1918,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
             # ─────────────────────────────────────────────────────────
             elif agent.state == 'wait_all_start':
                 start_wp = np.array(agent.waypoints[0], dtype=np.float32)
-                agent.ref_pos = self._ref_clear(start_wp)
-                self.send_world_twist(did, 0.0, 0.0, agent.yaw)
+                safe_start = self._ref_clear(start_wp)
+                agent.ref_pos = safe_start
+                d_err = safe_start - agent.pos[:2]
+                if float(np.linalg.norm(d_err)) > 0.15:
+                    self.send_world_twist(did, float(np.clip(1.2 * d_err[0], -0.4, 0.4)), float(np.clip(1.2 * d_err[1], -0.4, 0.4)), agent.yaw)
+                else:
+                    self.send_world_twist(did, 0.0, 0.0, agent.yaw)
 
                 alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
                 all_arrived = len(alive_agents) > 0 and all(a.state in ('wait_all_start', 'align_start_yaw', 'sweeping_row', 'delay_at_corner_end', 'stepping_vertical', 'delay_at_new_row', 'transit_to_recovery', 'done') for a in alive_agents)
@@ -2260,8 +2269,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     agent.ref_pos = agent.centroid.copy()
                     dx_c = float(agent.centroid[0] - agent.pos[0])
                     dy_c = float(agent.centroid[1] - agent.pos[1])
-                    v_x = float(np.clip(1.5 * dx_c, -0.60, 0.60))
-                    v_y = float(np.clip(1.5 * dy_c, -0.60, 0.60))
+                    dist_c = math.hypot(dx_c, dy_c)
+                    if dist_c < 0.15:
+                        v_x, v_y = 0.0, 0.0
+                    else:
+                        v_x = float(np.clip(1.5 * dx_c, -0.60, 0.60))
+                        v_y = float(np.clip(1.5 * dy_c, -0.60, 0.60))
                 self.send_world_twist(did, v_x, v_y, agent.yaw)
 
         # Telemetri Terminal setiap 1 detik (20 ticks @ 20Hz)
@@ -2283,6 +2296,23 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 f'📊 [STATUS] Cov: {cov:5.1f}% | d_min: {self.global_min_dist:4.2f}m'
                 f'{map_txt} | {states_summary}'
             )
+
+            # ── Auto Fault Injection (Skema 5) ────────────────────────
+            if self.scheme == 5 and self.auto_fault_injection:
+                if (cov >= self.fault_trigger1_cov and
+                        self.victim1_id in self.agents and
+                        self.victim1_id not in self.dead_drones):
+                    self.get_logger().warning(
+                        f'⚡ [AUTO FAULT] Coverage {cov:.1f}% >= {self.fault_trigger1_cov}%: '
+                        f'Mematikan iris_{self.victim1_id}...')
+                    self.kill_drone_callback(Int32MultiArray(data=[self.victim1_id]))
+                elif (cov >= self.fault_trigger2_cov and
+                      self.victim2_id in self.agents and
+                      self.victim2_id not in self.dead_drones):
+                    self.get_logger().warning(
+                        f'⚡ [AUTO FAULT] Coverage {cov:.1f}% >= {self.fault_trigger2_cov}%: '
+                        f'Mematikan iris_{self.victim2_id}...')
+                    self.kill_drone_callback(Int32MultiArray(data=[self.victim2_id]))
 
             alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
             all_alive_done = len(alive_agents) > 0 and all(a.state == 'done' for a in alive_agents)
@@ -2332,20 +2362,21 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 self.get_logger().info(f'  🛡️  {self.cbf_summary()}')
                 self.get_logger().info('====================================================================================================')
 
-            # ── Auto-exit setelah misi benar-benar tuntas ────────────────
-            # Syarat: SELURUH drone hidup berstatus 'done' (bukan sekadar
-            # coverage >= 97%), lalu diam exit_after_success detik-sim supaya
-            # CSV low-level sempat ter-flush. Tanpa ini proses hidup selamanya
-            # dan skrip pemanggil harus menunggu timeout penuh.
+            # ── Auto-exit setelah misi benar-benar tuntas (SUKSES) ─────────
+            # Syarat: SELURUH drone hidup berstatus 'done' ATAU coverage >= 98.0%,
+            # lalu diam 2-3 detik sim supaya CSV low-level sempat ter-flush.
             if self.exit_after_success > 0.0:
                 alive_now = [a for a in self.agents.values()
                              if a.is_alive and a.state != 'dead']
-                if alive_now and all(a.state == 'done' for a in alive_now):
+                all_done = (len(alive_now) > 0 and all(a.state == 'done' for a in alive_now))
+                high_cov = (cov >= 98.0)
+                
+                if (all_done or high_cov):
                     if self._done_step is None:
                         self._done_step = self.step_count
                         self.get_logger().info(
-                            f'  ⏳ Semua drone di centroid — keluar dalam '
-                            f'{self.exit_after_success:.0f}s.')
+                            f'  🎉 [AUTO-EXIT: SUCCESS] Misi Tuntas (Cov: {cov:.1f}%)! '
+                            f'Seluruh drone di centroid. Menutup node dalam {self.exit_after_success:.1f}s.')
                 elif self._done_step is not None:
                     self._done_step = None      # ada yang kembali bertugas
 
@@ -2353,9 +2384,33 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         and (self.step_count - self._done_step)
                         >= self.exit_after_success * 20.0):
                     self.get_logger().info(
-                        f'🛑 [AUTO-EXIT] Misi tuntas & mengendap. '
-                        f'Cov akhir {cov:.1f}%. Node berhenti.')
+                        f'🛑 [AUTO-EXIT: SUCCESS] Misi tuntas & ter-flush. '
+                        f'Coverage final: {cov:.1f}%. Menghentikan proses.')
                     raise SystemExit(0)
+
+            # ── Auto-exit pada KEGAGALAN / ANOMALI (Crash / Tabrakan) ───────
+            # Jika terdeteksi tabrakan V2V fatal, tabrakan rintangan, atau drone jatuh tak terduga,
+            # hentikan segera agar tidak membuang resource komputasi dan segera catat audit kegagalan.
+            if self.step_count > 400:  # Setelah fase takeoff dan transisi awal selesai (> 20 detik)
+                # 1. Cek tabrakan V2V fatal
+                if self.global_min_dist < 0.25:
+                    self.get_logger().error(
+                        f'🛑 [AUTO-EXIT: FAILURE] Tabrakan V2V fatal terdeteksi! (d_min = {self.global_min_dist:.2f} m < 0.25 m). Menghentikan node.')
+                    raise SystemExit(1)
+
+                # 2. Cek tabrakan rintangan statis
+                if self.enable_obstacles and 'd_obs' in locals() and d_obs < 0.05:
+                    self.get_logger().error(
+                        f'🛑 [AUTO-EXIT: FAILURE] Tabrakan rintangan fatal terdeteksi! (d_obs = {d_obs:.2f} m < 0.05 m). Menghentikan node.')
+                    raise SystemExit(1)
+
+                # 3. Cek crash tak terduga (jatuh ke tanah) di luar skenario fault sengaja
+                for did, agent in self.agents.items():
+                    is_intentional_victim = (self.scheme == 5 and did in [4, 2])
+                    if agent.is_alive and not is_intentional_victim and agent.pos[2] < 0.50:
+                        self.get_logger().error(
+                            f'🛑 [AUTO-EXIT: FAILURE] Drone {agent.ns} jatuh tak terkendali ke Z={agent.pos[2]:.2f}m! Menghentikan node.')
+                        raise SystemExit(1)
 
     # ── Gaya Tolak V2V (Hanya Aktif Saat Transit, Wait, & Done Yield) ──
 

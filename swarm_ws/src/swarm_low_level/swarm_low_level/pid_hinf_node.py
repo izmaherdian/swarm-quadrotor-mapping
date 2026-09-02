@@ -412,11 +412,11 @@ class PIDHinfNode(Node):
             self.integral_x_world = 0.0
             self.integral_y_world = 0.0
 
-        if z >= 0.15 and abs(err_x_world) < 0.25 and abs(err_y_world) < 0.25:
+        if z >= 0.15:
             self.integral_x_world += err_x_world * dt_control
             self.integral_y_world += err_y_world * dt_control
-            self.integral_x_world = float(np.clip(self.integral_x_world, -0.4, 0.4))
-            self.integral_y_world = float(np.clip(self.integral_y_world, -0.4, 0.4))
+            self.integral_x_world = float(np.clip(self.integral_x_world, -0.6, 0.6))
+            self.integral_y_world = float(np.clip(self.integral_y_world, -0.6, 0.6))
         else:
             self.integral_x_world = 0.0
             self.integral_y_world = 0.0

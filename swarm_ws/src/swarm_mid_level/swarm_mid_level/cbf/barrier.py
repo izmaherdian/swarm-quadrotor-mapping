@@ -1,50 +1,46 @@
-"""Fungsi kelas-K yang konsisten dengan aktuator.
-
-Batas laju mendekat phi(h) adalah laju maksimum yang boleh dipakai drone untuk
-menutup jarak h dan MASIH bisa berhenti tepat waktu, dengan memperhitungkan
-dead time dan batas percepatan nyata:
-
-    s * T_d  +  D(s)  <=  h,        D(s) = (s^2 + v_c^2) / (2a)
-
-Selesaikan untuk s:
-
-    s^2 + 2*a*T_d*s + (v_c^2 - 2*a*h) <= 0
-    s <= -a*T_d + sqrt(a^2*T_d^2 + 2*a*h - v_c^2)
-
-sehingga
-
-    phi(h) = max(0, -a*T_d + sqrt(max(0, a^2*T_d^2 + 2*a*h - v_c^2)))
-
-Constraint CBF-nya adalah  -n^T u <= phi(h),  yaitu laju mendekat sepanjang
-normal luar dibatasi phi.
-
-Kenapa bukan alpha linear (gamma*h)? Dekat h -> 0, phi turun lebih cepat dari
-linear — phi malah nol untuk h <= (v_c^2 - a^2 T_d^2)/(2a) — jadi TIDAK ADA
-gamma konstan yang aman di sekitar batas. Bentuk akar ini keharusan, bukan
-penyempurnaan.
-
-Sifat yang diandalkan avoidance.py:
-  * phi(h) = 0 untuk h <= h0, dan naik monoton — fungsi kelas-K yang sah
-  * phi Lipschitz dengan konstanta <= 1/T_d, jadi laju pengetatan constraint
-    tidak pernah melebihi a per detik: rekursif feasible terhadap batas rate.
 """
+================================================================================
+PHYSICALLY-CONSISTENT EXTENDED CLASS-K CONTROL BARRIER FUNCTION
+================================================================================
+Deskripsi:
+Menghitung batas laju mendekati rintangan phi(h) yang konsisten dengan aktuator quadrotor,
+memperhitungkan waktu tunda sistem (dead time T_d) dan batas percepatan efektif (a_eff):
+
+    s * T_d + (s^2 + v_c^2) / (2 * a_eff) <= h
+
+Solusi Batas Laju (Class-K):
+    Untuk h >= 0:
+        phi(h) = max(0, -a_eff * T_d + sqrt(max(0, a_eff^2 * T_d^2 + 2 * a_eff * h - v_c^2)))
+    Untuk h < 0 (Extended Class-K Active Repulsion):
+        phi(h) = gamma_recov * h  ==> Mewajibkan n^T * u >= gamma_recov * |h|
+================================================================================
+"""
+
 import numpy as np
+from typing import Union
 
-
-def phi(h, a_eff, T_d, v_c):
-    """Laju mendekat maksimum yang diizinkan pada clearance h. Menerima skalar/array.
-    
-    Untuk h >= 0: batasan pengereman kuadratik (akar).
-    Untuk h < 0: pemulihan aktif h_dot >= gamma_recov * |h| (Extended Class-K CBF).
+def phi(h: Union[float, np.ndarray], a_eff: float, T_d: float, v_c: float) -> Union[float, np.ndarray]:
     """
-    h = np.asarray(h, dtype=float)
-    disc = a_eff * a_eff * T_d * T_d + 2.0 * a_eff * h - v_c * v_c
+    Laju mendekat maksimum yang diizinkan pada clearance h.
+    
+    Args:
+        h: Jarak clearance ke permukaan batas rintangan [m] (positif jika di luar, negatif jika di dalam)
+        a_eff: Batas percepatan horizontal efektif quadrotor [m/s^2]
+        T_d: Total waktu mati kontrol dan aktuator [s]
+        v_c: Kecepatan sudut lintasan melingkar [m/s]
+        
+    Returns:
+        phi(h): Batas laju mendekat Class-K [m/s]
+    """
+    h_arr = np.asarray(h, dtype=float)
+    disc = a_eff * a_eff * T_d * T_d + 2.0 * a_eff * h_arr - v_c * v_c
     val_pos = np.maximum(0.0, -a_eff * T_d + np.sqrt(np.maximum(0.0, disc)))
     
     # Extended Class-K CBF: phi(h) < 0 untuk h < 0 -> mewajibkan laju keluar n^T u >= gamma * |h|
     gamma_recov = 1.8
-    val_neg = gamma_recov * h
-    return np.where(h < 0.0, val_neg, val_pos)
+    val_neg = gamma_recov * h_arr
+    res = np.where(h_arr < 0.0, val_neg, val_pos)
+    return float(res) if np.isscalar(h) else res
 
 
 def phi_zero_h(a_eff, T_d, v_c):

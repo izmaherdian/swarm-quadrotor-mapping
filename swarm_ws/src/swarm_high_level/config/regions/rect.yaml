@@ -1,0 +1,17 @@
+# ==============================================================================
+# Region Configuration: Rectangular Baseline (30m x 30m)
+# Description: Convex bounding arena for baseline swarm coverage evaluation.
+# Coordinate System: World frame (meters), origin at (0, 0, 0)
+# ==============================================================================
+name: "rectangular_30x30"
+type: "convex_polygon"
+bounds:
+  x_min: -15.0
+  x_max: 15.0
+  y_min: -15.0
+  y_max: 15.0
+vertices:
+  - [-15.0, -15.0]
+  - [15.0, -15.0]
+  - [15.0, 15.0]
+  - [-15.0, 15.0]

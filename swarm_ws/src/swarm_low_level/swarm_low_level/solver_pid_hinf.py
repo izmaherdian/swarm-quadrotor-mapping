@@ -1,24 +1,57 @@
+"""
+================================================================================
+H-INFINITY ALGEBRAIC RICCATI EQUATION (HARE) PID GAIN SYNTHESIZER
+================================================================================
+Deskripsi:
+Sintesis gain PID berbasis H-infinity untuk sistem kendali quadrotor terdesentralisasi
+dengan penolakan gangguan (disturbance attenuation bound gamma).
+
+Formulasi State-Space Teraugmentasi:
+    dot(x_aug) = A_aug * x_aug + Bu_aug * u_cmd + Bw_aug * w_dist
+    
+Persamaan Riccati H-Infinity (HARE):
+    A_aug^T * P + P * A_aug + Q_aug - P * (Bu_aug * R^-1 * Bu_aug^T - gamma^-2 * Bw_aug * Bw_aug^T) * P = 0
+
+Matriks Gain Umpan Balik:
+    K_a = R^-1 * Bu_aug^T * P
+    u_cmd = -K_a * x_aug = [K_p, K_d, K_i] * error_states
+================================================================================
+"""
+
 import numpy as np
 from scipy.linalg import solve_continuous_are
+from typing import Dict, Tuple, Any
 
 class PIDHinfSolver:
-    def __init__(self, physics_params):
-        # Ekstrak parameter fisika
-        self.mass = physics_params['mass']
-        self.g = physics_params['g']
-        self.ix = physics_params['ix']
-        self.iy = physics_params['iy']
-        self.iz = physics_params['iz']
+    """Solver analitik gain PID berbasis H-infinity Riccati Equation."""
+
+    def __init__(self, physics_params: Dict[str, float]):
+        # Ekstrak parameter fisika quadrotor
+        self.mass: float = float(physics_params['mass'])   # [kg]
+        self.g: float = float(physics_params['g'])         # [m/s^2]
+        self.ix: float = float(physics_params['ix'])       # [kg.m^2]
+        self.iy: float = float(physics_params['iy'])       # [kg.m^2]
+        self.iz: float = float(physics_params['iz'])       # [kg.m^2]
         
-        # Mapping parameter lama (untuk konsistensi dengan skrip Matlab)
         self.m = self.mass
         self.Ix = self.ix
         self.Iy = self.iy
         self.Iz = self.iz
 
-    def solve_pid_hinf(self, A, B, C, Q_val, R_val, gamma):
+    def solve_pid_hinf(self, A: np.ndarray, B: np.ndarray, C: np.ndarray, Q_val: np.ndarray, R_val: float, gamma: float) -> Tuple[float, float, float]:
         """
         Menyelesaikan matriks gain PID menggunakan H-infinity Algebraic Riccati Equation (HARE).
+        
+        Args:
+            A: Matriks dinamika sistem state-space (n x n)
+            B: Matriks input aktuasi (n x m)
+            C: Matriks output pengukuran (p x n)
+            Q_val: Matriks pembobot state (n x n)
+            R_val: Skalar pembobot energi kendali
+            gamma: Parameter atenuasi gangguan H-infinity
+            
+        Returns:
+            Tuple (Kp, Ki, Kd) gain kendali PID
         """
         n = A.shape[0]
         m = B.shape[1]
@@ -120,7 +153,7 @@ class PIDHinfSolver:
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([0.05, 0.30])
+        Q_x_out = np.diag([0.10, 0.40])
         R_x_out = 1.0
         Kp, Ki, Kd = self.solve_pid_hinf(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out, gamma_out)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
@@ -129,8 +162,8 @@ class PIDHinfSolver:
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([2.0, 0.2])
-        R_x_in = 0.08
+        Q_x_in = np.diag([4.0, 0.40])
+        R_x_in = 0.06
         Kp, Ki, Kd = self.solve_pid_hinf(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in, gamma_in)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -141,7 +174,7 @@ class PIDHinfSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([0.05, 0.30])
+        Q_y_out = np.diag([0.10, 0.40])
         R_y_out = 1.0
         Kp, Ki, Kd = self.solve_pid_hinf(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out, gamma_out)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
@@ -150,8 +183,8 @@ class PIDHinfSolver:
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([2.0, 0.2])
-        R_y_in = 0.08
+        Q_y_in = np.diag([4.0, 0.40])
+        R_y_in = 0.06
         Kp, Ki, Kd = self.solve_pid_hinf(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in, gamma_in)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -181,8 +214,8 @@ class PIDHinfSolver:
         return gains
 
 if __name__ == '__main__':
-    # Test jalankan solver
-    physics = {'mass': 1.0, 'g': 9.81, 'ix': 8.1e-3, 'iy': 8.1e-3, 'iz': 14.2e-3}
+    # Test jalankan solver dengan parameter 3DR Iris nominal
+    physics = {'mass': 1.50, 'g': 9.81, 'ix': 0.0291, 'iy': 0.0291, 'iz': 0.0552}
     solver = PIDHinfSolver(physics)
     gains = solver.get_all_gains()
     for k, v in gains.items():

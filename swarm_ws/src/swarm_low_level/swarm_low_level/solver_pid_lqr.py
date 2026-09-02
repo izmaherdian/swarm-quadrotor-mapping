@@ -1,33 +1,58 @@
+"""
+================================================================================
+LINEAR QUADRATIC REGULATOR (LQR) PID GAIN SYNTHESIZER
+================================================================================
+Deskripsi:
+Sintesis gain PID optimal berbasis Algebraic Riccati Equation (ARE) untuk
+sistem kendali kaskade quadrotor.
+
+Formulasi State-Space Teraugmentasi:
+    dot(x_aug) = A_aug * x_aug + B_aug * u_cmd
+    
+Persamaan Riccati Kontinu (ARE):
+    A_aug^T * P + P * A_aug + Q_aug - P * B_aug * R^-1 * B_aug^T * P = 0
+
+Matriks Gain Umpan Balik:
+    K = R^-1 * B_aug^T * P
+    u_cmd = -K * x_aug = [K_p, K_d, K_i] * error_states
+================================================================================
+"""
+
 import numpy as np
 import scipy.linalg
+from typing import Dict, Tuple, Any
 
 class PIDLQRSolver:
-    def __init__(self, params):
-        """
-        Inisialisasi parameter fisik quadrotor dari eksternal (parameter file YAML).
-        """
-        self.m = params['mass']
-        self.Ix = params['ix']
-        self.Iy = params['iy']
-        self.Iz = params['iz']
-        self.g = params['g']
+    """Solver analitik gain PID berbasis Linear Quadratic Regulator (ARE)."""
 
-    def lqr(self, A, B, Q, R):
+    def __init__(self, params: Dict[str, float]):
+        """Inisialisasi parameter fisik quadrotor."""
+        self.m: float = float(params['mass'])   # [kg]
+        self.Ix: float = float(params['ix'])    # [kg.m^2]
+        self.Iy: float = float(params['iy'])    # [kg.m^2]
+        self.Iz: float = float(params['iz'])    # [kg.m^2]
+        self.g: float = float(params['g'])      # [m/s^2]
+
+    def lqr(self, A: np.ndarray, B: np.ndarray, Q: np.ndarray, R: np.ndarray) -> np.ndarray:
         """
         Menghitung matriks gain LQR menggunakan Algebraic Riccati Equation (ARE).
-        Ekuivalen dengan fungsi lqr() di MATLAB.
+        
+        Args:
+            A: Matriks dinamika sistem state-space (n x n)
+            B: Matriks input aktuasi (n x m)
+            Q: Matriks pembobot penalti state (n x n)
+            R: Matriks pembobot penalti input kendali (m x m)
+            
+        Returns:
+            Matriks feedback gain K (m x n)
         """
-        # Selesaikan persamaan Riccati
         P = scipy.linalg.solve_continuous_are(A, B, Q, R)
-        # Hitung gain K
         K = np.linalg.inv(R) @ (B.T @ P)
         return K
 
-    def solve_pid_lqr(self, A, B, C, Q_val, R_val):
+    def solve_pid_lqr(self, A: np.ndarray, B: np.ndarray, C: np.ndarray, Q_val: np.ndarray, R_val: float) -> Tuple[float, float, float]:
         """
-        Translasi langsung dari fungsi lokal 'solve_pid_lqr' di MATLAB.
-        Fungsi ini memetakan state-feedback gain (LQR) menjadi parameter (Kp, Ki, Kd)
-        untuk arsitektur cascaded PID seperti yang terlihat pada diagram_pid_lqr.pdf.
+        Memetakan state-feedback gain LQR teraugmentasi menjadi parameter gain PID (Kp, Ki, Kd).
         """
         n = A.shape[0]
         m = B.shape[1]
@@ -84,7 +109,7 @@ class PIDLQRSolver:
         A_x_out = np.array([[0, 1], [0, 0]])
         B_x_out = np.array([[0], [g]])
         C_x_out = np.array([[1, 0]])
-        Q_x_out = np.diag([0.05, 0.30])
+        Q_x_out = np.diag([0.08, 0.35])
         R_x_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_out, B_x_out, C_x_out, Q_x_out, R_x_out)
         gains['x_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
@@ -93,8 +118,8 @@ class PIDLQRSolver:
         A_x_in = np.array([[0, 1], [0, 0]])
         B_x_in = np.array([[0], [1/Iy]])
         C_x_in = np.array([[1, 0]])
-        Q_x_in = np.diag([2.0, 0.2])
-        R_x_in = np.array([[0.08]])
+        Q_x_in = np.diag([6.0, 0.60])
+        R_x_in = np.array([[0.05]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_x_in, B_x_in, C_x_in, Q_x_in, R_x_in)
         gains['x_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
@@ -105,7 +130,7 @@ class PIDLQRSolver:
         A_y_out = np.array([[0, 1], [0, 0]])
         B_y_out = np.array([[0], [-g]])
         C_y_out = np.array([[1, 0]])
-        Q_y_out = np.diag([0.05, 0.30])
+        Q_y_out = np.diag([0.08, 0.35])
         R_y_out = np.array([[1.0]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_out, B_y_out, C_y_out, Q_y_out, R_y_out)
         gains['y_outer'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
@@ -114,8 +139,8 @@ class PIDLQRSolver:
         A_y_in = np.array([[0, 1], [0, 0]])
         B_y_in = np.array([[0], [1/Ix]])
         C_y_in = np.array([[1, 0]])
-        Q_y_in = np.diag([2.0, 0.2])
-        R_y_in = np.array([[0.08]])
+        Q_y_in = np.diag([6.0, 0.60])
+        R_y_in = np.array([[0.05]])
         Kp, Ki, Kd = self.solve_pid_lqr(A_y_in, B_y_in, C_y_in, Q_y_in, R_y_in)
         gains['y_inner'] = {'Kp': Kp[0,0], 'Ki': Ki[0,0], 'Kd': Kd[0,0]}
 
