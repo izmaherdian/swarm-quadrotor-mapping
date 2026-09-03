@@ -5,6 +5,7 @@ from tf2_ros import TransformBroadcaster
 from nav_msgs.msg import Odometry, Path
 from actuator_msgs.msg import Actuators
 from geometry_msgs.msg import PoseStamped, Point as GeometryPoint, TwistStamped, Twist, TransformStamped, Vector3Stamped
+from std_msgs.msg import Int32MultiArray
 from visualization_msgs.msg import Marker, MarkerArray
 import math
 import csv
@@ -154,6 +155,8 @@ class PIDLQRNode(Node):
         self.target_sub = self.create_subscription(PoseStamped, 'target_pose', self.target_pose_callback, 10)
         self.vel_sub = self.create_subscription(TwistStamped, 'target_velocity', self.target_velocity_callback, 10)
         self.cmd_vel_sub = self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, 10)
+        self.is_killed = False
+        self.kill_sub = self.create_subscription(Int32MultiArray, '/swarm/kill_drone', self.kill_callback, 10)
         self.wind_sub = self.create_subscription(Vector3Stamped, '/swarm/wind_disturbance', self.wind_callback, 10)
         self.current_wind = [0.0, 0.0, 0.0]
 
@@ -373,6 +376,29 @@ class PIDLQRNode(Node):
         p = msg.twist.twist.angular.x
         q_ang = msg.twist.twist.angular.y
         r_ang = msg.twist.twist.angular.z
+
+        # Jika drone telah dimatikan (killed), matikan seluruh 4 motor ke 0 RPM dan catat status jatuh ke CSV
+        if self.is_killed:
+            act_msg = Actuators()
+            act_msg.velocity = [0.0, 0.0, 0.0, 0.0]
+            act_msg.normalized = [0.0, 0.0, 0.0, 0.0]
+            self.publisher.publish(act_msg)
+            
+            roll_deg = math.degrees(phi)
+            pitch_deg = math.degrees(theta)
+            yaw_deg = math.degrees(yaw)
+            
+            self.csv_writer.writerow([
+                f"{t:.4f}", f"{x:.4f}", f"{y:.4f}", f"{z:.4f}",
+                f"{roll_deg:.4f}", f"{pitch_deg:.4f}", f"{yaw_deg:.4f}",
+                f"{self.x_cmd:.4f}", f"{self.y_cmd:.4f}", f"{self.z_cmd:.4f}", f"{math.degrees(self.yaw_cmd):.4f}",
+                f"{vx:.4f}", f"{vy:.4f}", f"{vz:.4f}", f"{p:.4f}", f"{q_ang:.4f}", f"{r_ang:.4f}",
+                f"0.0000", f"0.0000", f"0.0000", f"0.0000",
+                f"0.0", f"0.0", f"0.0", f"0.0",
+                f"{self.current_wind[0]:.4f}", f"{self.current_wind[1]:.4f}", f"{self.current_wind[2]:.4f}"
+            ])
+            self.csv_file.flush()
+            return
         
         # 0. Smooth Takeoff Vertical Ramping (Maksimal 1.0 m/s untuk mencegah lonjakan thrust dan overshoot)
         MAX_CLIMB_RATE = 1.0  # m/s
@@ -638,6 +664,15 @@ class PIDLQRNode(Node):
 
     def wind_callback(self, msg):
         self.current_wind = [float(msg.vector.x), float(msg.vector.y), float(msg.vector.z)]
+
+    def kill_callback(self, msg):
+        if self.drone_id in msg.data or int(self.drone_id) in msg.data:
+            self.is_killed = True
+            self.get_logger().error(f"💥 [MOTOR CUTOFF] iris_{self.drone_id} menerima sinyal KILL! Mematikan seluruh motor (jatuh bebas ke tanah).")
+            act_msg = Actuators()
+            act_msg.velocity = [0.0, 0.0, 0.0, 0.0]
+            act_msg.normalized = [0.0, 0.0, 0.0, 0.0]
+            self.publisher.publish(act_msg)
 
     def destroy_node(self):
         self.csv_file.close()
