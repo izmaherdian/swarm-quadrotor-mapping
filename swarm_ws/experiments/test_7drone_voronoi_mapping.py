@@ -554,7 +554,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.pending_recovery_pts = []
         self.recovery_active = False
 
-        # Topic Subscriber untuk Emergency Trigger dari Terminal 2
+        # Topic Publisher & Subscriber untuk Emergency Trigger
+        self.pub_kill = self.create_publisher(
+            Int32MultiArray,
+            '/swarm/kill_drone',
+            10
+        )
         self.sub_kill = self.create_subscription(
             Int32MultiArray,
             '/swarm/kill_drone',
@@ -2305,14 +2310,18 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     self.get_logger().warning(
                         f'⚡ [AUTO FAULT] Coverage {cov:.1f}% >= {self.fault_trigger1_cov}%: '
                         f'Mematikan iris_{self.victim1_id}...')
-                    self.kill_drone_callback(Int32MultiArray(data=[self.victim1_id]))
+                    msg = Int32MultiArray(data=[self.victim1_id])
+                    self.pub_kill.publish(msg)
+                    self.kill_drone_callback(msg)
                 elif (cov >= self.fault_trigger2_cov and
                       self.victim2_id in self.agents and
                       self.victim2_id not in self.dead_drones):
                     self.get_logger().warning(
                         f'⚡ [AUTO FAULT] Coverage {cov:.1f}% >= {self.fault_trigger2_cov}%: '
                         f'Mematikan iris_{self.victim2_id}...')
-                    self.kill_drone_callback(Int32MultiArray(data=[self.victim2_id]))
+                    msg = Int32MultiArray(data=[self.victim2_id])
+                    self.pub_kill.publish(msg)
+                    self.kill_drone_callback(msg)
 
             alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
             all_alive_done = len(alive_agents) > 0 and all(a.state == 'done' for a in alive_agents)
