@@ -1994,10 +1994,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 idx_end = idx_start + 1
 
                 if idx_end >= len(agent.waypoints):
-                    agent.state = 'done'
-                    agent.ref_pos = agent.pos[:2].copy()
-                    agent.centroid = agent.pos[:2].copy()
-                    self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Hover parkir stabil di ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}).')
+                    agent.state = 'return_to_centroid'
+                    agent.return_ticks = 0
+                    self.get_logger().info(f'🔄 [iris_{did}] Seluruh baris tuntas! Terbang kembali ke Pusat Voronoi ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f})...')
                     continue
 
                 wp_start = agent.waypoints[idx_start]
@@ -2058,10 +2057,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     if self.circumnav is not None:
                         self.circumnav.reset(did)   # manuver tidak menyeberang baris
                     if agent.row_idx + 1 >= agent.num_rows:
-                        agent.state = 'done'
-                        agent.ref_pos = agent.pos[:2].copy()
-                        agent.centroid = agent.pos[:2].copy()
-                        self.get_logger().info(f'🎉 [iris_{did}] SELURUH TUGAS TUNTAS! Hover parkir stabil di ({agent.pos[0]:.2f}, {agent.pos[1]:.2f}).')
+                        agent.state = 'return_to_centroid'
+                        agent.return_ticks = 0
+                        self.get_logger().info(f'🔄 [iris_{did}] Seluruh baris tuntas! Terbang kembali ke Pusat Voronoi ({agent.centroid[0]:.2f}, {agent.centroid[1]:.2f})...')
                     else:
                         next_is_rec = (agent.row_idx + 1 < len(agent.wp_flags)) and (not agent.wp_flags[agent.row_idx + 1])
                         curr_is_own = (agent.row_idx < len(agent.wp_flags)) and agent.wp_flags[agent.row_idx]
@@ -2235,8 +2233,9 @@ class Swarm7DroneVoronoiMappingNode(Node):
                         f'{agent.return_ticks * 0.05:.0f}s (sisa {dist_to_c:.2f}m) — '
                         'diterima sebagai selesai. Parkir, bukan pemetaan.')
 
-                if dist_to_c < 0.30 or stuck_c:
+                if dist_to_c < 0.35 or stuck_c:
                     agent.state = 'done'
+                    agent.park_pos = agent.centroid.copy()
                     agent.ref_pos = agent.centroid.copy()
                     agent.target_yaw = math.pi / 2.0  # Menghadap UTARA (+90.0°)
                     wz_cmd = self.compute_wz(agent.yaw, agent.target_yaw)
