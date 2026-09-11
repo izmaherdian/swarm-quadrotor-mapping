@@ -2320,8 +2320,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
             # Cek jika seluruh drone aktif telah tuntas atau cakupan mencapai 97.0%
             if (cov >= 97.0 or all_alive_done) and not self.mission_completed:
                 self.mission_completed = True
+                t_misi = self.step_count / 20.0
+                menit = int(t_misi // 60)
+                detik = t_misi % 60
                 self.get_logger().info(
                     f'🏆 [SWARM SUCCESS] Target Coverage {cov:.1f}% Tercapai! '
+                    f'⏱️ Durasi Misi: {t_misi:.1f}s ({menit}m {detik:.1f}s) | '
                     f'Jarak Terdekat (d_min): {self.global_min_dist:.2f}m | MISI TUNTAS!'
                 )
                 self.get_logger().info('====================================================================================================')
@@ -2382,8 +2386,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 if (self._done_step is not None
                         and (self.step_count - self._done_step)
                         >= self.exit_after_success * 20.0):
+                    t_final = self.step_count / 20.0
+                    m_f = int(t_final // 60)
+                    s_f = t_final % 60
                     self.get_logger().info(
                         f'🛑 [AUTO-EXIT: SUCCESS] Misi tuntas & ter-flush. '
+                        f'⏱️ Total Waktu Misi: {t_final:.1f}s ({m_f}m {s_f:.1f}s) | '
                         f'Coverage final: {cov:.1f}%. Menghentikan proses.')
                     raise SystemExit(0)
 
