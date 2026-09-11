@@ -389,7 +389,7 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.declare_parameter('fault_trigger1_cov', 18.0)
         self.declare_parameter('fault_trigger2_cov', 32.0)
         self.declare_parameter('victim1_id', 4)
-        self.declare_parameter('victim2_id', 7)
+        self.declare_parameter('victim2_id', 2)
 
         self.scheme = int(self.get_parameter('scheme').value)
         self.enable_wind = bool(self.get_parameter('enable_wind').value) or (self.scheme in [2, 5])

@@ -47,7 +47,7 @@ CONTROLLER="pid_lqr_node"
 CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
 CONTROLLER_COLOR="$CYAN"
 VICTIM1="4"
-VICTIM2="7"
+VICTIM2="2"
 
 # Parsing Argumen CLI
 while [[ $# -gt 0 ]]; do
