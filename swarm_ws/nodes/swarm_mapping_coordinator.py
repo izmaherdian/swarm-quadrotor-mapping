@@ -2369,14 +2369,13 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 alive_now = [a for a in self.agents.values()
                              if a.is_alive and a.state != 'dead']
                 all_done = (len(alive_now) > 0 and all(a.state == 'done' for a in alive_now))
-                high_cov = (cov >= 98.0)
                 
-                if (all_done or high_cov):
+                if all_done:
                     if self._done_step is None:
                         self._done_step = self.step_count
                         self.get_logger().info(
-                            f'  🎉 [AUTO-EXIT: SUCCESS] Misi Tuntas (Cov: {cov:.1f}%)! '
-                            f'Seluruh drone di centroid. Menutup node dalam {self.exit_after_success:.1f}s.')
+                            f'  🎉 [AUTO-EXIT: SUCCESS] Seluruh drone tuntas di centroid (Cov: {cov:.1f}%)! '
+                            f'Menutup node dalam {self.exit_after_success:.1f}s.')
                 elif self._done_step is not None:
                     self._done_step = None      # ada yang kembali bertugas
 
