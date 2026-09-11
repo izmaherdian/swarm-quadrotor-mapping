@@ -102,6 +102,9 @@ class PIDLQRNode(Node):
         # Konstanta Fisika dan Matriks Mixer
         self.g = self.params['g']
         self.m = self.params['mass']
+        self.ix = float(self.params['ix'])
+        self.iy = float(self.params['iy'])
+        self.iz = float(self.params['iz'])
         self.kf = self.act_phys['kf']
         self.km = self.act_phys['km']
         kf, km = self.kf, self.km
@@ -408,12 +411,15 @@ class PIDLQRNode(Node):
         self.current_z_target += dz
 
         self.filt_x[1] += (self.w_n_sq * (self.x_cmd - self.filt_x[0]) - self.two_zeta_wn * self.filt_x[1]) * dt_control
+        self.filt_x[1] = float(np.clip(self.filt_x[1], -1.8, 1.8))
         self.filt_x[0] += self.filt_x[1] * dt_control
         
         self.filt_y[1] += (self.w_n_sq * (self.y_cmd - self.filt_y[0]) - self.two_zeta_wn * self.filt_y[1]) * dt_control
+        self.filt_y[1] = float(np.clip(self.filt_y[1], -1.8, 1.8))
         self.filt_y[0] += self.filt_y[1] * dt_control
         
         self.filt_z[1] += (self.w_n_sq * (self.current_z_target - self.filt_z[0]) - self.two_zeta_wn * self.filt_z[1]) * dt_control
+        self.filt_z[1] = float(np.clip(self.filt_z[1], -0.8, 0.8))
         self.filt_z[0] += self.filt_z[1] * dt_control
         
         # Yaw: bypass filter second-order — gunakan yaw_cmd langsung agar tidak ada lag ganda
@@ -466,8 +472,17 @@ class PIDLQRNode(Node):
 
         phi_ref = np.clip(phi_ref_raw, -max_angle_takeoff, max_angle_takeoff)
 
-        # 1. Angle Slew Rate Limiter (Maksimal perubahan 300 deg/s untuk respon gesit tanpa hunting)
-        MAX_ANGLE_RATE = math.radians(300.0)
+        # 1. Yaw Slew Rate Limiter (Maksimal 90 deg/s untuk mencegah cross-coupling gyroscopic)
+        MAX_YAW_RATE = math.radians(90.0)
+        if not hasattr(self, 'prev_yaw_ref'):
+            self.prev_yaw_ref = yaw
+        diff_yaw = (self.yaw_cmd - self.prev_yaw_ref + np.pi) % (2 * np.pi) - np.pi
+        d_yaw = np.clip(diff_yaw, -MAX_YAW_RATE * dt_control, MAX_YAW_RATE * dt_control)
+        self.prev_yaw_ref = (self.prev_yaw_ref + d_yaw + np.pi) % (2 * np.pi) - np.pi
+        yaw_cmd_norm = self.prev_yaw_ref
+
+        # 2. Angle Slew Rate Limiter (Maksimal perubahan 240 deg/s untuk respon gesit dan mulus)
+        MAX_ANGLE_RATE = math.radians(240.0)
         if not hasattr(self, 'prev_theta_ref'):
             self.prev_theta_ref = 0.0
             self.prev_phi_ref = 0.0
@@ -480,8 +495,8 @@ class PIDLQRNode(Node):
         phi_ref = self.prev_phi_ref + d_phi
         self.prev_phi_ref = phi_ref
 
-        # 2. Attitude Safety Recovery Cutoff: jika sudut > 30 deg, paksa level out dan reset integral
-        if abs(phi) > math.radians(30.0) or abs(theta) > math.radians(30.0):
+        # 3. Attitude Safety Recovery Cutoff: jika sudut > 25 deg, paksa level out dan reset integral
+        if abs(phi) > math.radians(25.0) or abs(theta) > math.radians(25.0):
             theta_ref = 0.0
             phi_ref = 0.0
             self.pid_x_out.integral = 0.0
@@ -490,10 +505,14 @@ class PIDLQRNode(Node):
             self.prev_phi_ref = 0.0
 
         err_theta = theta_ref - theta
-        uy_pid = np.clip(self.pid_x_in.Kp * err_theta - self.pid_x_in.Kd * q_ang, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
+        uy_raw = self.pid_x_in.Kp * err_theta - self.pid_x_in.Kd * q_ang
+        tau_gyro_y = (self.iz - self.ix) * p * r_ang
+        uy_pid = np.clip(uy_raw - tau_gyro_y, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         err_phi = phi_ref - phi
-        ux_pid = np.clip(self.pid_y_in.Kp * err_phi - self.pid_y_in.Kd * p, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
+        ux_raw = self.pid_y_in.Kp * err_phi - self.pid_y_in.Kd * p
+        tau_gyro_x = (self.iy - self.iz) * q_ang * r_ang
+        ux_pid = np.clip(ux_raw - tau_gyro_x, -self.limits['tau_rp_max'], self.limits['tau_rp_max'])
         
         # Altitude Outer/Inner Loop — Derivative on Measurement (D-term langsung dari vz)
         err_z = self.filt_z[0] - z
@@ -504,15 +523,20 @@ class PIDLQRNode(Node):
                 self.pid_z.integral = float(np.clip(self.pid_z.integral, -self.pid_z.i_max, self.pid_z.i_max))
         i_term_z = self.pid_z.Ki * self.pid_z.integral
         d_term_z = -self.pid_z.Kd * vz
-        uz_pid = np.clip(p_term_z + i_term_z + d_term_z, -self.limits['thrust_max'], self.limits['thrust_max']) 
+        uz_pid = np.clip(p_term_z + i_term_z + d_term_z, -self.limits['thrust_max'], self.limits['thrust_max'])
+        if z < 1.8:
+            uz_pid = float(np.clip(uz_pid, -self.limits['thrust_max'], 4.0))
         
         # Angle-Thrust Compensation (compensates for vertical force loss due to tilt)
         cos_phi = math.cos(phi)
         cos_theta = math.cos(theta)
-        tilt_comp = 1.0 / max(cos_phi * cos_theta, 0.7)
+        if abs(phi) > math.radians(25.0) or abs(theta) > math.radians(25.0):
+            tilt_comp = 1.0
+        else:
+            tilt_comp = 1.0 / max(cos_phi * cos_theta, 0.7)
         u_thrust = (uz_pid + (self.m * self.g)) * tilt_comp
         
-        # Normalisasi error yaw ke range [-pi, pi] untuk menghindari loncat 2pi
+        # Normalisasi error yaw ke range [-pi, pi]
         err_yaw = (yaw_cmd_norm - yaw + np.pi) % (2 * np.pi) - np.pi
         uyaw_pid = np.clip(self.pid_yaw.Kp * err_yaw - self.pid_yaw.Kd * r_ang + self.k_ff_yaw * self.yaw_rate_cmd, -self.limits['tau_y_max'], self.limits['tau_y_max'])
         

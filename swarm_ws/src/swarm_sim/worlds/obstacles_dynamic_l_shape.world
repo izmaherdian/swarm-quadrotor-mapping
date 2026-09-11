@@ -955,5 +955,86 @@
         </visual>
       </link>
     </model>
+    <!-- ===================================================================== -->
+    <!-- 2 RINTANGAN DINAMIS (DYNAMIC MOVING OBSTACLES) POLA SILANG "X"       -->
+    <!-- Warna Muted Industrial Hazard: Dark Crimson & Warm Amber              -->
+    <!-- ===================================================================== -->
+    <model name="dynamic_obs_1">
+      <static>false</static>
+      <pose>-10.0 10.0 2.05 0 0 0</pose>
+      <link name="link">
+        <gravity>false</gravity>
+        <kinematic>true</kinematic>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>1.0</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>1.0</iyy><iyz>0</iyz><izz>1.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+          <material>
+            <ambient>0.65 0.22 0.22 1.0</ambient>
+            <diffuse>0.65 0.22 0.22 1.0</diffuse>
+            <specular>0.4 0.4 0.4 1.0</specular>
+          </material>
+        </visual>
+      </link>
+      <plugin
+        filename="gz-sim-velocity-control-system"
+        name="gz::sim::systems::VelocityControl">
+      </plugin>
+      <plugin
+        filename="gz-sim-odometry-publisher-system"
+        name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>link</robot_base_frame>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <odom_topic>/model/dynamic_obs_1/odometry</odom_topic>
+      </plugin>
+    </model>
+
+    <model name="dynamic_obs_2">
+      <static>false</static>
+      <pose>10.0 10.0 2.05 0 0 0</pose>
+      <link name="link">
+        <gravity>false</gravity>
+        <kinematic>true</kinematic>
+        <inertial>
+          <mass>10.0</mass>
+          <inertia>
+            <ixx>1.0</ixx><ixy>0</ixy><ixz>0</ixz>
+            <iyy>1.0</iyy><iyz>0</iyz><izz>1.0</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.45</radius><length>3.6</length></cylinder></geometry>
+          <material>
+            <ambient>0.70 0.42 0.18 1.0</ambient>
+            <diffuse>0.70 0.42 0.18 1.0</diffuse>
+            <specular>0.4 0.4 0.4 1.0</specular>
+          </material>
+        </visual>
+      </link>
+      <plugin
+        filename="gz-sim-velocity-control-system"
+        name="gz::sim::systems::VelocityControl">
+      </plugin>
+      <plugin
+        filename="gz-sim-odometry-publisher-system"
+        name="gz::sim::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>link</robot_base_frame>
+        <odom_publish_frequency>50</odom_publish_frequency>
+        <odom_topic>/model/dynamic_obs_2/odometry</odom_topic>
+      </plugin>
+    </model>
   </world>
 </sdf>

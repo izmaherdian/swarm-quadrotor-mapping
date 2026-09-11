@@ -37,7 +37,7 @@ def phi(h: Union[float, np.ndarray], a_eff: float, T_d: float, v_c: float) -> Un
     val_pos = np.maximum(0.0, -a_eff * T_d + np.sqrt(np.maximum(0.0, disc)))
     
     # Extended Class-K CBF: phi(h) < 0 untuk h < 0 -> mewajibkan laju keluar n^T u >= gamma * |h|
-    gamma_recov = 1.8
+    gamma_recov = 3.5
     val_neg = gamma_recov * h_arr
     res = np.where(h_arr < 0.0, val_neg, val_pos)
     return float(res) if np.isscalar(h) else res

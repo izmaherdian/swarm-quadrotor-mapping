@@ -46,6 +46,8 @@ EXIT_AFTER="3.0"        # --exit-after <detik-sim> berhenti otomatis setelah mis
 CONTROLLER="pid_lqr_node"
 CONTROLLER_TITLE="PID-LQR (Optimal Linear Quadratic Regulator)"
 CONTROLLER_COLOR="$CYAN"
+VICTIM1="4"
+VICTIM2="7"
 
 # Parsing Argumen CLI
 while [[ $# -gt 0 ]]; do
@@ -90,6 +92,14 @@ while [[ $# -gt 0 ]]; do
       EXIT_AFTER="$2"
       shift 2
       ;;
+    --victim1)
+      VICTIM1="$2"
+      shift 2
+      ;;
+    --victim2)
+      VICTIM2="$2"
+      shift 2
+      ;;
     --headless)
       HEADLESS=true
       shift
@@ -129,49 +139,44 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Konfigurasi Berdasarkan Skema
+# Konfigurasi Berdasarkan Skema & Wilayah
 case $SCHEME in
   1)
     SCHEME_NAME="Skema 1: Nominal Mapping (Baseline, Zero Disturbance)"
-    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty_${REGION}.world"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
     ENABLE_WIND="false"
     ENABLE_OBSTACLES="false"
     ENABLE_DYN_OBSTACLES="false"
     ;;
   2)
     SCHEME_NAME="Skema 2: Dryden Wind Turbulence Mapping (σ=2.5N, τ=0.5s + Gust)"
-    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty_${REGION}.world"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/empty.world"
     ENABLE_WIND="true"
     ENABLE_OBSTACLES="false"
     ENABLE_DYN_OBSTACLES="false"
     ;;
   3)
-    # Skema 3 = rintangan STATIS saja. Tiap wilayah punya berkas world
-    # sendiri berisi 9 silinder DI DALAM wilayah itu, dibangkitkan oleh
-    # tools/gen_obstacle_worlds.py, tanpa silinder dinamis sama sekali.
     SCHEME_NAME="Skema 3: Obstacle Avoidance Mapping (9 rintangan statis)"
     WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles_${REGION}.world"
-    if [ ! -f "$WORLD_FILE" ]; then
-      echo -e "${RED}❌ World Skema 3 untuk wilayah '$REGION' tidak ada:${NC}"
-      echo -e "   $WORLD_FILE"
-      echo -e "   Wilayah yang punya world Skema 3: rect, l_shape, u_shape, plus."
-      echo -e "   Bila baru menambah wilayah, jalankan: ${BOLD}python3 tools/gen_obstacle_worlds.py${NC}"
-      exit 1
-    fi
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles_rect.world"
     ENABLE_WIND="false"
     ENABLE_OBSTACLES="true"
     ENABLE_DYN_OBSTACLES="false"
     ;;
   4)
     SCHEME_NAME="Skema 4: Static & Dynamic Obstacle Avoidance (9 Statis + 2 Dinamis Pola X)"
-    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles_dynamic_${REGION}.world"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
     ENABLE_WIND="false"
     ENABLE_OBSTACLES="true"
     ENABLE_DYN_OBSTACLES="true"
     ;;
   5)
     SCHEME_NAME="Skema 5: Combined Multi-Hazard Disturbance Mapping (Dryden Wind + 9 Statis + 2 Dinamis Pola X)"
-    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
+    WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles_dynamic_${REGION}.world"
+    [ ! -f "$WORLD_FILE" ] && WORLD_FILE="$WS_DIR/src/swarm_sim/worlds/obstacles.world"
     ENABLE_WIND="true"
     ENABLE_OBSTACLES="true"
     ENABLE_DYN_OBSTACLES="true"
@@ -206,6 +211,7 @@ cleanup() {
     pkill -9 -f "dryden_wind_node" 2>/dev/null || true
     pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
     pkill -9 -f "rviz2" 2>/dev/null || true
+    pkill -9 -f "swarm_mapping_coordinator" 2>/dev/null || true
     pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
     echo "✅ Semua proses berhasil dibersihkan."
     exit 0
@@ -223,6 +229,7 @@ pkill -9 -f "pid_hinf_node" 2>/dev/null || true
 pkill -9 -f "dryden_wind_node" 2>/dev/null || true
 pkill -9 -f "ros_gz_bridge" 2>/dev/null || true
 pkill -9 -f "rviz2" 2>/dev/null || true
+pkill -9 -f "swarm_mapping_coordinator" 2>/dev/null || true
 pkill -9 -f "test_7drone_voronoi_mapping" 2>/dev/null || true
 sleep 1
 
@@ -296,7 +303,7 @@ if [ -n "$EXIT_AFTER" ]; then
     SWEEP_ARG+=(-p exit_after_success:="$(printf '%.1f' "$EXIT_AFTER")")
 fi
 
-python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
+python3 "$WS_DIR/nodes/swarm_mapping_coordinator.py" \
     --ros-args \
     -p use_sim_time:=true \
     -p scheme:="$SCHEME" \
@@ -304,4 +311,6 @@ python3 "$WS_DIR/experiments/test_7drone_voronoi_mapping.py" \
     -p enable_obstacles:="$ENABLE_OBSTACLES" \
     -p enable_dynamic_obstacles:="$ENABLE_DYN_OBSTACLES" \
     -p region:="$REGION" \
+    -p victim1_id:="$VICTIM1" \
+    -p victim2_id:="$VICTIM2" \
     ${SWEEP_ARG[@]+"${SWEEP_ARG[@]}"}
