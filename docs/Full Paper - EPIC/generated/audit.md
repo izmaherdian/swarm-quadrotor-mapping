@@ -10,7 +10,7 @@
 - d_min V2V: log = 1.71 | CSV = 1.71 m (pasangan [2, 3], t=8.977999999999975)
 - clearance permukaan statis min = 0.492 m (iris_1, obs 105, t=92.2) → kontak: none
 - PETA: 10 track terkonfirmasi-diam, id truth tercocok [101, 102, 103, 104, 105, 106, 107, 108, 109]; err posisi maks (cocok) 0.0 m, |err r| maks 0.010000000000000009, track spurious 1
-- Tier-2 per pembatas: {'v2v_soft': 17, 'dynamic': 17, 'static': 6}; h_dyn_min_logged = -0.43
+- Tier-2 per pembatas: {'v2v_soft': 17, 'dynamic': 17, 'static': 6}; h_min log (semua baris) saat baris bergerak mengikat = -0.43
 
 ## rect / lqr
 - baris STATUS = 77; Total Waktu Misi log = None; akhir CSV = 78.80 s
@@ -21,7 +21,7 @@
 - d_min V2V: log = 1.52 | CSV = 1.52 m (pasangan [4, 7], t=4.787999999999991)
 - clearance permukaan statis min = 0.055 m (iris_2, obs 108, t=77.3) → kontak: certain
 - PETA: 9 track terkonfirmasi-diam, id truth tercocok [101, 102, 103, 104, 105, 106, 107, 108, 109]; err posisi maks (cocok) 0.0 m, |err r| maks 0.010000000000000009, track spurious 0
-- Tier-2 per pembatas: {'v2v_soft': 46, 'dynamic': 15, 'static': 30}; h_dyn_min_logged = -0.57
+- Tier-2 per pembatas: {'v2v_soft': 46, 'dynamic': 15, 'static': 30}; h_min log (semua baris) saat baris bergerak mengikat = -0.57
 - upset iris_2 t=77.1 tilt=155.9° pos=(0.07,1.95) zmin=0.11 surf_min=0.06 recovered=False
 - upset iris_6 t=24.4 tilt=50.8° pos=(3.90,-3.38) zmin=1.66 surf_min=0.55 recovered=True
 - ABORT: iris_2 Z=0.11 pada log t≈77 s
@@ -36,7 +36,7 @@
 - d_min V2V: log = 1.32 | CSV = 1.32 m (pasangan [1, 3], t=129.32799999999955)
 - clearance permukaan statis min = 0.566 m (iris_3, obs 304, t=175.9) → kontak: none
 - PETA: 9 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.009999999999999953, track spurious 0
-- Tier-2 per pembatas: {'v2v_soft': 17, 'dynamic': 38, 'static': 4}; h_dyn_min_logged = -0.68
+- Tier-2 per pembatas: {'v2v_soft': 17, 'dynamic': 38, 'static': 4}; h_min log (semua baris) saat baris bergerak mengikat = -0.68
 
 ## l_shape / lqr
 - baris STATUS = 235; Total Waktu Misi log = 236.0; akhir CSV = 236.76 s
@@ -48,7 +48,7 @@
 - d_min V2V: log = 0.79 | CSV = 0.79 m (pasangan [5, 6], t=45.029999999999845)
 - clearance permukaan statis min = 0.287 m (iris_3, obs 306, t=94.9) → kontak: possible
 - PETA: 11 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.010000000000000009, track spurious 2
-- Tier-2 per pembatas: {'v2v_soft': 25, 'dynamic': 12, 'static': 14}; h_dyn_min_logged = -0.58
+- Tier-2 per pembatas: {'v2v_soft': 25, 'dynamic': 12, 'static': 14}; h_min log (semua baris) saat baris bergerak mengikat = -0.58
 
 ## u_shape / hinf
 - baris STATUS = 204; Total Waktu Misi log = 205.0; akhir CSV = 205.66 s
@@ -60,7 +60,7 @@
 - d_min V2V: log = 1.77 | CSV = 1.77 m (pasangan [3, 7], t=3.3779999999999957)
 - clearance permukaan statis min = 0.633 m (iris_6, obs 302, t=8.2) → kontak: none
 - PETA: 10 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.010000000000000009, track spurious 1
-- Tier-2 per pembatas: {'v2v_soft': 12, 'dynamic': 20, 'static': 3}; h_dyn_min_logged = -0.63
+- Tier-2 per pembatas: {'v2v_soft': 12, 'dynamic': 20, 'static': 3}; h_min log (semua baris) saat baris bergerak mengikat = -0.63
 
 ## u_shape / lqr
 - baris STATUS = 239; Total Waktu Misi log = 240.0; akhir CSV = 240.48 s
@@ -72,7 +72,7 @@
 - d_min V2V: log = 1.73 | CSV = 1.73 m (pasangan [5, 6], t=11.379999999999967)
 - clearance permukaan statis min = 0.423 m (iris_7, obs 303, t=14.3) → kontak: none
 - PETA: 10 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.010000000000000009, track spurious 1
-- Tier-2 per pembatas: {'static': 7, 'v2v_soft': 19, 'dynamic': 13}; h_dyn_min_logged = -0.29
+- Tier-2 per pembatas: {'static': 7, 'v2v_soft': 19, 'dynamic': 13}; h_min log (semua baris) saat baris bergerak mengikat = -0.29
 
 ## plus / hinf
 - baris STATUS = 197; Total Waktu Misi log = 198.0; akhir CSV = 198.68 s
@@ -84,7 +84,7 @@
 - d_min V2V: log = 1.24 | CSV = 1.24 m (pasangan [4, 7], t=27.989999999999906)
 - clearance permukaan statis min = 0.242 m (iris_3, obs 305, t=33.1) → kontak: possible
 - PETA: 9 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.0, track spurious 0
-- Tier-2 per pembatas: {'v2v_soft': 29, 'dynamic': 13, 'static': 12}; h_dyn_min_logged = -0.55
+- Tier-2 per pembatas: {'v2v_soft': 29, 'dynamic': 13, 'static': 12}; h_min log (semua baris) saat baris bergerak mengikat = -0.55
 - upset iris_2 t=80.4 tilt=82.5° pos=(0.33,0.64) zmin=0.64 surf_min=0.28 recovered=True
 
 ## plus / lqr
@@ -97,7 +97,7 @@
 - d_min V2V: log = 1.12 | CSV = 1.12 m (pasangan [4, 7], t=29.879999999999903)
 - clearance permukaan statis min = 0.241 m (iris_2, obs 305, t=82.0) → kontak: possible
 - PETA: 10 track terkonfirmasi-diam, id truth tercocok [301, 302, 303, 304, 305, 306, 307, 308, 309]; err posisi maks (cocok) 0.0 m, |err r| maks 0.0, track spurious 1
-- Tier-2 per pembatas: {'dynamic': 20, 'v2v_soft': 42, 'static': 13}; h_dyn_min_logged = -0.64
+- Tier-2 per pembatas: {'dynamic': 20, 'v2v_soft': 42, 'static': 13}; h_min log (semua baris) saat baris bergerak mengikat = -0.64
 - upset iris_2 t=82.1 tilt=40.1° pos=(0.20,0.63) zmin=1.87 surf_min=0.24 recovered=True
 
 ## Analisis desain linear (sumbu x)

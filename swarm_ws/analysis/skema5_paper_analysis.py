@@ -289,6 +289,9 @@ def run_metrics(region, ctrl, drones, log):
     for e in tier2:
         r['tier2_by_limiter'][e['limiter']] = r['tier2_by_limiter'].get(e['limiter'], 0) + 1
     dyn = [e['h'] for e in tier2 if e['limiter'] == 'dynamic']
+    # PERHATIAN: h_min di log = minimum atas SEMUA baris ber-h (rintangan, v2v_hard, dinding,
+    # dinding henti) pada solve itu, BUKAN khusus baris rintangan bergerak (constraints.RowSet.add).
+    # Hanya boleh dibaca sebagai 'suatu margin dimasuki saat baris bergerak mengikat'.
     r['h_dyn_min_logged'] = min(dyn) if dyn else None
     # PETA terakhir: kecocokan dengan truth untuk track terkonfirmasi & tidak bergerak
     truth = OBSTACLES_BY_REGION[region]
@@ -778,6 +781,7 @@ def export(runs, design):
         mac('UpRectLqrSurf', fmt(ev_rect[0]['surface_min_window'], 2)); mac('UpRectLqrT', fmt(ev_rect[0]['t'], 1))
         if len(ev_rect) > 1:
             mac('UpRectLqrSecondTilt', fmt(ev_rect[1]['tilt'])); mac('UpRectLqrSecondT', fmt(ev_rect[1]['t'], 1))
+            mac('UpRectLqrSecondSurf', fmt(ev_rect[1]['surface_min_window'], 2))
     spans = [e['tier2_static_span_s'] for e in (ev_rect[:1] + ev_plus[:1] + ev_plusl[:1])]
     mac('TierSpanMin', fmt(min(spans), 0)); mac('TierSpanMax', fmt(max(spans), 0))
     offl = [100 - metrics[f'{r}_lqr']['integ_window_pct'] for r in pairs]
@@ -786,7 +790,7 @@ def export(runs, design):
     # barrier dinamis: h = d - (0.50 model + 0.22 + 0.75); jarak pusat-ke-permukaan truth = h + 1.47 - 0.45
     hd = [metrics[f'{r}_{c}']['h_dyn_min_logged'] for r in pairs for c in ('hinf', 'lqr')
           if metrics[f'{r}_{c}']['h_dyn_min_logged'] is not None]
-    mac('HdynMinLogged', fmt(min(hd), 2)); mac('DynSurfMinLogged', fmt(min(hd) + 0.50 + 0.22 + 0.75 - 0.45, 2))
+    mac('HdynMinLogged', fmt(min(hd), 2))   # min atas semua baris; lihat catatan di run_metrics
     mac('NRunsHdynNeg', str(sum(1 for v in hd if v < 0)))
     mac('BodyHalf', fmt(BODY_HALF, 3)); mac('RotorReach', fmt(ROTOR_REACH, 3))
     kills = metrics['rect_hinf']['kills_log']
@@ -866,7 +870,7 @@ def audit(runs, design):
                      f"obs {M['obs_surface_min_id']}, t={M['obs_surface_min_t']:.1f}) → kontak: {M['obs_contact']}")
             A.append(f"- PETA: {len(M['peta_tracks'])} track terkonfirmasi-diam, id truth tercocok {M['peta_matched_ids']}; "
                      f"err posisi maks (cocok) {M['peta_pos_err_max']} m, |err r| maks {M['peta_r_err_absmax']}, track spurious {M['peta_spurious']}")
-            A.append(f"- Tier-2 per pembatas: {M['tier2_by_limiter']}; h_dyn_min_logged = {M['h_dyn_min_logged']}")
+            A.append(f"- Tier-2 per pembatas: {M['tier2_by_limiter']}; h_min log (semua baris) saat baris bergerak mengikat = {M['h_dyn_min_logged']}")
             for ev in M['events']:
                 A.append(f"- upset iris_{ev['drone']} t={ev['t']:.1f} tilt={ev['tilt']:.1f}° pos=({ev['x']:.2f},{ev['y']:.2f}) "
                          f"zmin={ev['z_min_window']:.2f} surf_min={ev['surface_min_window']:.2f} recovered={ev['recovered']}")

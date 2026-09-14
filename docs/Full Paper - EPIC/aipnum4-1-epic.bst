@@ -2,6 +2,8 @@
 %% SATU-SATUNYA perubahan: entri @inproceedings dan @incollection SELALU mencetak
 %% judul dalam tanda kutip, sesuai contoh referensi template AIPCP:
 %%   C. D. Smith and E. F. Jones, "Load-cycling in cubic press," in ... pp. 651-654.
+%% Perubahan kedua: rentang halaman penuh untuk artikel jurnal (control.pages = 1),
+%% sesuai contoh AIPCP "85, 2503-2504 (2004)".
 %% Artikel jurnal tetap tanpa judul (contoh AIPCP: M. P. Brown and K. Austin,
 %% Appl. Phys. Letters 85, 2503-2504 (2004)).
 %%
@@ -234,7 +236,7 @@ FUNCTION { control.init }
   'control.editor :=
   #-1
   'control.title  :=
-  #0
+  #1
   'control.pages  :=
   #0
   'control.eprint :=
