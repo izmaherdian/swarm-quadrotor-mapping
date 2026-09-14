@@ -1292,13 +1292,14 @@
         </visual>
       </link>
     </model>
+\
     <!-- ===================================================================== -->
     <!-- 2 RINTANGAN DINAMIS (DYNAMIC MOVING OBSTACLES) POLA SILANG "X"       -->
     <!-- Warna Muted Industrial Hazard: Dark Crimson & Warm Amber              -->
     <!-- ===================================================================== -->
     <model name="dynamic_obs_1">
       <static>false</static>
-      <pose>-10.0 10.0 2.05 0 0 0</pose>
+      <pose>-11.0 13.0 2.05 0 0 0</pose>
       <link name="link">
         <gravity>false</gravity>
         <kinematic>true</kinematic>
@@ -1337,7 +1338,7 @@
 
     <model name="dynamic_obs_2">
       <static>false</static>
-      <pose>10.0 10.0 2.05 0 0 0</pose>
+      <pose>13.0 11.0 2.05 0 0 0</pose>
       <link name="link">
         <gravity>false</gravity>
         <kinematic>true</kinematic>

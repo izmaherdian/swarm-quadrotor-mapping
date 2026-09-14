@@ -470,13 +470,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
         self.last_dyn_obs_t = None
         self.pub_dyn_obs_vel_1 = self.pub_dyn_obs_vel_2 = None
         if self.enable_dynamic_obstacles:
+            if getattr(self, 'region_name', '') == 'plus':
+                init_p1 = np.array([-11.0, 13.0], dtype=float)
+                init_p2 = np.array([ 13.0, 11.0], dtype=float)
+            else:
+                init_p1 = np.array([-10.0, 10.0], dtype=float)
+                init_p2 = np.array([ 10.0, 10.0], dtype=float)
             self.dynamic_obstacles = [
-                {'id': 201, 'pos': np.array([-10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.1, 0.1), 'name': 'dynamic_obs_1'},
-                {'id': 202, 'pos': np.array([ 10.0, 10.0], dtype=float), 'vel': np.zeros(2), 'color': (1.0, 0.5, 0.0), 'name': 'dynamic_obs_2'},
+                {'id': 201, 'pos': init_p1, 'vel': np.zeros(2), 'color': (1.0, 0.1, 0.1), 'name': 'dynamic_obs_1'},
+                {'id': 202, 'pos': init_p2, 'vel': np.zeros(2), 'color': (1.0, 0.5, 0.0), 'name': 'dynamic_obs_2'},
             ]
             self.kf_dyn_obs = [
-                DynamicObstacleKalmanFilter(init_pos=np.array([-10.0, 10.0])),
-                DynamicObstacleKalmanFilter(init_pos=np.array([ 10.0, 10.0]))
+                DynamicObstacleKalmanFilter(init_pos=init_p1.copy()),
+                DynamicObstacleKalmanFilter(init_pos=init_p2.copy())
             ]
             self.pub_dyn_obs_vel_1 = self.create_publisher(Twist, '/model/dynamic_obs_1/cmd_vel', 10)
             self.pub_dyn_obs_vel_2 = self.create_publisher(Twist, '/model/dynamic_obs_2/cmd_vel', 10)
@@ -1294,22 +1300,37 @@ class Swarm7DroneVoronoiMappingNode(Node):
             return
         omega1 = 0.15
         omega2 = 0.11
-        # Dynamic Obstacle 1: Diagonal NW <-> SE (-10, 10) <-> (10, -10)
-        x1 = -10.0 * math.cos(omega1 * t_sim)
-        y1 =  10.0 * math.cos(omega1 * t_sim)
-        vx1 =  10.0 * omega1 * math.sin(omega1 * t_sim)
-        vy1 = -10.0 * omega1 * math.sin(omega1 * t_sim)
+        if getattr(self, 'region_name', '') == 'plus':
+            # Wilayah Plus (04): Gerak diagonal penuh Kanan Atas <-> Kiri Bawah & Kiri Atas <-> Kanan Bawah
+            # dengan amplitudo 12m dan offset 1.0m agar tidak menabrak rintangan statis 305 di (0,0)
+            # Dynamic Obstacle 1: Kiri Atas (-11, 13) <-> Kanan Bawah (13, -11)
+            x1 = -12.0 * math.cos(omega1 * t_sim) + 1.0
+            y1 =  12.0 * math.cos(omega1 * t_sim) + 1.0
+            vx1 =  12.0 * omega1 * math.sin(omega1 * t_sim)
+            vy1 = -12.0 * omega1 * math.sin(omega1 * t_sim)
+
+            # Dynamic Obstacle 2: Kanan Atas (13, 11) <-> Kiri Bawah (-11, -13)
+            x2 =  12.0 * math.cos(omega2 * t_sim) + 1.0
+            y2 =  12.0 * math.cos(omega2 * t_sim) - 1.0
+            vx2 = -12.0 * omega2 * math.sin(omega2 * t_sim)
+            vy2 = -12.0 * omega2 * math.sin(omega2 * t_sim)
+        else:
+            # Dynamic Obstacle 1: Diagonal NW <-> SE (-10, 10) <-> (10, -10)
+            x1 = -10.0 * math.cos(omega1 * t_sim)
+            y1 =  10.0 * math.cos(omega1 * t_sim)
+            vx1 =  10.0 * omega1 * math.sin(omega1 * t_sim)
+            vy1 = -10.0 * omega1 * math.sin(omega1 * t_sim)
+
+            # Dynamic Obstacle 2: Diagonal NE <-> SW (10, 10) <-> (-10, -10)
+            x2 =  10.0 * math.cos(omega2 * t_sim)
+            y2 =  10.0 * math.cos(omega2 * t_sim)
+            vx2 = -10.0 * omega2 * math.sin(omega2 * t_sim)
+            vy2 = -10.0 * omega2 * math.sin(omega2 * t_sim)
 
         tw1 = Twist()
         tw1.linear.x = float(vx1)
         tw1.linear.y = float(vy1)
         self.pub_dyn_obs_vel_1.publish(tw1)
-
-        # Dynamic Obstacle 2: Diagonal NE <-> SW (10, 10) <-> (-10, -10)
-        x2 =  10.0 * math.cos(omega2 * t_sim)
-        y2 =  10.0 * math.cos(omega2 * t_sim)
-        vx2 = -10.0 * omega2 * math.sin(omega2 * t_sim)
-        vy2 = -10.0 * omega2 * math.sin(omega2 * t_sim)
 
         tw2 = Twist()
         tw2.linear.x = float(vx2)
@@ -1862,10 +1883,28 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 # 750 s sim, cakupan 0.0%, sementara enam drone lain tiba di
                 # 0.000-0.003 m. Setelah TRANSIT_STUCK_TICKS (60 s pada 20 Hz)
                 # jarak "cukup dekat" diterima, dengan peringatan, supaya
+                # Skema 3 (31 Agu): iris_5 di l_shape berhenti di 0.452 m dan
+                # iris_3 di plus di 0.745 m — keduanya mengorbit target selama
+                # 750 s sim, cakupan 0.0%, sementara enam drone lain tiba di
+                # 0.000-0.003 m. Setelah TRANSIT_STUCK_TICKS (60 s pada 20 Hz)
+                # jarak "cukup dekat" diterima, dengan peringatan, supaya
                 # kegagalan satu drone tidak lagi membatalkan misi.
                 agent.transit_ticks = getattr(agent, 'transit_ticks', 0) + 1
-                stuck = (agent.transit_ticks > 300
-                         and dist_to_wp < self.TRANSIT_STUCK_ACCEPT)
+
+                # Guard 1 (Anti-Deadlock Koridor Sempit): Deteksi kemacetan jika terhalang drone lain/rintangan
+                if not hasattr(agent, '_last_transit_pos'):
+                    agent._last_transit_pos = agent.pos[:2].copy()
+                    agent._transit_stuck_timer = 0
+                else:
+                    moved_step = float(np.linalg.norm(agent.pos[:2] - agent._last_transit_pos))
+                    if moved_step < 0.10:
+                        agent._transit_stuck_timer += 1
+                    else:
+                        agent._transit_stuck_timer = 0
+                        agent._last_transit_pos = agent.pos[:2].copy()
+
+                stuck = ((agent.transit_ticks > 300 and dist_to_wp < self.TRANSIT_STUCK_ACCEPT) or
+                         (agent._transit_stuck_timer > 140 and dist_to_wp < 4.0))
                 if stuck:
                     self.get_logger().warning(
                         f'  ⚠️  [iris_{did}] tidak konvergen ke waypoint {agent.transit_wp_idx+1}/{len(agent.transit_waypoints)} dalam '
@@ -1903,6 +1942,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 # pendekatan akhir ke waypoint terakhir.
                 v_floor = 0.15 if (is_final_transit_wp and dist_to_wp < 1.5) else 0.40
                 v_mag = min(self.transit_speed, max(v_floor, 2.0 * dist_to_wp))
+
+                # Guard 2 (Peredam Saturasi Kemiringan Motor saat Angin Kencang)
+                tilt_deg = math.degrees(max(abs(getattr(agent, 'roll', 0.0)), abs(getattr(agent, 'pitch', 0.0))))
+                if tilt_deg > 16.0:
+                    v_mag *= max(0.40, 1.0 - (tilt_deg - 16.0) / 12.0)
+
                 v_world_x = v_mag * math.cos(angle_to_wp) + np.clip(1.2 * dx, -0.40, 0.40)
                 v_world_y = v_mag * math.sin(angle_to_wp) + np.clip(1.2 * dy, -0.40, 0.40)
 
@@ -1924,11 +1969,19 @@ class Swarm7DroneVoronoiMappingNode(Node):
 
                 alive_agents = [a for a in self.agents.values() if a.is_alive and a.state != 'dead']
                 all_arrived = len(alive_agents) > 0 and all(a.state in ('wait_all_start', 'align_start_yaw', 'sweeping_row', 'delay_at_corner_end', 'stepping_vertical', 'delay_at_new_row', 'transit_to_recovery', 'done') for a in alive_agents)
-                if all_arrived:
+
+                # Guard 3 (Swarm Wait Timeout): jika drone sudah menunggu > 20s, mulai sapuan agar lorong tidak tersumbat
+                agent.wait_start_ticks = getattr(agent, 'wait_start_ticks', 0) + 1
+                swarm_wait_timeout = (agent.wait_start_ticks > 400)
+
+                if all_arrived or swarm_wait_timeout:
                     agent.state = 'align_start_yaw'
                     agent.delay_timer = 0
                     self.publish_twist(did, 0.0, 0.0, 0.0)
-                    self.get_logger().info(f'  🏁 [iris_{did}] Semua Drone Siap di Sel Masing-masing! Menyelaraskan heading baris 1...')
+                    if swarm_wait_timeout and not all_arrived:
+                        self.get_logger().info(f'  🚀 [iris_{did}] Memulai sapuan (timeout tunggu kawanan) agar lorong terbuka!')
+                    else:
+                        self.get_logger().info(f'  🏁 [iris_{did}] Semua Drone Siap di Sel Masing-masing! Menyelaraskan heading baris 1...')
 
             # ─────────────────────────────────────────────────────────
             # 1d. TRANSIT TO RECOVERY (Fase Menuju Titik Awal Blok Recovery)
@@ -1955,12 +2008,16 @@ class Swarm7DroneVoronoiMappingNode(Node):
                     continue
 
                 v_mag = min(self.transit_speed, max(0.40, 2.0 * dist_to_start))
+
+                # Guard 2 (Peredam Saturasi Kemiringan Motor saat Transit Recovery di Bawah Angin Badai)
+                tilt_deg = math.degrees(max(abs(getattr(agent, 'roll', 0.0)), abs(getattr(agent, 'pitch', 0.0))))
+                if tilt_deg > 16.0:
+                    v_mag *= max(0.40, 1.0 - (tilt_deg - 16.0) / 12.0)
+
                 v_world_x = v_mag * math.cos(angle_to_start) + np.clip(1.2 * dx, -0.40, 0.40)
                 v_world_y = v_mag * math.sin(angle_to_start) + np.clip(1.2 * dy, -0.40, 0.40)
 
                 # V2V avoidance aktif selama perjalanan melintasi arena
-
-
                 self.send_world_twist(did, v_world_x, v_world_y, angle_to_start)
 
             # ─────────────────────────────────────────────────────────
@@ -2171,6 +2228,12 @@ class Swarm7DroneVoronoiMappingNode(Node):
                 is_long_transit = dist_to_next > 2.0
                 v_step_max = self.transit_speed if is_long_transit else (self.step_speed if min_step_dist > 1.20 else 0.40)
                 v_step = min(v_step_max, 1.6 * dist_to_next)
+
+                # Guard 2 (Peredam Saturasi Kemiringan Motor saat Langkah Vertikal di Bawah Angin Badai)
+                tilt_deg = math.degrees(max(abs(getattr(agent, 'roll', 0.0)), abs(getattr(agent, 'pitch', 0.0))))
+                if tilt_deg > 16.0:
+                    v_step *= max(0.40, 1.0 - (tilt_deg - 16.0) / 12.0)
+
                 v_world_x = v_step * math.cos(angle_step) + np.clip(1.2 * dx, -0.35, 0.35)
                 v_world_y = v_step * math.sin(angle_step) + np.clip(1.2 * dy, -0.35, 0.35)
 

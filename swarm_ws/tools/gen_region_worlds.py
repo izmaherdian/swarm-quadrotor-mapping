@@ -216,14 +216,22 @@ STATIC_OBS_TEMPLATE = """\
     </model>
 """
 
-DYNAMIC_OBS_MODELS = """\
+def get_dynamic_obs_models(reg: str) -> str:
+    if reg == 'plus':
+        p1_x, p1_y = -11.0, 13.0
+        p2_x, p2_y =  13.0, 11.0
+    else:
+        p1_x, p1_y = -10.0, 10.0
+        p2_x, p2_y =  10.0, 10.0
+
+    return f"""\\
     <!-- ===================================================================== -->
     <!-- 2 RINTANGAN DINAMIS (DYNAMIC MOVING OBSTACLES) POLA SILANG "X"       -->
     <!-- Warna Muted Industrial Hazard: Dark Crimson & Warm Amber              -->
     <!-- ===================================================================== -->
     <model name="dynamic_obs_1">
       <static>false</static>
-      <pose>-10.0 10.0 2.05 0 0 0</pose>
+      <pose>{p1_x:.1f} {p1_y:.1f} 2.05 0 0 0</pose>
       <link name="link">
         <gravity>false</gravity>
         <kinematic>true</kinematic>
@@ -262,7 +270,7 @@ DYNAMIC_OBS_MODELS = """\
 
     <model name="dynamic_obs_2">
       <static>false</static>
-      <pose>10.0 10.0 2.05 0 0 0</pose>
+      <pose>{p2_x:.1f} {p2_y:.1f} 2.05 0 0 0</pose>
       <link name="link">
         <gravity>false</gravity>
         <kinematic>true</kinematic>
@@ -452,7 +460,7 @@ def main():
         print(f"✅ Generated: {f_obs.name}")
         
         # 3. obstacles_dynamic_<region>.world (Skema 4 & 5 - Statis + Dinamis Pola X)
-        obs_dyn_text = HEADER_TEMPLATE + vis_models + static_obs + DYNAMIC_OBS_MODELS + FOOTER
+        obs_dyn_text = HEADER_TEMPLATE + vis_models + static_obs + get_dynamic_obs_models(reg) + FOOTER
         f_obs_dyn = WORLDS_SRC / f'obstacles_dynamic_{reg}.world'
         f_obs_dyn.write_text(obs_dyn_text)
         print(f"✅ Generated: {f_obs_dyn.name}")

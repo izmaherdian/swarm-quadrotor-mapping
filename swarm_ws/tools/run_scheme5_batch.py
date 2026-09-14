@@ -233,8 +233,12 @@ def audit_telemetry_csv(csv_dir: str, region: str) -> Dict[str, Any]:
         # Rintangan dinamis pola-X (Harmonic trajectory in Gazebo: omega1=0.15, omega2=0.11)
         for r in air_rows:
             t_r = r['t']
-            p1 = (-10.0 * math.cos(0.15 * t_r),  10.0 * math.cos(0.15 * t_r))
-            p2 = ( 10.0 * math.cos(0.11 * t_r),  10.0 * math.cos(0.11 * t_r))
+            if region == 'plus':
+                p1 = (-12.0 * math.cos(0.15 * t_r) + 1.0,  12.0 * math.cos(0.15 * t_r) + 1.0)
+                p2 = ( 12.0 * math.cos(0.11 * t_r) + 1.0,  12.0 * math.cos(0.11 * t_r) - 1.0)
+            else:
+                p1 = (-10.0 * math.cos(0.15 * t_r),  10.0 * math.cos(0.15 * t_r))
+                p2 = ( 10.0 * math.cos(0.11 * t_r),  10.0 * math.cos(0.11 * t_r))
             d1 = math.hypot(r['x'] - p1[0], r['y'] - p1[1]) - (0.45 + 0.22)
             d2 = math.hypot(r['x'] - p2[0], r['y'] - p2[1]) - (0.45 + 0.22)
             if d1 < min_obs:
