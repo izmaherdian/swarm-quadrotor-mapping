@@ -91,6 +91,20 @@ def test_phi_is_class_k(plant):
     assert phi(phi_zero_h(a, Td, vc), a, Td, vc) == pytest.approx(0.0, abs=1e-9)
 
 
+def test_phi_zero_h_is_upper_end_of_flat_interval(plant):
+    """phi_zero_h harus UJUNG interval phi = 0, bukan sembarang titik di dalamnya.
+
+    Test di atas lolos juga untuk rumus lama yang salah, karena hanya
+    memeriksa phi = 0 di titik yang dikembalikan.
+    """
+    for a, Td, vc in ((0.75 * plant.a_max, 0.30, plant.v_c), (1.473, 0.40, 0.680)):
+        h0 = phi_zero_h(a, Td, vc)
+        assert h0 == pytest.approx(vc * vc / (2.0 * a))
+        assert float(phi(h0, a, Td, vc)) == pytest.approx(0.0, abs=1e-9)
+        assert float(phi(h0 + 1e-4, a, Td, vc)) > 0.0
+        assert float(phi_inverse(0.0, a, Td, vc)) == pytest.approx(h0)
+
+
 def test_phi_lipschitz_bounded_by_dead_time(plant):
     """Kemiringan phi <= 1/T_d, syarat rekursif feasible terhadap batas rate."""
     a, Td, vc = 0.75 * plant.a_max, 0.30, plant.v_c

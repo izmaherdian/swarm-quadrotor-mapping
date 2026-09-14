@@ -44,8 +44,18 @@ def phi(h: Union[float, np.ndarray], a_eff: float, T_d: float, v_c: float) -> Un
 
 
 def phi_zero_h(a_eff, T_d, v_c):
-    """Clearance terbesar dengan phi masih nol (drone wajib berhenti total)."""
-    return max(0.0, (v_c * v_c - a_eff * a_eff * T_d * T_d) / (2.0 * a_eff))
+    """Clearance terbesar dengan phi masih nol (drone wajib berhenti total).
+
+    Untuk h >= 0, phi > 0  <=>  sqrt(a^2 T_d^2 + 2ah - v_c^2) > a T_d
+                           <=>  h > v_c^2 / (2a),
+    jadi phi = 0 tepat pada 0 <= h <= v_c^2 / (2a), dan T_d tidak ikut.
+
+    Rumus lama (v_c^2 - a^2 T_d^2) / (2a) hanyalah titik tempat diskriminan
+    menjadi nol — di TENGAH interval datar, bukan ujungnya (0.039 m vs
+    0.157 m pada parameter Skema 5). Test lama tetap lolos karena hanya
+    memeriksa phi = 0 di titik itu.
+    """
+    return v_c * v_c / (2.0 * a_eff)
 
 
 def phi_inverse(s, a_eff, T_d, v_c):
@@ -54,8 +64,8 @@ def phi_inverse(s, a_eff, T_d, v_c):
     Ini jarak reaksi: pada laju s, drone harus sudah bereaksi sejauh ini.
     Membalik phi:  s = -a*T_d + sqrt(a^2 T_d^2 + 2ah - v_c^2)
                 => h = (s^2 + 2*a*T_d*s + v_c^2) / (2a)
-    Untuk s = 0 hasilnya salah satu titik pada interval datar phi = 0;
-    pakai phi_zero_h() bila yang dicari ujung bawah interval itu.
+    Untuk s = 0 hasilnya v_c^2 / (2a) = phi_zero_h(), ujung ATAS interval
+    datar phi = 0 (ujung bawahnya h = 0).
     """
     s = np.maximum(0.0, np.asarray(s, dtype=float))
     return (s * s + 2.0 * a_eff * T_d * s + v_c * v_c) / (2.0 * a_eff)
