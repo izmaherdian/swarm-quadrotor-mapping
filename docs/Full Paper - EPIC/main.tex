@@ -185,7 +185,10 @@ high-order \cite{xiaoHighOrderCBF2022}, multi-robot \cite{gargLearningSafeMultiR
 quadrotor forms for moving obstacles \cite{tayalCollisionConeUAV2024} and wind gusts
 \cite{abichandaniMultiQuadrotorWind2023}; LQR and $H_\infty$ synthesis remain common routes to
 multirotor control under wind \cite{doyleStateSpaceHinf1989,zyadatQuadplaneWind2023}, and fault
-tolerance in swarms is an active topic \cite{okeeffeAnticipatingDegradation2025}.
+tolerance in swarms is an active topic \cite{okeeffeAnticipatingDegradation2025}. Hierarchical
+quadcopter swarms with a reactive potential-field planner above cascaded PID loops can fly
+formations through clutter and wind gusts, yet purely reactive planners remain prone to
+U-shaped traps \cite{herdianFormationIAPFERC2026}.
 
 What is less reported is how these pieces behave \emph{together} on a physically simulated
 vehicle, where a velocity command cannot be realised instantly, a barrier that assumes it can
