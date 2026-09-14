@@ -498,7 +498,7 @@ DRONE_COLORS = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#a6761d'
 
 
 def fig_traj(runs):
-    fig, axes = plt.subplots(2, 4, figsize=(6.7, 3.15), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 4, figsize=(6.7, 2.8), sharex=True, sharey=True)
     for ci, (ctrl, _) in enumerate(CTRLS):
         for ri, (region, _) in enumerate(REGIONS):
             ax = axes[ci, ri]
@@ -545,7 +545,7 @@ def fig_traj(runs):
 
 
 def fig_coverage(runs):
-    fig, axes = plt.subplots(1, 4, figsize=(6.7, 1.6), sharey=True)
+    fig, axes = plt.subplots(1, 4, figsize=(6.7, 1.45), sharey=True)
     for ri, (region, _) in enumerate(REGIONS):
         ax = axes[ri]
         for ctrl, col, ls in (('hinf', C_HINF, '-'), ('lqr', C_LQR, '--')):
@@ -577,7 +577,7 @@ def fig_coverage(runs):
 
 
 def fig_tracking(runs, design):
-    fig, axes = plt.subplots(1, 3, figsize=(6.7, 1.9), gridspec_kw={'width_ratios': [1.25, 1.0, 1.0]})
+    fig, axes = plt.subplots(1, 3, figsize=(6.7, 1.75), gridspec_kw={'width_ratios': [1.25, 1.0, 1.0]})
     # (a) error lateral saat sapuan timur-barat
     ax = axes[0]
     data, pos, cols = [], [], []
@@ -641,7 +641,7 @@ def fig_events(runs):
             panels.append((region, ctrl, ev[0]))
     if not panels:
         return
-    fig, axes = plt.subplots(3, 2, figsize=(6.7, 2.25), sharex='col')
+    fig, axes = plt.subplots(3, 2, figsize=(6.7, 2.05), sharex='col')
     groups = [[p for p in panels if p[0] == 'rect'], [p for p in panels if p[0] == 'plus']]
     handles_ev = []
     for gi, grp in enumerate(groups):

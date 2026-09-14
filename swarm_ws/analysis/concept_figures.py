@@ -166,7 +166,7 @@ def fig_high(out_tex):
               f"helper log={k.get('helpers')}, helper dari CSV={sorted({w for w, f in who if w and f >= 0.5})}")
 
     S5.style()
-    fig, axes = plt.subplots(1, 3, figsize=(6.7, 2.3))
+    fig, axes = plt.subplots(1, 3, figsize=(6.7, 2.15))
     ring = np.asarray(REGION_PRESETS[REGION])
 
     def base(ax, title):
@@ -293,7 +293,7 @@ def fig_cbf(out_tex):
           f'closing(u_des)={-n_hat @ u_des:.3f} closing(u*)={-n_hat @ u:.3f} u*={u} z={z} limiting={res.limiting}')
 
     S5.style()
-    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.15), gridspec_kw={'width_ratios': [1.25, 1.0]})
+    fig, axes = plt.subplots(1, 2, figsize=(6.7, 2.0), gridspec_kw={'width_ratios': [1.25, 1.0]})
     # ── (a) φ(h) ──
     ax = axes[0]
     hh = np.linspace(-0.25, 2.6, 1200)
