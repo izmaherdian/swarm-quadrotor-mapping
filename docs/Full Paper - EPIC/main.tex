@@ -172,19 +172,20 @@ configuration was flown once, so these are single-run observations.
 Multi-rotor swarms shorten aerial surveys by flying several sensors in parallel, but real
 survey sites are rarely rectangles: they have re-entrant corners and narrow arms, gusty wind,
 obstacles unknown before take-off, and vehicles that fail. Centroidal Voronoi tessellation (CVT)
-with Lloyd's iteration distributes agents over a region
-\cite{lloydLeastSquaresQuantization1982,duCentroidalVoronoiTessellations1999,cortesCoverageControl2004}
-and has been extended to non-convex domains
-\cite{breitenmoserVoronoiCoverage2010,caoDistributedWeightedCoverage2023} and to agent dropout
-\cite{leeAdaptiveCentroidalVoronoi2024}; boustrophedon sweeps are the standard way to cover a
-cell \cite{chosetBoustrophedonDecomposition1998,chosetCoverageSurvey2001,galceranCoveragePathPlanning2013,huRoutePlanning2021},
-also for aerial visual coverage \cite{papatheodorouCooperativeVisual2017}. Control barrier
-functions (CBF) enforce safety as a quadratic program (QP) on the control input
-\cite{amesControlBarrierFunction2017,amesControlBarrierFunctions2019}, including reciprocal
-multi-robot forms \cite{wangSafetyBarrierCertificates2017,zhouBufferedVoronoiCells2017}; LQR and
-$H_\infty$ synthesis are classical routes to quadrotor control
-\cite{belkheiriLinearizationControl2012,doyleStateSpaceHinf1989}, and fault tolerance in swarms
-is an active topic \cite{okeeffeAnticipatingDegradation2025}.
+with Lloyd's iteration \cite{lloydLeastSquaresQuantization1982} distributes agents over a region
+and has been combined with obstacle avoidance and actuator faults \cite{baiAdaptiveCoverageObstacle2022},
+safety constraints \cite{baiSafeAdaptiveCoverage2023}, non-convex domains
+\cite{caoDistributedWeightedCoverage2023} and agent dropout \cite{leeAdaptiveCentroidalVoronoi2024};
+boustrophedon sweeps remain a standard way to cover a cell
+\cite{tanCoveragePathPlanningReview2021,huRoutePlanning2021}, including cooperative UAV surveys
+\cite{fevgasCoveragePathPlanningUAV2022} with in-flight re-planning after failures
+\cite{lunaMultiUAVReplanning2024}. Control barrier functions (CBF) enforce safety as a quadratic
+program (QP) on the control input \cite{amesControlBarrierFunction2017,hsuSafetyFilter2024}, with
+high-order \cite{xiaoHighOrderCBF2022}, multi-robot \cite{gargLearningSafeMultiRobot2024} and
+quadrotor forms for moving obstacles \cite{tayalCollisionConeUAV2024} and wind gusts
+\cite{abichandaniMultiQuadrotorWind2023}; LQR and $H_\infty$ synthesis remain common routes to
+multirotor control under wind \cite{doyleStateSpaceHinf1989,zyadatQuadplaneWind2023}, and fault
+tolerance in swarms is an active topic \cite{okeeffeAnticipatingDegradation2025}.
 
 What is less reported is how these pieces behave \emph{together} on a physically simulated
 vehicle, where a velocity command cannot be realised instantly, a barrier that assumes it can
@@ -269,7 +270,7 @@ computed by clipping bisector half-planes and intersecting the result with $\mat
 iteration $\mathbf{g}_i\leftarrow\mathrm{centroid}(\mathcal{P}_i)$ (25 iterations from
 deterministic k-means++ seeds) minimises
 $\sum_i\int_{\mathcal{P}_i}\|\mathbf{q}-\mathbf{g}_i\|^2\,d\mathbf{q}$
-\cite{cortesCoverageControl2004}, and agents are assigned to cells by the Hungarian algorithm.
+\cite{lloydLeastSquaresQuantization1982}, and agents are assigned to cells by the Hungarian algorithm.
 Each cell is shrunk by 0.35~m and swept by east--west lanes at most 1.45~m apart; its first and
 last lanes follow the cell boundary, so the wedges that a fixed-pitch sweep leaves at slanted
 Voronoi edges are flown too (Fig.~\ref{fig:concept_high}a). With a sensing radius $r_s=0.95$~m
@@ -455,8 +456,8 @@ at 1.6~m/s. Four regions inside a $28\times28$~m box are used (Fig.~\ref{fig:tra
 tall) placed inside the region. All missions use the same combined-hazard scheme:
 \begin{itemize}[leftmargin=1.2em,itemsep=0pt,topsep=1pt,parsep=0pt]
 \item \emph{Wind.} A first-order Gauss--Markov process per horizontal axis ($\sigma=2.5$~m/s,
-      correlation time 0.5~s, seed 42), a Dryden-like surrogate
-      \cite{milhdbk1797,beardSmallUnmannedAircraft2012}, plus a constant $-2$~m/s mean on both
+      correlation time 0.5~s, seed 42), a surrogate for the Dryden and von K\'arm\'an
+      models used in quadrotor studies \cite{mirandaMoyaTurbulentWind2023}, plus a constant $-2$~m/s mean on both
       axes from $t=5$~s, uniform in space and applied through the Gazebo wind-effects plugin
       (vertical component scaled by 0.4). Recorded mean $(\WindMeanX,\WindMeanY)$~m/s, standard
       deviation $(\WindStdX,\WindStdY)$~m/s, horizontal peaks \WindMaxH~m/s.
