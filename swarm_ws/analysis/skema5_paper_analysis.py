@@ -495,7 +495,7 @@ DRONE_COLORS = ['#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#a6761d'
 
 
 def fig_traj(runs):
-    fig, axes = plt.subplots(2, 4, figsize=(6.7, 3.9), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 4, figsize=(6.7, 3.15), sharex=True, sharey=True)
     for ci, (ctrl, _) in enumerate(CTRLS):
         for ri, (region, _) in enumerate(REGIONS):
             ax = axes[ci, ri]
@@ -534,15 +534,15 @@ def fig_traj(runs):
                 Line2D([], [], c='#888888', ls=(0, (3, 2)), label='dynamic-obstacle path'),
                 Line2D([], [], marker='*', mfc='red', mec='k', ls='', ms=6, label='upset, crashed'),
                 Line2D([], [], marker='v', mfc='red', mec='k', ls='', ms=4.5, label='upset, recovered')]
-    fig.legend(handles=handles, loc='lower center', ncol=6, frameon=False, bbox_to_anchor=(0.5, -0.07),
-               handlelength=1.6, columnspacing=1.0)
-    fig.subplots_adjust(wspace=0.05, hspace=0.08)
+    fig.legend(handles=handles, loc='center left', ncol=1, frameon=False, bbox_to_anchor=(0.80, 0.52),
+               handlelength=1.6, labelspacing=0.45, borderaxespad=0.0)
+    fig.subplots_adjust(left=0.07, right=0.80, wspace=0.05, hspace=0.06)
     fig.savefig(FIG / 'fig_traj.pdf')
     plt.close(fig)
 
 
 def fig_coverage(runs):
-    fig, axes = plt.subplots(1, 4, figsize=(6.7, 1.75), sharey=True)
+    fig, axes = plt.subplots(1, 4, figsize=(6.7, 1.6), sharey=True)
     for ri, (region, _) in enumerate(REGIONS):
         ax = axes[ri]
         for ctrl, col, ls in (('hinf', C_HINF, '-'), ('lqr', C_LQR, '--')):
@@ -574,7 +574,7 @@ def fig_coverage(runs):
 
 
 def fig_tracking(runs, design):
-    fig, axes = plt.subplots(1, 3, figsize=(6.7, 2.05), gridspec_kw={'width_ratios': [1.25, 1.0, 1.0]})
+    fig, axes = plt.subplots(1, 3, figsize=(6.7, 1.9), gridspec_kw={'width_ratios': [1.25, 1.0, 1.0]})
     # (a) error lateral saat sapuan timur-barat
     ax = axes[0]
     data, pos, cols = [], [], []
@@ -638,7 +638,7 @@ def fig_events(runs):
             panels.append((region, ctrl, ev[0]))
     if not panels:
         return
-    fig, axes = plt.subplots(3, 2, figsize=(6.7, 2.9), sharex='col')
+    fig, axes = plt.subplots(3, 2, figsize=(6.7, 2.25), sharex='col')
     groups = [[p for p in panels if p[0] == 'rect'], [p for p in panels if p[0] == 'plus']]
     handles_ev = []
     for gi, grp in enumerate(groups):
@@ -667,9 +667,9 @@ def fig_events(runs):
     axes[0, 1].set_title('(b) near-contact with recovery')
     handles_ev += [plt.Rectangle((0, 0), 1, 1, fc='red', alpha=0.18, label='body contact'),
                    plt.Rectangle((0, 0), 1, 1, fc='red', alpha=0.08, label='rotor contact possible')]
-    fig.legend(handles=handles_ev, loc='lower center', ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.13),
+    fig.legend(handles=handles_ev, loc='lower center', ncol=5, frameon=False, bbox_to_anchor=(0.5, -0.15),
                fontsize=6.5, handlelength=1.8, columnspacing=1.0)
-    fig.subplots_adjust(hspace=0.12, wspace=0.18)
+    fig.subplots_adjust(hspace=0.10, wspace=0.18)
     fig.savefig(FIG / 'fig_events.pdf')
     plt.close(fig)
 

@@ -39,7 +39,7 @@
 \usepackage{changepage}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,decorations.pathreplacing}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
 
@@ -52,7 +52,7 @@
 \renewcommand{\topfraction}{0.92}
 \renewcommand{\bottomfraction}{0.75}
 \renewcommand{\textfraction}{0.07}
-\renewcommand{\floatpagefraction}{0.85}
+\renewcommand{\floatpagefraction}{0.75}
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 \setlength{\floatsep}{6pt plus 2pt minus 2pt}
 
@@ -72,12 +72,13 @@
     justification=centering,singlelinecheck=true,skip=3pt}
 
 % ---------- Heading AIP ----------
-\newcommand{\headingone}[1]{\par\vspace{8pt}%
+\newif\ifafterheadone
+\newcommand{\headingone}[1]{\par\addpenalty{-200}\vspace{8pt}%
     {\centering\fontsize{12}{14}\selectfont\bfseries\MakeUppercase{#1}\par}%
-    \vspace{3pt}\noindent\ignorespaces}
-\newcommand{\headingtwo}[1]{\par\vspace{6pt}%
+    \nopagebreak\vspace{3pt}\nopagebreak\global\afterheadonetrue\noindent\ignorespaces}
+\newcommand{\headingtwo}[1]{\par\ifafterheadone\nopagebreak\else\addpenalty{-200}\fi\vspace{6pt}%
     {\centering\fontsize{12}{14}\selectfont\bfseries #1\par}%
-    \vspace{2pt}\noindent\ignorespaces}
+    \nopagebreak\vspace{2pt}\nopagebreak\global\afterheadonefalse\noindent\ignorespaces}
 \newcommand{\headingthree}[1]{\par\vspace{4pt}%
     {\centering\fontsize{10}{12}\selectfont\itshape #1\par}%
     \vspace{1pt}\noindent\ignorespaces}
@@ -100,10 +101,11 @@
 \makeatletter
 \renewcommand{\@biblabel}[1]{#1.}
 \makeatother
-\setlength{\bibsep}{1pt plus 0.5pt}
+\setlength{\bibsep}{0pt plus 0.5pt}
 
 % ---------- Angka hasil (DIHASILKAN OTOMATIS) ----------
 \input{generated/numbers.tex}
+\input{generated/concept_numbers.tex}
 
 \newcommand{\Hinf}{PID-$H_\infty$}
 \newcommand{\LQR}{PID-LQR}
@@ -145,24 +147,22 @@
 \begin{adjustwidth}{0.2in}{0.2in}
 {\fontsize{9}{11}\selectfont\noindent\textbf{Abstract.}
 Surveying a non-convex site with a quadrotor swarm must remain safe and complete when the
-wind is strong, the obstacles are unknown in advance, and agents fail in flight. We present a
-three-layer architecture for this task. The high level partitions the region by
-polygon-clipped centroidal Voronoi tessellation, plans a boundary-following boustrophedon sweep
-in every cell, and reallocates the unswept lanes of failed agents to their neighbours. The mid
-level builds an obstacle map from on-board LiDAR and filters every velocity command through a
-control barrier function quadratic program whose class-$\mathcal{K}$ function follows from the
-tilt limit and dead time of the vehicle. The low level is a cascaded PID whose gains are
-synthesised from either the LQR or the $H_\infty$ Riccati equation. Seven quadrotors were flown
-in ROS~2/Gazebo over one convex and three non-convex regions under combined hazards:
-Gauss--Markov turbulence ($\sigma=2.5$~m/s) over a \WindMeanMag~m/s mean wind, nine unmapped static
-obstacles, two moving obstacles, and the loss of two agents during the mission. Seven of the
-eight missions finished, with \CovMin--\CovMax\% final coverage after the loss of 28.6\% of the
-fleet. \Hinf{} completed all four regions, lowered the RMS lateral sweep error by
-\LatRedMin--\LatRedMax\% and finished \TimeRedMin--\TimeRedMax\% sooner than \LQR{}, at
+wind is strong, obstacles are unknown in advance, and agents fail in flight. We present a
+three-layer architecture for this task. The high level partitions the region by polygon-clipped
+centroidal Voronoi tessellation, plans boundary-following boustrophedon sweeps and reallocates
+the unswept lanes of failed agents. The mid level maps obstacles with on-board LiDAR and filters
+every velocity command through a control barrier function quadratic program whose
+class-$\mathcal{K}$ function follows from the tilt limit and dead time of the vehicle. The low
+level is a cascaded PID with gains synthesised from the LQR or the $H_\infty$ Riccati equation.
+Seven quadrotors were flown in ROS~2/Gazebo over one convex and three non-convex regions under
+Gauss--Markov turbulence ($\sigma=2.5$~m/s) over a \WindMeanMag~m/s mean wind, nine unmapped
+static and two moving obstacles, and the loss of two agents per mission. Seven of eight missions
+finished with \CovMin--\CovMax\% coverage despite losing 28.6\% of the fleet. \Hinf{} completed
+all four regions, lowered the RMS lateral sweep error by \LatRedMin--\LatRedMax\%, mostly by
+rejecting the mean wind, and finished \TimeRedMin--\TimeRedMax\% sooner than \LQR{}, at
 \EffRatioMin--\EffRatioMax\ times its torque effort. One \LQR{} mission was lost when an agent
-touched an obstacle, and both controllers grazed the same obstacle in one region; the largest
-part of the tracking difference is the rejection of the mean wind. Each configuration was flown
-once, so these are single-run observations.
+touched an obstacle, and both controllers grazed the same obstacle in one region. Each
+configuration was flown once, so these are single-run observations.
 \par}
 \end{adjustwidth}
 
@@ -170,23 +170,21 @@ once, so these are single-run observations.
 \headingone{Introduction}
 % =====================================================================
 Multi-rotor swarms shorten aerial surveys by flying several sensors in parallel, but real
-survey sites are rarely rectangles. L-, U- and cross-shaped campuses, plants and quarries
-contain re-entrant corners and narrow arms, the wind near the ground is gusty, obstacles are
-seldom known before take-off, and vehicles fail. Each of these hazards has been addressed in
-isolation. Centroidal Voronoi tessellation (CVT) with Lloyd's iteration distributes agents over
-a region \cite{lloydLeastSquaresQuantization1982,duCentroidalVoronoiTessellations1999,cortesCoverageControl2004}
+survey sites are rarely rectangles: they have re-entrant corners and narrow arms, gusty wind,
+obstacles unknown before take-off, and vehicles that fail. Centroidal Voronoi tessellation (CVT)
+with Lloyd's iteration distributes agents over a region
+\cite{lloydLeastSquaresQuantization1982,duCentroidalVoronoiTessellations1999,cortesCoverageControl2004}
 and has been extended to non-convex domains
-\cite{breitenmoserVoronoiCoverage2010,caoDistributedWeightedCoverage2023}, including agent
-dropout and reinsertion \cite{leeAdaptiveCentroidalVoronoi2024}. Boustrophedon sweeps are the
-standard way to cover a cell
-\cite{chosetBoustrophedonDecomposition1998,chosetCoverageSurvey2001,galceranCoveragePathPlanning2013,huRoutePlanning2021},
+\cite{breitenmoserVoronoiCoverage2010,caoDistributedWeightedCoverage2023} and to agent dropout
+\cite{leeAdaptiveCentroidalVoronoi2024}; boustrophedon sweeps are the standard way to cover a
+cell \cite{chosetBoustrophedonDecomposition1998,chosetCoverageSurvey2001,galceranCoveragePathPlanning2013,huRoutePlanning2021},
 also for aerial visual coverage \cite{papatheodorouCooperativeVisual2017}. Control barrier
 functions (CBF) enforce safety as a quadratic program (QP) on the control input
-\cite{amesControlBarrierFunction2017,amesControlBarrierFunctions2019}, with reciprocal
-multi-robot forms \cite{wangSafetyBarrierCertificates2017,zhouBufferedVoronoiCells2017}.
-Linear-quadratic and $H_\infty$ synthesis are classical routes to quadrotor attitude and
-position control \cite{belkheiriLinearizationControl2012,doyleStateSpaceHinf1989}, and fault
-tolerance in swarms is an active topic \cite{okeeffeAnticipatingDegradation2025}.
+\cite{amesControlBarrierFunction2017,amesControlBarrierFunctions2019}, including reciprocal
+multi-robot forms \cite{wangSafetyBarrierCertificates2017,zhouBufferedVoronoiCells2017}; LQR and
+$H_\infty$ synthesis are classical routes to quadrotor control
+\cite{belkheiriLinearizationControl2012,doyleStateSpaceHinf1989}, and fault tolerance in swarms
+is an active topic \cite{okeeffeAnticipatingDegradation2025}.
 
 What is less reported is how these pieces behave \emph{together} on a physically simulated
 vehicle, where a velocity command cannot be realised instantly, a barrier that assumes it can
@@ -198,7 +196,7 @@ closed-loop dynamics of the vehicle; (ii) a side-by-side comparison of PID gains
 from the LQR and the $H_\infty$ Riccati equations, both on the linear model and inside the full
 swarm; and (iii) a data-traceable evaluation of eight full missions under combined turbulence,
 unmapped obstacles, moving obstacles and agent loss, including an analysis of the failures that
-occurred. Every number reported is computed by a published script from the recorded telemetry.
+occurred. Every number reported is computed by an analysis script from the recorded telemetry.
 
 % =====================================================================
 \headingone{Methodology}
@@ -206,14 +204,13 @@ occurred. Every number reported is computed by a published script from the recor
 
 \headingtwo{System Architecture}
 Figure~\ref{fig:arch} shows the three layers. They are defined per agent: each agent owns a
-cell, a lane queue, a safety filter and a flight controller, and the filter of agent $i$ only
-uses neighbours within 6~m and obstacles within 10~m. In the simulation reported here the high
-and mid levels of all agents are \emph{hosted} in one ROS~2 node \cite{macenskiROS2_2022}
-running at 20~Hz, which shares the coverage grid, the obstacle map and failure notices without
-communication delay; the low level runs as one node per vehicle at 250~Hz on the odometry
-stream. A distributed deployment of the upper layers is future work.
+cell, a lane queue, a safety filter that uses neighbours within 6~m and obstacles within 10~m,
+and a flight controller. Here the high and mid levels of all agents are hosted in one ROS~2 node
+\cite{macenskiROS2_2022} at 20~Hz, sharing the coverage grid, obstacle map and failure notices
+without delay, while each vehicle runs its own low level at 250~Hz; distributing the upper
+layers is future work.
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
 \centering
 \begin{tikzpicture}[x=1cm,y=1cm,font=\scriptsize,>={Latex[scale=0.7]},
     blk/.style={draw=black!70, rounded corners=1.5pt, fill=white, align=center, inner sep=1pt},
@@ -256,10 +253,9 @@ stream. A distributed deployment of the upper layers is future work.
   \node[lbl, anchor=south west] at (1.75,4.75) {per-agent logic of all $N$ agents hosted in one ROS~2 node};
   \node[lbl, anchor=north west] at (1.75,0.33) {one ROS~2 node per vehicle};
 \end{tikzpicture}
-\caption{Three-layer architecture. Layers are defined per agent; in this study the high and mid
-levels of all agents are executed in a single ROS~2 node, while each vehicle runs its own
-low-level controller. The plant, wind, obstacles, sensors and fault injection are simulated in
-Gazebo.}
+\caption{Three-layer architecture. The layers are defined per agent; the high and mid levels of
+all agents run in one ROS~2 node and each vehicle runs its own low level. Plant, wind,
+obstacles, sensors and faults are simulated in Gazebo.}
 \label{fig:arch}
 \end{figure}
 
@@ -269,42 +265,49 @@ Given the region polygon $\mathcal{Q}$ and generators $\mathbf{g}_i$, the cell o
     \mathcal{P}_i=\bigl\{\mathbf{q}\in\mathcal{Q}:\|\mathbf{q}-\mathbf{g}_i\|\le\|\mathbf{q}-\mathbf{g}_j\|,\ \forall j\ne i\bigr\},
     \label{eq:vor}
 \end{equation}
-computed by clipping the bisector cells of the bounding box to $\mathcal{Q}$. Lloyd's iteration
-$\mathbf{g}_i\leftarrow\mathrm{centroid}(\mathcal{P}_i)$ (25 iterations from deterministic
-k-means++ seeds) minimises the coverage cost
+computed by clipping bisector half-planes and intersecting the result with $\mathcal{Q}$. Lloyd's
+iteration $\mathbf{g}_i\leftarrow\mathrm{centroid}(\mathcal{P}_i)$ (25 iterations from
+deterministic k-means++ seeds) minimises
 $\sum_i\int_{\mathcal{P}_i}\|\mathbf{q}-\mathbf{g}_i\|^2\,d\mathbf{q}$
-\cite{cortesCoverageControl2004}, and agents are assigned to cells by the Hungarian algorithm on
-their post-take-off positions. Each cell is shrunk by 0.35~m and swept by east--west lanes at
-most 1.45~m apart. Because the first and last lanes follow the cell's own bottom and top
-boundary chains rather than a horizontal line, the triangular wedges that a fixed-pitch sweep
-leaves at slanted Voronoi edges are also flown. With a sensing radius of $r_s=0.95$~m the
-swath is 1.90~m, giving at least 24\% lateral overlap. Coverage is scored on a 0.30~m grid: a
-cell inside $\mathcal{Q}$ counts once its centre has been within $r_s$ of a live, sweeping agent
-flying above 0.8~m; cells under static obstacles are excluded from the denominator.
+\cite{cortesCoverageControl2004}, and agents are assigned to cells by the Hungarian algorithm.
+Each cell is shrunk by 0.35~m and swept by east--west lanes at most 1.45~m apart; its first and
+last lanes follow the cell boundary, so the wedges that a fixed-pitch sweep leaves at slanted
+Voronoi edges are flown too (Fig.~\ref{fig:concept_high}a). With a sensing radius $r_s=0.95$~m
+the swath is 1.90~m (overlap at least 24\%). Coverage is scored on a 0.30~m grid: a grid cell
+inside $\mathcal{Q}$ counts once its centre has been within $r_s$ of a live, sweeping agent
+flying above 0.8~m; grid cells under static obstacles are excluded.
 
-When agent $k$ fails, Fault-Tolerant Cooperative Coverage (FT-CC) (1) keeps the unfinished
-recovery lanes that $k$ was carrying, (2) erases the coverage recorded inside $\mathcal{P}_k$,
-treating the data of the lost vehicle as lost, (3) merges all failed cells into
-$\mathcal{P}_{\mathrm{rec}}=\bigcup_{k}\mathcal{P}_k$, (4) plans boustrophedon lanes over
-$\mathcal{P}_{\mathrm{rec}}$ and discards lanes already at least 80\% covered, and (5) selects
-helpers among the neighbours of the failed cells, ranked by distance to the recovery centroid:
-one helper for a single loss with at most five lanes, otherwise two, and three after a second
-loss. The lanes are split into contiguous serpentine blocks, one per helper; a helper that has
-finished its own cell flies to its block directly, otherwise the block is appended to its
-queue.
+When agent $k$ fails, Fault-Tolerant Cooperative Coverage (FT-CC) keeps the recovery lanes that
+$k$ still carried, erases the coverage recorded inside $\mathcal{P}_k$ (the data of the lost
+vehicle are treated as lost), merges all failed cells, re-plans lanes over their union and drops
+lanes that are already at least 80\% covered. The helpers are the neighbours of the failed cells
+closest to the recovery centroid (one for a single loss with at most five lanes, otherwise two,
+and three after a second loss). They receive contiguous serpentine blocks, which they fly at
+once if their own cell is finished and append to their queue otherwise
+(Fig.~\ref{fig:concept_high}b,c).
+
+\begin{figure*}[!tb]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_concept_high.pdf}
+\caption{High-level planning in the \Hinf{} U-shape mission, reproduced with the planner code
+(centroids within \ConceptCentroidErr~cm of the log, identical lane counts). (a) Cells after the
+0.35~m margin with \ConceptRowsTotal{} lanes; each cell's first and last lane follow its boundary.
+(b) Agent \ConceptDeadA{} is lost; its cell is re-planned into \ConceptRecRowsA{} lanes in blocks
+for agents \ConceptHelpersA. (c) Helper \ConceptDeadB{} is lost too; both cells are merged into
+\ConceptRecRowsB{} lanes for agents \ConceptHelpersB, coloured by the agent that flew them
+(from telemetry). Lanes ignore obstacles by design.}
+\label{fig:concept_high}
+\end{figure*}
 
 \headingtwo{Mid Level: Obstacle Mapping and CBF-QP Safety Filter}
-\headingthree{Obstacle Map}
-Each 360-ray scan is cleaned of returns within 0.55~m of other agents and 0.80~m of the arena
-boundary, split into clusters, and each cluster is fitted with a circle. Detections are
-associated into one swarm-wide track list; a track is confirmed after 12 hits and rejected if it
-moves. The static obstacle rows of the QP use only confirmed tracks, so the swarm starts with an
-empty map. The planner deliberately ignores obstacles: lanes are laid over the whole cell and
-avoidance is left entirely to the safety filter. The two moving obstacles are supplied to the QP from simulator odometry, i.e.\ they
-are assumed to be tracked perfectly.
+\emph{Obstacle map.} Each 360-ray scan is cleaned of returns within 0.55~m of other agents and 0.80~m of the arena
+boundary, clustered, and each cluster is fitted with a circle. Detections are associated into one
+swarm-wide track list; a track is confirmed after 12 hits and rejected if it moves. Static
+obstacle rows use only confirmed tracks, so the swarm starts with an empty map, and the planner
+deliberately ignores obstacles, leaving avoidance entirely to the safety filter. The two moving
+obstacles are supplied from simulator odometry, i.e.\ they are assumed to be tracked perfectly.
 
-\headingthree{Actuator-Consistent Barrier}
-With the reference rule $\mathbf{p}_{\mathrm{ref}}=\mathbf{p}+T_{\mathrm{lead}}\mathbf{u}$, the
+\emph{Actuator-consistent barrier.} With the reference rule $\mathbf{p}_{\mathrm{ref}}=\mathbf{p}+T_{\mathrm{lead}}\mathbf{u}$, the
 outer PID makes the commanded-velocity response first order with an acceleration limit,
 $\dot v=\mathrm{sat}_{\pm a_{\max}}\bigl(k_v(u-v)\bigr)$, where
 \begin{equation}
@@ -312,11 +315,11 @@ $\dot v=\mathrm{sat}_{\pm a_{\max}}\bigl(k_v(u-v)\bigr)$, where
     T_{\mathrm{lead}}=\frac{K_d-k_{\mathrm{ff}}}{K_p},\qquad v_c=\frac{a_{\max}}{k_v},
     \label{eq:plant}
 \end{equation}
-with $\theta_{\max}=15^\circ$ and feed-forward gain $k_{\mathrm{ff}}=0.15$~rad\,s/m. Evaluated
-with the LQR outer-loop gains (for both controllers) this gives $k_v=\PlantKv$~s$^{-1}$, $a_{\max}=\PlantAmax$~m/s$^2$,
-$T_{\mathrm{lead}}=\PlantTlead$~s and $v_c=\PlantVc$~m/s. The stopping distance from speed $s>v_c$
-is $D(s)=(s^2+v_c^2)/2a$. Requiring that the distance covered during the dead time $T_d$ plus
-$D(s)$ fit inside the clearance $h$ yields the admissible approach speed
+with $\theta_{\max}=15^\circ$ and $k_{\mathrm{ff}}=0.15$~rad\,s/m. With the LQR outer-loop gains
+(used for both controllers) $k_v=\PlantKv$~s$^{-1}$, $a_{\max}=\PlantAmax$~m/s$^2$,
+$T_{\mathrm{lead}}=\PlantTlead$~s and $v_c=\PlantVc$~m/s. The stopping distance from speed
+$s>v_c$ is $D(s)=(s^2+v_c^2)/2a$; requiring that the distance travelled during a lumped dead time
+$T_d=0.40$~s plus $D(s)$ fit inside the clearance $h$ gives the admissible approach speed
 \begin{equation}
     \varphi(h)=
     \begin{cases}
@@ -325,15 +328,13 @@ $D(s)$ fit inside the clearance $h$ yields the admissible approach speed
     \end{cases}
     \label{eq:phi}
 \end{equation}
-with a lumped dead time $T_d=0.40$~s for sampling, filtering and the attitude loop. It is
-zero below a finite clearance, a property no linear $\alpha(h)=\gamma h$ has; the
-branch $h<0$ ($\gamma_r=3.5$~s$^{-1}$) demands an outward velocity if the set has been left.
-The budget $a$ is class dependent,
+which is exactly zero for $h\le v_c^2/2a$, unlike a linear $\gamma h$
+(Fig.~\ref{fig:concept_cbf}a); the branch $h<0$ ($\gamma_r=3.5$~s$^{-1}$) demands an outward
+velocity once the set has been left. The budget is
 $a=\max\bigl(0.15a_{\max},\,\mu a_{\max}-|a_{\mathrm{obs}}|-|a_{\mathrm{wind}}|\bigr)$ with
 $\mu=0.75$ (0.85 for walls) and a wind allowance of 0.5~m/s$^2$.
 
-\headingthree{Quadratic Program}
-For an obstacle or neighbour at $\mathbf{o}$ with unit normal
+\emph{Quadratic program.} For an obstacle or neighbour at $\mathbf{o}$ with
 $\hat{\mathbf{n}}=(\mathbf{p}-\mathbf{o})/\|\mathbf{p}-\mathbf{o}\|$, the condition
 $\dot h\ge-\varphi(h)$ is the linear row
 \begin{equation}
@@ -342,46 +343,104 @@ $\dot h\ge-\varphi(h)$ is the linear row
     \label{eq:row}
 \end{equation}
 with drone radius $r_d=0.22$~m, obstacle radius $\rho$ (fitted radius $+0.05$~m for mapped
-cylinders, 0.50~m for the moving ones), margins $\delta=0.35$~m (static) and 0.75~m (moving),
-and $\lambda=1$ for obstacles. Neighbour rows are reciprocal ($\lambda_{ij}+\lambda_{ji}=1$,
-weighted by mission state) and are issued at a hard radius of 0.70~m and a soft radius of
-1.20~m. Arena walls and the end of the current lane give half-plane rows
-$\hat{\mathbf{a}}^\top\mathbf{u}\le\varphi(h)$, and inscribed polygons bound speed (3~m/s) and
-the per-tick change of $\mathbf{u}$. Each agent then solves
+cylinders, 0.50~m for moving ones), margins $\delta=0.35$~m (static) and 0.75~m (moving), and
+$\lambda=1$ for obstacles. Neighbour rows are reciprocal ($\lambda_{ij}+\lambda_{ji}=1$, weighted
+by mission state) at a hard radius of 0.70~m and a soft radius of 1.20~m; walls and the end of
+the current lane give half-plane rows, and inscribed polygons bound the speed (3~m/s) and the
+per-tick change of $\mathbf{u}$. Each agent then solves
 \begin{equation}
     \mathbf{u}^\star=\arg\min_{\mathbf{u}\in\mathbb{R}^2}\bigl\|\mathbf{u}-\mathbf{z}\bigr\|^2
     \ \ \text{s.t.}\ \ A\mathbf{u}\le\mathbf{b},\qquad
     \mathbf{z}=\frac{\mathbf{u}_{\mathrm{des}}+\mathbf{t}+w\,\mathbf{u}_{\mathrm{prev}}}{1+w},
     \label{eq:qp}
 \end{equation}
-exactly, by enumerating the unconstrained point, the projections onto every row and the
-pairwise vertices. The tangential bias $\mathbf{t}$ (applied within a 60$^\circ$ cone of a
-head-on approach) breaks symmetric deadlocks and only enters the objective, never $A$ or
-$\mathbf{b}$; $w=0.25$ smooths successive commands. If the QP is infeasible, soft rows are
-released (tier~1); if still infeasible, the violation of the hard rows is minimised (tier~2),
-and a scaled previous command is the last resort (tier~3).
+exactly, by enumerating the unconstrained point, the projections onto every row and the pairwise
+vertices (Fig.~\ref{fig:concept_cbf}b). A tangential bias $\mathbf{t}$, applied within a
+60$^\circ$ cone of a head-on approach, breaks symmetric deadlocks and enters only the objective;
+$w=0.25$ smooths successive commands. If the QP is infeasible, soft rows are released (tier~1),
+then the violation of the hard rows is minimised (tier~2), and a scaled previous command is the
+last resort (tier~3).
+
+\begin{figure*}[!tb]
+\centering
+\includegraphics[width=\textwidth]{figures/fig_concept_cbf.pdf}
+\caption{Mid-level safety filter with the mission parameters. (a) $\varphi(h)$ of
+Eq.~\eqref{eq:phi} for static rows: zero below $h=\CbfHzero$~m, and $h\ge\CbfHsweep$~m is needed
+to approach at 1.6~m/s; a linear $\gamma h$ equal at 1.6~m/s permits approach where $\varphi$
+demands a stop. (b) One QP solve by the flight code, illustrative case (east sweep at 1.6~m/s,
+mapped cylinder \CbfExDist~m ahead, $h=\CbfExH$~m): the row of Eq.~\eqref{eq:row} cuts the
+rate-limited set, and the closing speed drops from \CbfExCloseDes{} to \CbfExCloseStar~m/s.}
+\label{fig:concept_cbf}
+\end{figure*}
 
 \headingtwo{Low Level: LQR and $H_\infty$ Gain Synthesis}
 Each axis is modelled about hover as a double integrator $\dot{\mathbf{x}}=A\mathbf{x}+Bu$
 (e.g.\ $B=[0,\ g]^\top$ from pitch to $x$, $B=[0,\ 1/I_y]^\top$ from torque to pitch) and
 augmented with an integrator on the input, $\mathbf{x}_a=[\mathbf{x}^\top,u]^\top$. The LQR
 design solves the algebraic Riccati equation (ARE) for $K_a=R^{-1}B_a^\top P$. The $H_\infty$
-design treats a disturbance $w$ entering through the input channel, $B_w=[B^\top,0]^\top$, and
+design treats a disturbance entering through the input channel, $B_w=[B^\top,0]^\top$, and
 solves
 \begin{equation}
     A_a^\top P+PA_a+Q_a-P\bigl(B_aR^{-1}B_a^\top-\gamma^{-2}B_wB_w^\top\bigr)P=0,
     \label{eq:hare}
 \end{equation}
-rejecting solutions for which $A_a-B_aK_a$ is not Hurwitz \cite{doyleStateSpaceHinf1989}.
-The attenuation level is set to $\gamma=1.3\,\gamma_{\min}$, where $\gamma_{\min}$ is found by
-bisection. The state-feedback gain is mapped to PID form through the pseudo-inverse of the
-output-derivative matrix
-$\Gamma=[C^\top,(CA)^\top,(CA^2)^\top;\,0,(CB)^\top,(CAB)^\top]$. The outer loop maps position
-error to a tilt reference with derivative action on measured velocity, clipped to 15$^\circ$;
-the inner loop is PD on attitude (the synthesised inner integral gain is not used); altitude and
-yaw loops are designed the same way. A mixer that preserves roll/pitch authority before
-collective thrust and yaw converts the wrench into rotor speeds. Weights, attenuation levels and
-the resulting gains are listed in Table~\ref{tab:gains}.
+rejecting solutions for which $A_a-B_aK_a$ is not Hurwitz \cite{doyleStateSpaceHinf1989}, with
+$\gamma=1.3\,\gamma_{\min}$ and $\gamma_{\min}$ found by bisection. The state-feedback gain is
+mapped to PID form through the pseudo-inverse of
+$\Gamma=[C^\top,(CA)^\top,(CA^2)^\top;\,0,(CB)^\top,(CAB)^\top]$; the synthesised inner integral
+gain is not used. Figure~\ref{fig:tick} shows where the gains enter the signal path of one control
+step, and Table~\ref{tab:gains} lists weights, attenuation levels and gains.
+
+\begin{figure*}[!tb]
+\centering
+\begin{tikzpicture}[x=1cm,y=1cm,font=\scriptsize,>={Latex[scale=0.7]},
+    blk/.style={draw=black!70, rounded corners=1.5pt, fill=white, align=center, inner sep=1.5pt,
+                minimum height=1.12cm},
+    lbl/.style={font=\scriptsize, align=center, text=black!80},
+    row/.style={font=\scriptsize\itshape, text=black!65}]
+  \fill[magenta!6, rounded corners=3pt] (-0.1,2.3) rectangle (13.85,4.05);
+  \fill[orange!9,  rounded corners=3pt] (-0.1,-0.45) rectangle (13.85,1.85);
+  \node[row, anchor=north west] at (-0.05,4.02) {coordinator: every 50 ms, per agent};
+  \node[row, anchor=north east] at (13.8,1.82) {flight controller: every 4 ms (each odometry message)};
+  % ---- coordinator ----
+  \node[blk, text width=3.45cm] (b1) at (1.75,3.0)
+    {\textbf{(1) lane follower}\\ $\mathbf{u}_{\mathrm{des}}=v_s\hat{\mathbf{e}}-\mathrm{sat}(k\,e_\perp)\,\hat{\mathbf{n}}$\\ ramped to zero at the lane end};
+  \node[blk, text width=3.75cm] (b2) at (5.85,3.0)
+    {\textbf{(2) CBF-QP}, Eq.~\eqref{eq:qp}\\ rows: mapped obstacles, moving\\ obstacles, neighbours, walls $\to\mathbf{u}^\star$};
+  \node[blk, text width=5.5cm] (b3) at (10.9,3.0)
+    {\textbf{(3) set-point}\\ $\mathbf{p}_{\mathrm{ref}}=\mathbf{p}+T_{\mathrm{lead}}\mathbf{u}^\star$, clamped to the lane end\\ and pushed out of the keep-out discs};
+  % ---- flight controller ----
+  \node[blk, text width=2.75cm] (b4) at (1.4,0.9)
+    {\textbf{(4) pre-filter}\\ second order, $\omega_n=8$~rad/s,\\ $\zeta=0.95$, $|\dot{\tilde p}|\le1.8$~m/s};
+  \node[blk, text width=4.05cm] (b5) at (5.2,0.9)
+    {\textbf{(5) outer PID}, body frame\\ $\theta_{\mathrm{ref}}=K_pe_x+K_i\!\int\!e_x-K_dv_x+k_{\mathrm{ff}}u^\star_x$\\ $|\theta_{\mathrm{ref}}|\le15^\circ$, slew $\le240^\circ$/s};
+  \node[blk, text width=3.3cm] (b6) at (9.25,0.9)
+    {\textbf{(6) inner PD}\\ $\tau_y=K^{\mathrm{in}}_p(\theta_{\mathrm{ref}}-\theta)-K^{\mathrm{in}}_d\,q$\\ $|\tau|\le0.8$~N\,m, level-out $>25^\circ$};
+  \node[blk, text width=2.45cm] (b7) at (12.45,0.9)
+    {\textbf{(7) mixer}\\ roll/pitch priority,\\ $\Omega_i^2\in[250^2,1050^2]$};
+  \node[blk, fill=teal!9, text width=2.0cm, minimum height=3.6cm] (gz) at (15.2,1.8)
+    {\textbf{Gazebo}\\[2pt] 6-DOF body,\\ rotor thrust\\[4pt] odometry 250~Hz\\ LiDAR 10~Hz};
+  % ---- signals ----
+  \draw[->] (b1) -- (b2);
+  \draw[->] (b2) -- (b3);
+  \draw[->] (b3.south) -- (10.9,2.08) -- (1.4,2.08) -- (b4.north);
+  \node[lbl, fill=white, inner sep=1pt] at (8.0,2.08) {target pose $\mathbf{p}_{\mathrm{ref}}$ and feed-forward $\mathbf{u}^\star$ (ROS~2 topics)};
+  \draw[->] (5.2,2.08) -- (b5.north);
+  \draw[->] (b4) -- (b5);
+  \draw[->] (b5) -- (b6);
+  \draw[->] (b6) -- (b7);
+  \draw[->] (b7.east) -- node[above, lbl]{$\Omega$} (gz.west |- b7.east);
+  \draw[->] (gz.north) -- ++(0,0.3) -| node[pos=0.25, above, lbl]{LiDAR scans $\to$ obstacle map} (b2.north);
+  \draw[->, black!55] (15.95,4.45) node[above, lbl, black!70]{wind $\mathbf{w}$} -- (15.95,3.62);
+  \draw[decorate, decoration={brace, amplitude=3pt, mirror}, black!60] (3.2,0.26) -- (10.85,0.26)
+    node[midway, below=2pt, lbl]{gains from the ARE (\LQR) or the HARE (\Hinf), Table~\ref{tab:gains}};
+\end{tikzpicture}
+\caption{Signal path of one control step. The coordinator (1)--(3) publishes a set-point and a
+velocity feed-forward every 50~ms; the flight controller (4)--(7) runs on each 4~ms odometry
+message. The controllers differ only in the gains of (5)--(6) and in the position integrator
+(\Hinf: always active, clipped to $\pm0.6$; \LQR: active within 0.25~m, clipped to $\pm0.4$).}
+\label{fig:tick}
+\end{figure*}
 
 % =====================================================================
 \headingtwo{Simulation Setup}
@@ -395,13 +454,12 @@ at 1.6~m/s. Four regions inside a $28\times28$~m box are used (Fig.~\ref{fig:tra
 \emph{plus} (460~m$^2$, 10~m wide arms), each with nine vertical cylinders ($r=0.40$~m, 4~m
 tall) placed inside the region. All missions use the same combined-hazard scheme:
 \begin{itemize}[leftmargin=1.2em,itemsep=0pt,topsep=1pt,parsep=0pt]
-\item \emph{Wind.} Each horizontal axis follows a first-order Gauss--Markov process
-      ($\sigma=2.5$~m/s, correlation time 0.5~s, seed 42), a Dryden-like surrogate
+\item \emph{Wind.} A first-order Gauss--Markov process per horizontal axis ($\sigma=2.5$~m/s,
+      correlation time 0.5~s, seed 42), a Dryden-like surrogate
       \cite{milhdbk1797,beardSmallUnmannedAircraft2012}, plus a constant $-2$~m/s mean on both
-      axes from $t=5$~s; the vertical component is scaled by 0.4. The wind is spatially uniform
-      and applied through the Gazebo wind-effects plugin. The recorded wind had mean
-      $(\WindMeanX,\WindMeanY)$~m/s and standard deviation $(\WindStdX,\WindStdY)$~m/s, with
-      horizontal peaks of \WindMaxH~m/s.
+      axes from $t=5$~s, uniform in space and applied through the Gazebo wind-effects plugin
+      (vertical component scaled by 0.4). Recorded mean $(\WindMeanX,\WindMeanY)$~m/s, standard
+      deviation $(\WindStdX,\WindStdY)$~m/s, horizontal peaks \WindMaxH~m/s.
 \item \emph{Moving obstacles.} Two kinematic cylinders ($r=0.45$~m) oscillate along the region
       diagonals with amplitude 10~m (12~m, offset by 1~m, in \emph{plus}) at 0.15 and 0.11~rad/s,
       i.e.\ peak speeds of 1.6--2.6~m/s.
@@ -421,7 +479,7 @@ drone centre to the cylinder surface. The collision geometry of the airframe rea
 \BodyHalf~m (body) to \RotorReach~m (rotor tips) from its centre, so a surface distance below
 these values means certain or possible contact.
 
-\begin{table}[tb]
+\begin{table}[!tb]
 \centering
 \caption{Gain synthesis (outer $x$/$y$ and inner roll/pitch loops) and linear analysis of the
 outer loop with the inner loop closed. $\|G\|_\infty$: peak gain from a disturbance acceleration
@@ -441,19 +499,15 @@ Design & Loop & $Q$, $R$ & $\gamma_{\min}\!\to\!\gamma$ & $K_p$ & $K_i$ & $K_d$ 
 \end{tabular}
 \end{table}
 
-% =====================================================================
-\headingone{Results and Discussion}
-% =====================================================================
-
-\begin{table*}[tb]
+\begin{table*}[!tb]
 \centering
-\caption{Mission results. $T$: mission time; lat.: RMS lateral sweep error; $\bar v$: mean
-sweep speed; alt.: RMS altitude error; tilt: 95th percentile while sweeping and maximum;
-effort: mean $\tau_x^2+\tau_y^2$ (N$^2$m$^2$); $d_{\mathrm{obs}}$: minimum centre-to-surface
-distance to a static cylinder; $d_{\mathrm{v2v}}$: minimum inter-agent distance; tier: share of
-QP solves that needed tier~1 or 2. Killed agents: rect \VictimsRectHinf{} (H$_\infty$) and
-\VictimsRectLqr{} (LQR); L-shape \VictimsLshapeHinf; U-shape \VictimsUshapeHinf; plus \VictimsPlusHinf.
-The \LQR{} rect statistics cover only the \TmisRectLqr~s before the abort.}
+\caption{Mission results. $T$: mission time; lat.: RMS lateral sweep error; $\bar v$: mean sweep
+speed; alt.: RMS altitude error; tilt: 95th percentile while sweeping, and maximum; effort: mean
+$\tau_x^2+\tau_y^2$ (N$^2$m$^2$); $d_{\mathrm{obs}}$, $d_{\mathrm{v2v}}$: minimum centre-to-surface
+distance to a static cylinder and minimum inter-agent distance; tier: QP solves needing tier 1
+or 2. Killed agents: rect \VictimsRectHinf{} (H$_\infty$), \VictimsRectLqr{} (LQR); L-shape
+\VictimsLshapeHinf; U-shape \VictimsUshapeHinf; plus \VictimsPlusHinf. \LQR{} rect covers the
+\TmisRectLqr~s before its abort.}
 \label{tab:results}
 \footnotesize
 \setlength{\tabcolsep}{3.2pt}
@@ -467,31 +521,32 @@ Region & Controller & Status & Cov. (\%) & $T$ (s) & lat. (cm) & $\bar v$ (m/s) 
 \end{tabular}
 \end{table*}
 
-\begin{figure*}[tb]
+\begin{figure*}[!tb]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_traj.pdf}
-\caption{Flown trajectories (live agents above 0.5~m) for all eight missions, including transit
-from the launch pad at $y\approx-18$~m. Dark discs: static cylinders; dashed: nominal paths of
-the moving cylinders; crosses: position where an agent was killed; red markers: tilt upsets
-above 30$^\circ$.}
+\caption{Flown trajectories of live agents above 0.5~m, including transit from the launch pad
+($y\approx-18$~m). Dark discs: static cylinders; dashed: moving-cylinder paths; crosses: agent
+kills; red markers: tilt upsets above 30$^\circ$.}
 \label{fig:traj}
 \end{figure*}
 
+% =====================================================================
+\headingone{Results and Discussion}
+% =====================================================================
+
 \headingtwo{Mission Completion and Fault Recovery}
 Table~\ref{tab:results} and Fig.~\ref{fig:traj} summarise the eight missions. Seven finished
-with every surviving agent back at its cell centroid and final coverage between \CovMin\% and
-\CovMax\%, although two of seven agents (28.6\% of the fleet) were lost at 18\% and 32\%
-coverage. In every mission the obstacle map contained all nine cylinders, with centre and radius
-errors within the 0.1~m resolution of the log, plus at most two confirmed tracks that matched no
-cylinder; no completed mission needed a tier-3 QP fallback. Figure~\ref{fig:coverage} shows the recovery mechanism: each kill causes a small
-drop, because the coverage inside the failed cell is erased, after which the helpers resume the
-original slope; Fig.~\ref{fig:env} shows the resulting coverage maps. The \LQR{} U-shape mission ended just below the 97\% target (\CovUshapeLqr\%)
-when all agents had exhausted their lanes; its final coverage map shows thin uncovered strips
-along the boundaries between neighbouring cells in the left arm, which are nearly absent in the
-\Hinf{} map of the same region. We did not isolate their cause. The \LQR{} rect mission was aborted at
-\TmisRectLqr~s and is analysed below.
+with every surviving agent back at its cell centroid and final coverage of \CovMin--\CovMax\%,
+although two of seven agents (28.6\%) were lost at 18\% and 32\% coverage. In every mission the
+obstacle map contained all nine cylinders (centre and radius within the 0.1~m log resolution)
+plus at most two unmatched tracks, and no completed mission needed a tier-3 fallback. After each
+kill the coverage curve drops slightly, because the coverage of the failed cell is erased, and
+then resumes its slope (Fig.~\ref{fig:coverage}); Fig.~\ref{fig:env} shows the final maps. The
+\LQR{} U-shape mission ended just below the 97\% target (\CovUshapeLqr\%) with thin uncovered
+strips along cell boundaries in the left arm that are nearly absent in the \Hinf{} map; we did
+not isolate their cause. The \LQR{} rect mission was aborted at \TmisRectLqr~s (see below).
 
-\begin{figure*}[tb]
+\begin{figure*}[!tb]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_coverage.pdf}
 \caption{Coverage against mission time (coordinator clock, 1~Hz). Triangles mark agent kills;
@@ -499,7 +554,7 @@ the step after each kill is the erased coverage of the failed cell being re-swep
 \label{fig:coverage}
 \end{figure*}
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_env.png}
 \caption{(a) Gazebo view of the rect mission; (b)--(e) RViz coverage maps (green) at the end of
@@ -509,37 +564,34 @@ obstacles. Frames are extracted from the mission recordings.}
 \end{figure}
 
 \headingtwo{Tracking under Turbulence: LQR versus $H_\infty$ Gains}
-The two designs differ clearly in how tightly they hold a lane (Fig.~\ref{fig:tracking}a). The
+The two designs differ clearly in how tightly they hold a lane (Fig.~\ref{fig:tracking}a): the
 median lateral error was \LatMedHinfMin--\LatMedHinfMax~cm with \Hinf{} and
 \LatMedLqrMin--\LatMedLqrMax~cm with \LQR{}, and the RMS error fell from
 \LatRmsLqrMin--\LatRmsLqrMax~cm to \LatRmsHinfMin--\LatRmsHinfMax~cm, a
-\LatRedMin--\LatRedMax\% reduction that holds in all four regions. Splitting the error into its mean and its fluctuation shows where the
-difference lies. \LQR{} flew with a downwind offset of $\LatMeanLqrMax$ to $\LatMeanLqrMin$~cm
-in every region (the mean wind blows towards $-y$), whereas \Hinf{} stayed within
-\LatMeanHinfMin--\LatMeanHinfMax~cm of the lane; the standard deviation differed less
-(\LatStdHinfMin--\LatStdHinfMax{} vs \LatStdLqrMin--\LatStdLqrMax~cm). The offset is a
+\LatRedMin--\LatRedMax\% reduction in all four regions. Most of the difference is a mean offset:
+\LQR{} flew $\LatMeanLqrMax$ to $\LatMeanLqrMin$~cm downwind (the mean wind blows towards $-y$),
+\Hinf{} within \LatMeanHinfMin--\LatMeanHinfMax~cm of the lane, while the standard deviations
+differed less (\LatStdHinfMin--\LatStdHinfMax{} vs \LatStdLqrMin--\LatStdLqrMax~cm). This is a
 low-frequency effect: the $H_\infty$ outer integral gain is \KiRatio{} times larger, and the
-\LQR{} node additionally freezes its position integrator whenever the error exceeds 0.25~m,
-which was the case in \IntegOffLqrMin--\IntegOffLqrMax\% of its sweep samples. The mean sweep speed was
+\LQR{} node freezes its position integrator when the error exceeds 0.25~m, which happened in
+\IntegOffLqrMin--\IntegOffLqrMax\% of its sweep samples. The mean sweep speed was
 \VHinfMin--\VHinfMax~m/s against \VLqrMin--\VLqrMax~m/s for a 1.6~m/s command, which accounts
-for the \TimeRedMin--\TimeRedMax\% shorter missions where both finished. Altitude error and the
-95th-percentile tilt were essentially equal, since both are bounded by the same tilt limit. The linear analysis in Table~\ref{tab:gains} explains the direction of the result:
-the $H_\infty$ gains lower the worst-case gain from disturbance acceleration to position by a
-factor of \HnormRatio{} and the steady-state position deviation under the Gauss--Markov input by
-\SigxRatio{} (Fig.~\ref{fig:tracking}c).
+for the \TimeRedMin--\TimeRedMax\% shorter missions; altitude error and 95th-percentile tilt were
+essentially equal. The linear analysis (Table~\ref{tab:gains}) agrees in direction: the $H_\infty$
+gains lower the worst-case gain from disturbance acceleration to position by a factor of
+\HnormRatio{} and the position deviation under the Gauss--Markov input by \SigxRatio{}
+(Fig.~\ref{fig:tracking}c).
 
-The price is visible in the same table. \Hinf{} used \EffRatioMin--\EffRatioMax{} times the
-torque effort of \LQR{} in the completed pairs (Fig.~\ref{fig:tracking}b), although motors were
-saturated in less than 0.2\% of samples in every mission, and its outer loop has a higher
-crossover (\WcHinf{} vs \WcLqr~rad/s) with smaller phase and gain margins. The measured error
-reduction is also far smaller than the linear factor, because the tilt limit, the reference
-pre-filter, the rate limits of the QP and the wind force model are not in the linear model. Two
-further caveats limit the attribution: the synthesis weights $Q$ and $R$ are not identical in
-the two designs, and the integrator gating described above belongs to the \LQR{} node, not to
-the synthesis. The comparison is therefore between two complete gain designs; this study does not
-isolate the contribution of the attenuation level $\gamma$ from that of higher loop gain.
+The price is a higher effort: \Hinf{} used \EffRatioMin--\EffRatioMax{} times the torque effort
+of \LQR{} in the completed pairs (Fig.~\ref{fig:tracking}b), with motor saturation below 0.2\% of
+samples in every mission, and a higher outer-loop crossover (\WcHinf{} vs \WcLqr~rad/s) with
+smaller margins. The measured reduction is far smaller than the linear factor because the tilt
+limit, the reference pre-filter, the QP rate limits and the wind force model are absent from the
+linear model. As the weights $Q$, $R$ differ and the integrator gating belongs to the \LQR{} node
+rather than to the synthesis, the comparison is between two complete gain designs; the
+contribution of $\gamma$ is not isolated from that of higher loop gain.
 
-\begin{figure*}[tb]
+\begin{figure*}[!tb]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_tracking.pdf}
 \caption{(a) Absolute lateral error during steady east--west sweeps (box: quartiles, whiskers:
@@ -550,35 +602,30 @@ the wind model.}
 \end{figure*}
 
 \headingtwo{Safety: Clearance, Contact and Upset Events}
-No two agents came closer than \VtwovLshapeLqr~m (\LQR{}, L-shape) and all minima stayed above
-the 0.70~m hard radius, so there was no inter-agent contact. Against static cylinders the
-minimum surface distance under \Hinf{} was \ObssurfRectHinf, \ObssurfLshapeHinf{} and
-\ObssurfUshapeHinf~m in rect, L-shape and U-shape, clear of the airframe, while under \LQR{} it
-was \ObssurfRectLqr, \ObssurfLshapeLqr{} and \ObssurfUshapeLqr~m. In \emph{plus} both
-controllers passed within \ObssurfPlusHinf~m of the central cylinder, inside the rotor envelope.
-Figure~\ref{fig:events} shows the upsets that followed, and the coordinator log shows a common
-pattern: each contact happened while the agent was stepping from one lane to the next beside a
-cylinder, and in each case the QP had run in tier~2 for \TierSpanMin--\TierSpanMax~s with that cylinder
-as the binding row. In the \LQR{} rect mission, agent 2 turned into its third lane next to the cylinder at
-$(0,2.5)$, reached a surface distance of \UpRectLqrSurf~m, i.e.\ body contact, tilted to
-\UpRectLqrTilt$^\circ$ and fell; the crash detector aborted the mission. In \emph{plus}, agent 2
-of both missions stepped from its fourth to its fifth lane next to the central cylinder: under
-\LQR{} the tilt reached \UpPlusLqrTilt$^\circ$ with little height loss, under \Hinf{} it
-reached \UpPlusHinfTilt$^\circ$, the vehicle dropped to \UpPlusHinfZmin~m and regained cruise
-altitude within about 3~s. With one run per case, none of these events can be attributed to
-the controller. They are better explained by the design choice that lanes are planned without
-obstacle knowledge, which lets lane ends and steps fall inside the safety margin of a
-cylinder, combined with a barrier built on a 0.22~m disc and a fixed 0.5~m/s$^2$ wind allowance
-that gusts of up to \WindMaxH~m/s exceed. A further \UpRectLqrSecondTilt$^\circ$ upset
-(\LQR{}, rect, agent 6 at \UpRectLqrSecondT~s) occurred in transit away from any cylinder and
-was recovered. Moving obstacles also entered their 0.75~m margin: the QP logged negative barrier
-values against them in \NRunsHdynNeg{} of the eight missions, the lowest ($\HdynMinLogged$~m)
-corresponding to a centre-to-surface distance of \DynSurfMinLogged~m, at the rotor envelope.
-Because these values are only logged while the QP runs in tier~2, they bound the true minimum
-from above. A collision envelope matching the rotor tips, obstacle-aware lane ends and a
-gust-dependent acceleration budget are the obvious remedies.
+No two agents came closer than \VtwovLshapeLqr~m (\LQR{}, L-shape), above the 0.70~m hard
+radius. The minimum surface distance to static cylinders under \Hinf{} was \ObssurfRectHinf,
+\ObssurfLshapeHinf{} and \ObssurfUshapeHinf~m in rect, L- and U-shape, clear of the airframe,
+and under \LQR{} \ObssurfRectLqr, \ObssurfLshapeLqr{} and \ObssurfUshapeLqr~m; in \emph{plus}
+both controllers passed within \ObssurfPlusHinf~m of the central cylinder, inside the rotor
+envelope. The resulting upsets (Fig.~\ref{fig:events}) share a pattern in the coordinator log:
+each happened while the agent stepped to its next lane beside a cylinder, after the QP had run in
+tier~2 for \TierSpanMin--\TierSpanMax~s with that cylinder as the binding row. In the \LQR{} rect
+mission agent 2 came within \UpRectLqrSurf~m of the cylinder at $(0,2.5)$, i.e.\ body contact,
+tilted to \UpRectLqrTilt$^\circ$ and fell. In \emph{plus}, agent 2 of both missions grazed the
+central cylinder: under \LQR{} the tilt reached \UpPlusLqrTilt$^\circ$ with little height loss,
+under \Hinf{} \UpPlusHinfTilt$^\circ$ with a drop to \UpPlusHinfZmin~m before cruise altitude was
+regained within about 3~s. With one run per case these events cannot be attributed to the
+controller; they are better explained by obstacle-blind lanes whose ends and steps fall inside
+the margin of a cylinder, combined with a barrier built on a 0.22~m disc and a fixed
+0.5~m/s$^2$ wind allowance that gusts of up to \WindMaxH~m/s exceed. A further
+\UpRectLqrSecondTilt$^\circ$ upset (\LQR{}, rect, agent 6 at \UpRectLqrSecondT~s) occurred in
+transit away from any cylinder and was recovered. Moving obstacles also entered their 0.75~m
+margin: tier-2 logs show negative barrier values in \NRunsHdynNeg{} of eight missions, the lowest
+($\HdynMinLogged$~m) corresponding to a surface distance of \DynSurfMinLogged~m; being logged
+only in tier~2, these values bound the true minimum from above. A rotor-tip collision envelope,
+obstacle-aware lane ends and a gust-dependent acceleration budget are the obvious remedies.
 
-\begin{figure}[tb]
+\begin{figure}[!tb]
 \centering
 \includegraphics[width=\textwidth]{figures/fig_events.pdf}
 \caption{Upset events, aligned at peak tilt. Top: centre-to-surface distance to the nearest
@@ -591,25 +638,23 @@ and loss. (b) \emph{plus}, agent 2 under both controllers: grazing contact and r
 \headingtwo{Limitations}
 The results rest on one run per configuration with a fixed wind seed, perfect state feedback,
 perfectly tracked moving obstacles, instantaneous failure detection, a geometric coverage model
-without camera or photogrammetric error, and centralised execution of the upper layers. The planner and barrier components were not
-ablated, and no coverage method from the literature was re-implemented for comparison.
-Statistical claims, estimator and communication effects, and a distributed implementation remain
-to be addressed.
+without camera error, and centralised execution of the upper layers; no component was ablated or
+compared with a re-implemented baseline.
 
 % =====================================================================
 \headingone{Conclusion}
 % =====================================================================
 A three-layer architecture combining polygon-clipped Voronoi partitioning, boundary-following
 sweeps, lane-level fault reallocation, a LiDAR-mapped actuator-consistent CBF-QP and
-Riccati-synthesised PID control was evaluated in eight simulated missions with seven
-quadrotors under strong turbulence, unmapped and moving obstacles, and the loss of two agents.
-Seven missions finished with \CovMin--\CovMax\% coverage. Gains synthesised from the $H_\infty$
-Riccati equation held the lanes \LatRedMin--\LatRedMax\% more tightly and shortened missions by
+Riccati-synthesised PID control was evaluated in eight simulated missions with seven quadrotors
+under strong turbulence, unmapped and moving obstacles, and the loss of two agents. Seven
+missions finished with \CovMin--\CovMax\% coverage. Gains from the $H_\infty$ Riccati equation
+held the lanes \LatRedMin--\LatRedMax\% more tightly and shortened missions by
 \TimeRedMin--\TimeRedMax\% compared with LQR gains, at several times the torque effort and with
-smaller stability margins; both designs suffered obstacle contacts in gusts, one of which ended
-an LQR mission. Future work will repeat the campaign over many wind seeds, enlarge the collision
-envelope and add wind to the barrier model, distribute the upper layers onto the vehicles, and
-move to flight tests with on-board state estimation.
+smaller margins; both designs suffered obstacle contacts in gusts, one of which ended an LQR
+mission. Future work will repeat the campaign over many wind seeds, enlarge the collision envelope
+and add wind to the barrier model, distribute the upper layers onto the vehicles, and move to
+flight tests with on-board state estimation.
 
 \ifanon\else
 \headingone{Acknowledgments}
