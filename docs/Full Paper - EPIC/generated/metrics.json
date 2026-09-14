@@ -1,0 +1,2242 @@
+{
+  "runs": {
+    "rect_hinf": {
+      "region": "rect",
+      "ctrl": "hinf",
+      "aborted": false,
+      "t_total": 260.0,
+      "cov_final": 98.2,
+      "t97": 240.0,
+      "cov_at_success": 97.1,
+      "dmin_log": 1.71,
+      "n_status": 259,
+      "cov_last_status": 98.2,
+      "cbf": {
+        "solves": 25669,
+        "T0": 24921,
+        "T1": 660,
+        "T2": 88,
+        "T3": 0,
+        "p_tier": 2.914,
+        "slack_max": 0.7676
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 4,
+          "cov": 18.8,
+          "trigger": 18.0,
+          "t_log": 35.0,
+          "helpers": [
+            7,
+            6
+          ],
+          "rows": 8
+        },
+        {
+          "drone": 7,
+          "cov": 32.0,
+          "trigger": 32.0,
+          "t_log": 56.0,
+          "helpers": [
+            6,
+            1,
+            2
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 11,
+          "start": [
+            -6.04,
+            -13.6
+          ],
+          "centroid": [
+            -9.77,
+            -6.94
+          ]
+        },
+        "2": {
+          "vertices": 6,
+          "rows": 11,
+          "start": [
+            0.91,
+            0.46
+          ],
+          "centroid": [
+            -0.92,
+            7.06
+          ]
+        },
+        "3": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            8.09,
+            5.14
+          ],
+          "centroid": [
+            9.01,
+            9.7
+          ]
+        },
+        "4": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            13.98,
+            -13.6
+          ],
+          "centroid": [
+            9.16,
+            -9.65
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 10,
+          "start": [
+            -5.82,
+            0.93
+          ],
+          "centroid": [
+            -9.81,
+            7.32
+          ]
+        },
+        "6": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            4.67,
+            -4.31
+          ],
+          "centroid": [
+            8.35,
+            -0.01
+          ]
+        },
+        "7": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            2.64,
+            -13.6
+          ],
+          "centroid": [
+            -0.79,
+            -7.57
+          ]
+        }
+      },
+      "tier2_count": 40,
+      "tier2_by_limiter": {
+        "v2v_soft": 17,
+        "dynamic": 17,
+        "static": 6
+      },
+      "h_dyn_min_logged": -0.43,
+      "peta_tracks": [
+        {
+          "truth_id": 102,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 4260
+        },
+        {
+          "truth_id": 103,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3597
+        },
+        {
+          "truth_id": 108,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2974
+        },
+        {
+          "truth_id": 101,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2695
+        },
+        {
+          "truth_id": 105,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2653
+        },
+        {
+          "truth_id": 107,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2640
+        },
+        {
+          "truth_id": 109,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2592
+        },
+        {
+          "truth_id": 104,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2321
+        },
+        {
+          "truth_id": 106,
+          "pos_err": 0.0,
+          "r_err": 0.009999999999999953,
+          "hits": 1736
+        },
+        {
+          "truth_id": 107,
+          "pos_err": 3.7443290453698106,
+          "r_err": -0.12,
+          "hits": 20
+        }
+      ],
+      "peta_matched_ids": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.010000000000000009,
+      "peta_spurious": 1,
+      "kills_csv": {
+        "4": 36.884,
+        "7": 57.888
+      },
+      "t_offset_csv_minus_log": 1.8859999999999992,
+      "t_end_csv": 261.004,
+      "lat_rms_cm": 7.1600392197601,
+      "lat_p95_cm": 17.679921753177137,
+      "lat_p50_cm": 2.9753969173265005,
+      "lat_n": 8860,
+      "lat_mean_cm": 1.6246261704619327,
+      "lat_std_cm": 6.973288423316005,
+      "integ_window_pct": 87.08803611738148,
+      "ct_all_rms_cm": 14.245932009200848,
+      "v_sweep": 1.1990988123928545,
+      "alt_rms_cm": 2.5032918040441126,
+      "tilt_sweep_p95": 14.719755954855279,
+      "tilt_max": 21.135796467889772,
+      "tilt_max_drone": 1,
+      "tilt_max_t": 161.356,
+      "effort_rate": 0.0536187717989557,
+      "sat_pct": 0.08254570968673904,
+      "obs_surface_min": 0.49217809525623335,
+      "obs_surface_min_drone": 1,
+      "obs_surface_min_id": 105,
+      "obs_surface_min_t": 92.24799999999999,
+      "obs_contact": "none",
+      "v2v_min_csv": 1.7145866939580432,
+      "v2v_pair": [
+        2,
+        3
+      ],
+      "v2v_t": 8.977999999999975,
+      "events": [],
+      "wind": {
+        "mean": [
+          -2.3398098158147644,
+          -1.9465493538531433,
+          -0.5994491368803375
+        ],
+        "std": [
+          2.4540119856742644,
+          2.5129576642694884,
+          0.982534189446293
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 98.88357256778309,
+      "n_valid_cells": 8778
+    },
+    "rect_lqr": {
+      "region": "rect",
+      "ctrl": "lqr",
+      "aborted": true,
+      "t_total": null,
+      "cov_final": null,
+      "t97": null,
+      "cov_at_success": null,
+      "dmin_log": 1.52,
+      "n_status": 77,
+      "cov_last_status": 29.0,
+      "cbf": null,
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 7,
+          "cov": 19.2,
+          "trigger": 18.0,
+          "t_log": 60.0,
+          "helpers": [
+            3,
+            6
+          ],
+          "rows": 8
+        }
+      ],
+      "abort": {
+        "drone": 2,
+        "z": 0.11,
+        "t_log": 77.0
+      },
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 11,
+          "start": [
+            -6.04,
+            -13.6
+          ],
+          "centroid": [
+            -9.77,
+            -6.94
+          ]
+        },
+        "2": {
+          "vertices": 6,
+          "rows": 11,
+          "start": [
+            0.91,
+            0.46
+          ],
+          "centroid": [
+            -0.92,
+            7.06
+          ]
+        },
+        "3": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            2.64,
+            -13.6
+          ],
+          "centroid": [
+            -0.79,
+            -7.57
+          ]
+        },
+        "4": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            8.09,
+            5.14
+          ],
+          "centroid": [
+            9.01,
+            9.7
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 10,
+          "start": [
+            -5.82,
+            0.93
+          ],
+          "centroid": [
+            -9.81,
+            7.32
+          ]
+        },
+        "6": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            4.67,
+            -4.31
+          ],
+          "centroid": [
+            8.35,
+            -0.01
+          ]
+        },
+        "7": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            13.98,
+            -13.6
+          ],
+          "centroid": [
+            9.16,
+            -9.65
+          ]
+        }
+      },
+      "tier2_count": 91,
+      "tier2_by_limiter": {
+        "v2v_soft": 46,
+        "dynamic": 15,
+        "static": 30
+      },
+      "h_dyn_min_logged": -0.57,
+      "peta_tracks": [
+        {
+          "truth_id": 109,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1863
+        },
+        {
+          "truth_id": 108,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 1567
+        },
+        {
+          "truth_id": 107,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1311
+        },
+        {
+          "truth_id": 105,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1193
+        },
+        {
+          "truth_id": 104,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 995
+        },
+        {
+          "truth_id": 106,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 920
+        },
+        {
+          "truth_id": 102,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 709
+        },
+        {
+          "truth_id": 103,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 297
+        },
+        {
+          "truth_id": 101,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 241
+        }
+      ],
+      "peta_matched_ids": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.010000000000000009,
+      "peta_spurious": 0,
+      "kills_csv": {
+        "7": 61.52
+      },
+      "t_offset_csv_minus_log": 1.5200000000000031,
+      "t_end_csv": 78.8,
+      "lat_rms_cm": 11.734592607121217,
+      "lat_p95_cm": 23.39222032866305,
+      "lat_p50_cm": 8.806817107208964,
+      "lat_n": 2192,
+      "lat_mean_cm": -6.967194188587728,
+      "lat_std_cm": 9.442397407100238,
+      "integ_window_pct": 63.59489051094891,
+      "ct_all_rms_cm": 22.158257141315076,
+      "v_sweep": 1.1218556115809784,
+      "alt_rms_cm": 7.2895545336065934,
+      "tilt_sweep_p95": 14.671741797427499,
+      "tilt_max": 155.93188942727298,
+      "tilt_max_drone": 2,
+      "tilt_max_t": 77.116,
+      "effort_rate": 0.023693243779765352,
+      "sat_pct": 0.10568031704095111,
+      "obs_surface_min": 0.05532517093704348,
+      "obs_surface_min_drone": 2,
+      "obs_surface_min_id": 108,
+      "obs_surface_min_t": 77.27199999999999,
+      "obs_contact": "certain",
+      "v2v_min_csv": 1.521831597214541,
+      "v2v_pair": [
+        4,
+        7
+      ],
+      "v2v_t": 4.787999999999991,
+      "events": [
+        {
+          "drone": 2,
+          "t": 77.116,
+          "tilt": 155.93188942727298,
+          "x": 0.06562767502157231,
+          "y": 1.948326041204824,
+          "z_min_window": 0.10657762455711799,
+          "surface_min_window": 0.05532517093704348,
+          "z_after5s": null,
+          "recovered": false,
+          "tier2_static_span_s": 4.0,
+          "tier2_static_hmin": -0.56
+        },
+        {
+          "drone": 6,
+          "t": 24.444000000000003,
+          "tilt": 50.830231659629746,
+          "x": 3.8952907811766777,
+          "y": -3.38046780711407,
+          "z_min_window": 1.6635104570489614,
+          "surface_min_window": 0.547759791576495,
+          "z_after5s": 2.018984741401898,
+          "recovered": true,
+          "tier2_static_span_s": 0.0,
+          "tier2_static_hmin": null
+        }
+      ],
+      "wind": {
+        "mean": [
+          -2.5548575713599484,
+          -2.1950698237787494,
+          -0.5367251349460013
+        ],
+        "std": [
+          2.5802312068436337,
+          2.302575321666661,
+          0.9789545373015373
+        ],
+        "max_h": 12.446281674748372
+      },
+      "cov_offline_upper": 42.58373205741627,
+      "n_valid_cells": 8778
+    },
+    "l_shape_hinf": {
+      "region": "l_shape",
+      "ctrl": "hinf",
+      "aborted": false,
+      "t_total": 204.0,
+      "cov_final": 98.4,
+      "t97": 187.0,
+      "cov_at_success": 97.2,
+      "dmin_log": 1.32,
+      "n_status": 203,
+      "cov_last_status": 98.4,
+      "cbf": {
+        "solves": 20213,
+        "T0": 19444,
+        "T1": 697,
+        "T2": 72,
+        "T3": 0,
+        "p_tier": 3.804,
+        "slack_max": 1.009
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 4,
+          "cov": 18.8,
+          "trigger": 18.0,
+          "t_log": 35.0,
+          "helpers": [
+            3,
+            7
+          ],
+          "rows": 7
+        },
+        {
+          "drone": 7,
+          "cov": 32.5,
+          "trigger": 32.0,
+          "t_log": 51.0,
+          "helpers": [
+            3,
+            1,
+            2
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 4,
+          "rows": 8,
+          "start": [
+            -4.93,
+            -13.6
+          ],
+          "centroid": [
+            -9.8,
+            -9.45
+          ]
+        },
+        "2": {
+          "vertices": 8,
+          "rows": 8,
+          "start": [
+            -4.94,
+            -4.84
+          ],
+          "centroid": [
+            -7.37,
+            -0.29
+          ]
+        },
+        "3": {
+          "vertices": 5,
+          "rows": 6,
+          "start": [
+            4.79,
+            -6.71
+          ],
+          "centroid": [
+            7.99,
+            -2.95
+          ]
+        },
+        "4": {
+          "vertices": 4,
+          "rows": 6,
+          "start": [
+            13.98,
+            -13.6
+          ],
+          "centroid": [
+            9.48,
+            -10.51
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 9,
+          "start": [
+            -12.92,
+            3.23
+          ],
+          "centroid": [
+            -10.77,
+            9.03
+          ]
+        },
+        "6": {
+          "vertices": 4,
+          "rows": 9,
+          "start": [
+            -0.02,
+            2.56
+          ],
+          "centroid": [
+            -3.13,
+            8.75
+          ]
+        },
+        "7": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            3.27,
+            -13.6
+          ],
+          "centroid": [
+            -0.35,
+            -8.59
+          ]
+        }
+      },
+      "tier2_count": 59,
+      "tier2_by_limiter": {
+        "v2v_soft": 17,
+        "dynamic": 38,
+        "static": 4
+      },
+      "h_dyn_min_logged": -0.68,
+      "peta_tracks": [
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3059
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.009999999999999953,
+          "hits": 2832
+        },
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2718
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2677
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2052
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2052
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1562
+        },
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1446
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1309
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.009999999999999953,
+      "peta_spurious": 0,
+      "kills_csv": {
+        "4": 36.44,
+        "7": 52.404
+      },
+      "t_offset_csv_minus_log": 1.4220000000000006,
+      "t_end_csv": 204.608,
+      "lat_rms_cm": 8.43404852726803,
+      "lat_p95_cm": 19.71501838126398,
+      "lat_p50_cm": 3.2852171404046615,
+      "lat_n": 7003,
+      "lat_mean_cm": 0.9962519491650643,
+      "lat_std_cm": 8.375001887408553,
+      "integ_window_pct": 86.90561188062259,
+      "ct_all_rms_cm": 8.493780245754326,
+      "v_sweep": 1.1866821472569493,
+      "alt_rms_cm": 2.48757259382144,
+      "tilt_sweep_p95": 14.53544859521578,
+      "tilt_max": 20.83868552764084,
+      "tilt_max_drone": 3,
+      "tilt_max_t": 203.424,
+      "effort_rate": 0.05835560207015286,
+      "sat_pct": 0.12841778586334207,
+      "obs_surface_min": 0.5658703831419091,
+      "obs_surface_min_drone": 3,
+      "obs_surface_min_id": 304,
+      "obs_surface_min_t": 175.864,
+      "obs_contact": "none",
+      "v2v_min_csv": 1.317984476191784,
+      "v2v_pair": [
+        1,
+        3
+      ],
+      "v2v_t": 129.32799999999955,
+      "events": [],
+      "wind": {
+        "mean": [
+          -2.1996831267789356,
+          -1.882804921520504,
+          -0.6046772080931981
+        ],
+        "std": [
+          2.454026673336389,
+          2.512529971582473,
+          0.9665409330686493
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 98.61343897607802,
+      "n_valid_cells": 6563
+    },
+    "l_shape_lqr": {
+      "region": "l_shape",
+      "ctrl": "lqr",
+      "aborted": false,
+      "t_total": 236.0,
+      "cov_final": 98.5,
+      "t97": 216.0,
+      "cov_at_success": 97.2,
+      "dmin_log": 0.79,
+      "n_status": 235,
+      "cov_last_status": 98.5,
+      "cbf": {
+        "solves": 23294,
+        "T0": 22305,
+        "T1": 856,
+        "T2": 133,
+        "T3": 0,
+        "p_tier": 4.246,
+        "slack_max": 1.482
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 4,
+          "cov": 18.3,
+          "trigger": 18.0,
+          "t_log": 39.0,
+          "helpers": [
+            3,
+            7
+          ],
+          "rows": 7
+        },
+        {
+          "drone": 7,
+          "cov": 32.7,
+          "trigger": 32.0,
+          "t_log": 55.0,
+          "helpers": [
+            3,
+            1,
+            2
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 4,
+          "rows": 8,
+          "start": [
+            -4.93,
+            -13.6
+          ],
+          "centroid": [
+            -9.8,
+            -9.45
+          ]
+        },
+        "2": {
+          "vertices": 8,
+          "rows": 8,
+          "start": [
+            -4.94,
+            -4.84
+          ],
+          "centroid": [
+            -7.37,
+            -0.29
+          ]
+        },
+        "3": {
+          "vertices": 5,
+          "rows": 6,
+          "start": [
+            4.79,
+            -6.71
+          ],
+          "centroid": [
+            7.99,
+            -2.95
+          ]
+        },
+        "4": {
+          "vertices": 4,
+          "rows": 6,
+          "start": [
+            13.98,
+            -13.6
+          ],
+          "centroid": [
+            9.48,
+            -10.51
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 9,
+          "start": [
+            -12.92,
+            3.23
+          ],
+          "centroid": [
+            -10.77,
+            9.03
+          ]
+        },
+        "6": {
+          "vertices": 4,
+          "rows": 9,
+          "start": [
+            -0.02,
+            2.56
+          ],
+          "centroid": [
+            -3.13,
+            8.75
+          ]
+        },
+        "7": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            3.27,
+            -13.6
+          ],
+          "centroid": [
+            -0.35,
+            -8.59
+          ]
+        }
+      },
+      "tier2_count": 51,
+      "tier2_by_limiter": {
+        "v2v_soft": 25,
+        "dynamic": 12,
+        "static": 14
+      },
+      "h_dyn_min_logged": -0.58,
+      "peta_tracks": [
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3544
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.009999999999999953,
+          "hits": 3541
+        },
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 3460
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3005
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2502
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 2261
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1812
+        },
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1735
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1531
+        },
+        {
+          "truth_id": 308,
+          "pos_err": 4.244997055358224,
+          "r_err": -0.24000000000000002,
+          "hits": 14
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 1.3416407864998743,
+          "r_err": -0.08000000000000002,
+          "hits": 13
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.010000000000000009,
+      "peta_spurious": 2,
+      "kills_csv": {
+        "4": 40.628,
+        "7": 56.628
+      },
+      "t_offset_csv_minus_log": 1.6280000000000001,
+      "t_end_csv": 236.756,
+      "lat_rms_cm": 12.213982356675784,
+      "lat_p95_cm": 23.559232127657847,
+      "lat_p50_cm": 8.47826197371202,
+      "lat_n": 7386,
+      "lat_mean_cm": -5.71640185265858,
+      "lat_std_cm": 10.793707188362529,
+      "integ_window_pct": 55.74059030598429,
+      "ct_all_rms_cm": 12.501584003246785,
+      "v_sweep": 1.1102557020198545,
+      "alt_rms_cm": 2.5784422521091797,
+      "tilt_sweep_p95": 14.470940391413652,
+      "tilt_max": 26.264496475705517,
+      "tilt_max_drone": 3,
+      "tilt_max_t": 94.9,
+      "effort_rate": 0.010404167363738696,
+      "sat_pct": 0.004557469692826542,
+      "obs_surface_min": 0.28738849186136106,
+      "obs_surface_min_drone": 3,
+      "obs_surface_min_id": 306,
+      "obs_surface_min_t": 94.9,
+      "obs_contact": "possible",
+      "v2v_min_csv": 0.791014685986409,
+      "v2v_pair": [
+        5,
+        6
+      ],
+      "v2v_t": 45.029999999999845,
+      "events": [],
+      "wind": {
+        "mean": [
+          -2.2645873617819228,
+          -1.9486270783596844,
+          -0.6232312690804441
+        ],
+        "std": [
+          2.4286591146089713,
+          2.528779005711445,
+          0.9969399152503076
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 98.67438671339326,
+      "n_valid_cells": 6563
+    },
+    "u_shape_hinf": {
+      "region": "u_shape",
+      "ctrl": "hinf",
+      "aborted": false,
+      "t_total": 205.0,
+      "cov_final": 98.5,
+      "t97": 187.0,
+      "cov_at_success": 97.0,
+      "dmin_log": 1.77,
+      "n_status": 204,
+      "cov_last_status": 98.5,
+      "cbf": {
+        "solves": 20409,
+        "T0": 19566,
+        "T1": 776,
+        "T2": 67,
+        "T3": 0,
+        "p_tier": 4.131,
+        "slack_max": 0.7937
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 4,
+          "cov": 18.5,
+          "trigger": 18.0,
+          "t_log": 39.0,
+          "helpers": [
+            5,
+            6
+          ],
+          "rows": 11
+        },
+        {
+          "drone": 5,
+          "cov": 33.0,
+          "trigger": 32.0,
+          "t_log": 56.0,
+          "helpers": [
+            6,
+            1,
+            7
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -13.98,
+            -13.6
+          ],
+          "centroid": [
+            -9.06,
+            -9.53
+          ]
+        },
+        "2": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            -7.1,
+            -4.29
+          ],
+          "centroid": [
+            -9.49,
+            -0.14
+          ]
+        },
+        "3": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            -5.02,
+            5.28
+          ],
+          "centroid": [
+            -9.51,
+            9.46
+          ]
+        },
+        "4": {
+          "vertices": 5,
+          "rows": 11,
+          "start": [
+            8.37,
+            -13.6
+          ],
+          "centroid": [
+            10.44,
+            -7.03
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 5,
+          "start": [
+            -3.93,
+            -13.6
+          ],
+          "centroid": [
+            1.42,
+            -11.15
+          ]
+        },
+        "6": {
+          "vertices": 7,
+          "rows": 7,
+          "start": [
+            -3.12,
+            -6.97
+          ],
+          "centroid": [
+            1.58,
+            -4.11
+          ]
+        },
+        "7": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            7.26,
+            0.8
+          ],
+          "centroid": [
+            9.56,
+            7.4
+          ]
+        }
+      },
+      "tier2_count": 35,
+      "tier2_by_limiter": {
+        "v2v_soft": 12,
+        "dynamic": 20,
+        "static": 3
+      },
+      "h_dyn_min_logged": -0.63,
+      "peta_tracks": [
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3366
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2696
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2645
+        },
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2507
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2411
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.009999999999999953,
+          "hits": 1951
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1641
+        },
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 1534
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 910
+        },
+        {
+          "truth_id": 305,
+          "pos_err": 5.671860364994893,
+          "r_err": -0.18000000000000002,
+          "hits": 19
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.010000000000000009,
+      "peta_spurious": 1,
+      "kills_csv": {
+        "4": 40.544,
+        "5": 57.544
+      },
+      "t_offset_csv_minus_log": 1.543999999999997,
+      "t_end_csv": 205.66,
+      "lat_rms_cm": 8.309093022369355,
+      "lat_p95_cm": 19.230808062451672,
+      "lat_p50_cm": 2.708616557687815,
+      "lat_n": 7143,
+      "lat_mean_cm": 0.6824055156249889,
+      "lat_std_cm": 8.28102346130185,
+      "integ_window_pct": 85.80428391432172,
+      "ct_all_rms_cm": 17.796047550043788,
+      "v_sweep": 1.205233185350958,
+      "alt_rms_cm": 2.6268793021490833,
+      "tilt_sweep_p95": 14.795553383347352,
+      "tilt_max": 20.675905915180753,
+      "tilt_max_drone": 3,
+      "tilt_max_t": 43.68,
+      "effort_rate": 0.04402989278082352,
+      "sat_pct": 0.005271481286241434,
+      "obs_surface_min": 0.6329871210994923,
+      "obs_surface_min_drone": 6,
+      "obs_surface_min_id": 302,
+      "obs_surface_min_t": 8.216,
+      "obs_contact": "none",
+      "v2v_min_csv": 1.769377802109898,
+      "v2v_pair": [
+        3,
+        7
+      ],
+      "v2v_t": 3.3779999999999957,
+      "events": [],
+      "wind": {
+        "mean": [
+          -2.1933288490344403,
+          -1.8662358579887544,
+          -0.6082308949316825
+        ],
+        "std": [
+          2.4564611334004156,
+          2.505196890934241,
+          0.9663313684094379
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 99.04981284192341,
+      "n_valid_cells": 6946
+    },
+    "u_shape_lqr": {
+      "region": "u_shape",
+      "ctrl": "lqr",
+      "aborted": false,
+      "t_total": 240.0,
+      "cov_final": 96.9,
+      "t97": 237.0,
+      "cov_at_success": 96.9,
+      "dmin_log": 1.73,
+      "n_status": 239,
+      "cov_last_status": 96.9,
+      "cbf": {
+        "solves": 25874,
+        "T0": 24804,
+        "T1": 980,
+        "T2": 90,
+        "T3": 0,
+        "p_tier": 4.135,
+        "slack_max": 0.9547
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 4,
+          "cov": 18.4,
+          "trigger": 18.0,
+          "t_log": 51.0,
+          "helpers": [
+            5,
+            6
+          ],
+          "rows": 11
+        },
+        {
+          "drone": 5,
+          "cov": 32.9,
+          "trigger": 32.0,
+          "t_log": 69.0,
+          "helpers": [
+            6,
+            1,
+            7
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -13.98,
+            -13.6
+          ],
+          "centroid": [
+            -9.06,
+            -9.53
+          ]
+        },
+        "2": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            -7.1,
+            -4.29
+          ],
+          "centroid": [
+            -9.49,
+            -0.14
+          ]
+        },
+        "3": {
+          "vertices": 4,
+          "rows": 7,
+          "start": [
+            -5.02,
+            5.28
+          ],
+          "centroid": [
+            -9.51,
+            9.46
+          ]
+        },
+        "4": {
+          "vertices": 5,
+          "rows": 11,
+          "start": [
+            8.37,
+            -13.6
+          ],
+          "centroid": [
+            10.44,
+            -7.03
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 5,
+          "start": [
+            -3.93,
+            -13.6
+          ],
+          "centroid": [
+            1.42,
+            -11.15
+          ]
+        },
+        "6": {
+          "vertices": 7,
+          "rows": 7,
+          "start": [
+            -3.12,
+            -6.97
+          ],
+          "centroid": [
+            1.58,
+            -4.11
+          ]
+        },
+        "7": {
+          "vertices": 5,
+          "rows": 10,
+          "start": [
+            7.26,
+            0.8
+          ],
+          "centroid": [
+            9.56,
+            7.4
+          ]
+        }
+      },
+      "tier2_count": 39,
+      "tier2_by_limiter": {
+        "static": 7,
+        "v2v_soft": 19,
+        "dynamic": 13
+      },
+      "h_dyn_min_logged": -0.29,
+      "peta_tracks": [
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 4483
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3663
+        },
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3368
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3230
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3144
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2163
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": -0.010000000000000009,
+          "hits": 2155
+        },
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1866
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1141
+        },
+        {
+          "truth_id": 304,
+          "pos_err": 2.690724809414742,
+          "r_err": -0.040000000000000036,
+          "hits": 56
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.010000000000000009,
+      "peta_spurious": 1,
+      "kills_csv": {
+        "4": 52.304,
+        "5": 70.336
+      },
+      "t_offset_csv_minus_log": 1.3200000000000003,
+      "t_end_csv": 240.48,
+      "lat_rms_cm": 11.415860815660004,
+      "lat_p95_cm": 21.84721840625972,
+      "lat_p50_cm": 8.646433203124992,
+      "lat_n": 8325,
+      "lat_mean_cm": -5.8360086420923825,
+      "lat_std_cm": 9.811364904637097,
+      "integ_window_pct": 56.072072072072075,
+      "ct_all_rms_cm": 12.361489027311103,
+      "v_sweep": 1.0743379532211081,
+      "alt_rms_cm": 2.537933363909715,
+      "tilt_sweep_p95": 14.189930155444543,
+      "tilt_max": 16.592786435066085,
+      "tilt_max_drone": 3,
+      "tilt_max_t": 149.76,
+      "effort_rate": 0.010835040848312206,
+      "sat_pct": 0.0,
+      "obs_surface_min": 0.42279689219189387,
+      "obs_surface_min_drone": 7,
+      "obs_surface_min_id": 303,
+      "obs_surface_min_t": 14.3,
+      "obs_contact": "none",
+      "v2v_min_csv": 1.7312311962442386,
+      "v2v_pair": [
+        5,
+        6
+      ],
+      "v2v_t": 11.379999999999967,
+      "events": [],
+      "wind": {
+        "mean": [
+          -2.2908674760035854,
+          -1.915208248815952,
+          -0.6234686375221759
+        ],
+        "std": [
+          2.4396431225295307,
+          2.5353490091332733,
+          0.9910625464321142
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 97.76849985603225,
+      "n_valid_cells": 6946
+    },
+    "plus_hinf": {
+      "region": "plus",
+      "ctrl": "hinf",
+      "aborted": false,
+      "t_total": 198.0,
+      "cov_final": 98.4,
+      "t97": 176.0,
+      "cov_at_success": 97.1,
+      "dmin_log": 1.24,
+      "n_status": 197,
+      "cov_last_status": 98.4,
+      "cbf": {
+        "solves": 19469,
+        "T0": 18664,
+        "T1": 671,
+        "T2": 134,
+        "T3": 0,
+        "p_tier": 4.135,
+        "slack_max": 1.1877
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 1,
+          "cov": 18.5,
+          "trigger": 18.0,
+          "t_log": 44.0,
+          "helpers": [
+            7,
+            2
+          ],
+          "rows": 7
+        },
+        {
+          "drone": 7,
+          "cov": 33.0,
+          "trigger": 32.0,
+          "t_log": 59.0,
+          "helpers": [
+            4,
+            2,
+            3
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -4.98,
+            -13.6
+          ],
+          "centroid": [
+            -0.43,
+            -10.47
+          ]
+        },
+        "2": {
+          "vertices": 9,
+          "rows": 9,
+          "start": [
+            -3.94,
+            -5.35
+          ],
+          "centroid": [
+            -4.26,
+            0.02
+          ]
+        },
+        "3": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            0.3,
+            0.7
+          ],
+          "centroid": [
+            2.83,
+            3.77
+          ]
+        },
+        "4": {
+          "vertices": 5,
+          "rows": 8,
+          "start": [
+            8.28,
+            -4.6
+          ],
+          "centroid": [
+            10.59,
+            -0.01
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 8,
+          "start": [
+            -7.84,
+            -4.6
+          ],
+          "centroid": [
+            -10.92,
+            -0.01
+          ]
+        },
+        "6": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -1.72,
+            6.0
+          ],
+          "centroid": [
+            -0.42,
+            10.45
+          ]
+        },
+        "7": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            4.18,
+            -8.08
+          ],
+          "centroid": [
+            2.78,
+            -3.82
+          ]
+        }
+      },
+      "tier2_count": 54,
+      "tier2_by_limiter": {
+        "v2v_soft": 29,
+        "dynamic": 13,
+        "static": 12
+      },
+      "h_dyn_min_logged": -0.55,
+      "peta_tracks": [
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3854
+        },
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3625
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3566
+        },
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3533
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3407
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2736
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2509
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2089
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1573
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.0,
+      "peta_spurious": 0,
+      "kills_csv": {
+        "1": 45.54,
+        "7": 60.528
+      },
+      "t_offset_csv_minus_log": 1.533999999999999,
+      "t_end_csv": 198.68,
+      "lat_rms_cm": 9.655768098273363,
+      "lat_p95_cm": 19.980440596835066,
+      "lat_p50_cm": 3.8090957572352924,
+      "lat_n": 5429,
+      "lat_mean_cm": 0.9980100996665391,
+      "lat_std_cm": 9.604052967815056,
+      "integ_window_pct": 83.60655737704919,
+      "ct_all_rms_cm": 12.528806294289158,
+      "v_sweep": 1.1504798751421597,
+      "alt_rms_cm": 5.406211354021326,
+      "tilt_sweep_p95": 14.720484342420395,
+      "tilt_max": 82.50502495351017,
+      "tilt_max_drone": 2,
+      "tilt_max_t": 80.356,
+      "effort_rate": 0.05348193843820664,
+      "sat_pct": 0.10840108401084012,
+      "obs_surface_min": 0.2416141131705728,
+      "obs_surface_min_drone": 3,
+      "obs_surface_min_id": 305,
+      "obs_surface_min_t": 33.092,
+      "obs_contact": "possible",
+      "v2v_min_csv": 1.2435335228306283,
+      "v2v_pair": [
+        4,
+        7
+      ],
+      "v2v_t": 27.989999999999906,
+      "events": [
+        {
+          "drone": 2,
+          "t": 80.356,
+          "tilt": 82.50502495351017,
+          "x": 0.33253877143436594,
+          "y": 0.6359784864526873,
+          "z_min_window": 0.6359409861139925,
+          "surface_min_window": 0.2763338840483184,
+          "z_after5s": 2.02574930378818,
+          "recovered": true,
+          "tier2_static_span_s": 1.0,
+          "tier2_static_hmin": -0.35
+        }
+      ],
+      "wind": {
+        "mean": [
+          -2.1803719974266564,
+          -1.907568344308007,
+          -0.6088251875694194
+        ],
+        "std": [
+          2.4705861865052317,
+          2.4870045431231462,
+          0.9723556089778245
+        ],
+        "max_h": 11.97629003908613
+      },
+      "cov_offline_upper": 99.57496136012365,
+      "n_valid_cells": 5176
+    },
+    "plus_lqr": {
+      "region": "plus",
+      "ctrl": "lqr",
+      "aborted": false,
+      "t_total": 222.0,
+      "cov_final": 99.0,
+      "t97": 194.0,
+      "cov_at_success": 97.0,
+      "dmin_log": 1.12,
+      "n_status": 221,
+      "cov_last_status": 99.0,
+      "cbf": {
+        "solves": 21321,
+        "T0": 20268,
+        "T1": 847,
+        "T2": 206,
+        "T3": 0,
+        "p_tier": 4.939,
+        "slack_max": 1.4261
+      },
+      "plant": {
+        "k_v": 3.8667,
+        "a_max": 2.6307,
+        "T_lead": 0.3226,
+        "v_c": 0.6803
+      },
+      "kills_log": [
+        {
+          "drone": 1,
+          "cov": 18.5,
+          "trigger": 18.0,
+          "t_log": 46.0,
+          "helpers": [
+            7,
+            2
+          ],
+          "rows": 7
+        },
+        {
+          "drone": 7,
+          "cov": 33.1,
+          "trigger": 32.0,
+          "t_log": 62.0,
+          "helpers": [
+            4,
+            2,
+            3
+          ],
+          "rows": 11
+        }
+      ],
+      "abort": null,
+      "cells": {
+        "1": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -4.98,
+            -13.6
+          ],
+          "centroid": [
+            -0.43,
+            -10.47
+          ]
+        },
+        "2": {
+          "vertices": 9,
+          "rows": 9,
+          "start": [
+            -3.94,
+            -5.35
+          ],
+          "centroid": [
+            -4.26,
+            0.02
+          ]
+        },
+        "3": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            0.3,
+            0.7
+          ],
+          "centroid": [
+            2.83,
+            3.77
+          ]
+        },
+        "4": {
+          "vertices": 5,
+          "rows": 8,
+          "start": [
+            8.28,
+            -4.6
+          ],
+          "centroid": [
+            10.59,
+            -0.01
+          ]
+        },
+        "5": {
+          "vertices": 4,
+          "rows": 8,
+          "start": [
+            -7.84,
+            -4.6
+          ],
+          "centroid": [
+            -10.92,
+            -0.01
+          ]
+        },
+        "6": {
+          "vertices": 5,
+          "rows": 7,
+          "start": [
+            -1.72,
+            6.0
+          ],
+          "centroid": [
+            -0.42,
+            10.45
+          ]
+        },
+        "7": {
+          "vertices": 6,
+          "rows": 7,
+          "start": [
+            4.18,
+            -8.08
+          ],
+          "centroid": [
+            2.78,
+            -3.82
+          ]
+        }
+      },
+      "tier2_count": 75,
+      "tier2_by_limiter": {
+        "dynamic": 20,
+        "v2v_soft": 42,
+        "static": 13
+      },
+      "h_dyn_min_logged": -0.64,
+      "peta_tracks": [
+        {
+          "truth_id": 305,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 4445
+        },
+        {
+          "truth_id": 308,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3892
+        },
+        {
+          "truth_id": 306,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3870
+        },
+        {
+          "truth_id": 302,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3667
+        },
+        {
+          "truth_id": 304,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3634
+        },
+        {
+          "truth_id": 301,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 3018
+        },
+        {
+          "truth_id": 303,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2620
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 2279
+        },
+        {
+          "truth_id": 307,
+          "pos_err": 0.0,
+          "r_err": 0.0,
+          "hits": 1617
+        },
+        {
+          "truth_id": 309,
+          "pos_err": 7.0178344238090995,
+          "r_err": -0.18000000000000002,
+          "hits": 13
+        }
+      ],
+      "peta_matched_ids": [
+        301,
+        302,
+        303,
+        304,
+        305,
+        306,
+        307,
+        308,
+        309
+      ],
+      "peta_pos_err_max": 0.0,
+      "peta_r_err_absmax": 0.0,
+      "peta_spurious": 1,
+      "kills_csv": {
+        "1": 47.236,
+        "7": 63.5
+      },
+      "t_offset_csv_minus_log": 1.3679999999999986,
+      "t_end_csv": 222.616,
+      "lat_rms_cm": 11.538622211075902,
+      "lat_p95_cm": 22.000159665653246,
+      "lat_p50_cm": 8.727628292595323,
+      "lat_n": 6115,
+      "lat_mean_cm": -6.472962692258777,
+      "lat_std_cm": 9.551992279862885,
+      "integ_window_pct": 55.38838920686836,
+      "ct_all_rms_cm": 29.690984325500438,
+      "v_sweep": 1.024486110397617,
+      "alt_rms_cm": 2.5904356643402906,
+      "tilt_sweep_p95": 14.405899374894382,
+      "tilt_max": 40.14021566858224,
+      "tilt_max_drone": 2,
+      "tilt_max_t": 82.056,
+      "effort_rate": 0.013817290101059523,
+      "sat_pct": 0.0,
+      "obs_surface_min": 0.2414482941614161,
+      "obs_surface_min_drone": 2,
+      "obs_surface_min_id": 305,
+      "obs_surface_min_t": 81.952,
+      "obs_contact": "possible",
+      "v2v_min_csv": 1.1157735359949077,
+      "v2v_pair": [
+        4,
+        7
+      ],
+      "v2v_t": 29.879999999999903,
+      "events": [
+        {
+          "drone": 2,
+          "t": 82.056,
+          "tilt": 40.14021566858224,
+          "x": 0.1980987329724415,
+          "y": 0.6256513661955413,
+          "z_min_window": 1.8717129122990879,
+          "surface_min_window": 0.2414482941614161,
+          "z_after5s": 1.9887395054738526,
+          "recovered": true,
+          "tier2_static_span_s": 1.0,
+          "tier2_static_hmin": -0.37
+        }
+      ],
+      "wind": {
+        "mean": [
+          -2.2249521714154286,
+          -1.857363430779371,
+          -0.6138062321495369
+        ],
+        "std": [
+          2.4470436857063143,
+          2.5228987811038537,
+          0.9860935293104419
+        ],
+        "max_h": 12.043047155681943
+      },
+      "cov_offline_upper": 99.49768160741885,
+      "n_valid_cells": 5176
+    }
+  },
+  "design": {
+    "lqr": {
+      "gains_outer": {
+        "Kp": 0.756947541151533,
+        "Ki": 0.2828427124746191,
+        "Kd": 0.3941582551386396
+      },
+      "gains_inner": {
+        "Kp": 4.86787817830416,
+        "Kd": 0.5338577806656953
+      },
+      "stable": true,
+      "hinf_norm_w_to_x": 0.15833772001439297,
+      "hinf_peak_rad_s": 1.454991568837884,
+      "gain_at_wind_corner": 0.1537965768626982,
+      "dc_gain": 0.0036032219903934866,
+      "sigma_x_per_unit_accel_gm": 0.11451663368798902,
+      "crossover_rad_s": 4.093568075094219,
+      "phase_margin_deg": 37.37424040588982,
+      "gain_margin_db": 11.49100971523168,
+      "gain_margin_low_db": -18.28202438771508
+    },
+    "hinf": {
+      "gains_outer": {
+        "Kp": 2.705236268535122,
+        "Ki": 1.0918833065479654,
+        "Kd": 1.1066100784713377
+      },
+      "gains_inner": {
+        "Kp": 11.603859227342754,
+        "Kd": 1.1891807762349929
+      },
+      "stable": true,
+      "hinf_norm_w_to_x": 0.03951743844316816,
+      "hinf_peak_rad_s": 1.173576988479979,
+      "gain_at_wind_corner": 0.036882667899202554,
+      "dc_gain": 0.0009333953291637548,
+      "sigma_x_per_unit_accel_gm": 0.030580858587546646,
+      "crossover_rad_s": 9.078058955188782,
+      "phase_margin_deg": 25.209744725201602,
+      "gain_margin_db": 9.017350793393346,
+      "gain_margin_low_db": -26.12506159868541
+    }
+  }
+}

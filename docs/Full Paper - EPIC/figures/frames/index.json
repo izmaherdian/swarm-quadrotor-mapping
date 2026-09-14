@@ -1,0 +1,110 @@
+{
+  "rect_hinf_end": {
+    "video": "Screencast From 2026-09-11 19-20-53.mp4",
+    "video_s": 2101.6203939914703,
+    "log_wall_epoch": 1789131354.620394,
+    "ok": true
+  },
+  "rect_hinf_mid": {
+    "video": "Screencast From 2026-09-11 19-20-53.mp4",
+    "video_s": 1223.6056604385376,
+    "log_wall_epoch": 1789130476.6056604,
+    "ok": true
+  },
+  "rect_lqr_end": {
+    "video": "Screencast From 2026-09-11 20-35-13.mp4",
+    "video_s": 876.65363073349,
+    "log_wall_epoch": 1789134589.6536307,
+    "ok": true
+  },
+  "rect_lqr_contact_m2": {
+    "video": "Screencast From 2026-09-11 20-35-13.mp4",
+    "video_s": 848.6183602809906,
+    "log_wall_epoch": 1789134561.6183603,
+    "ok": true
+  },
+  "rect_lqr_contact": {
+    "video": "Screencast From 2026-09-11 20-35-13.mp4",
+    "video_s": 862.7502353191376,
+    "log_wall_epoch": 1789134575.7502353,
+    "ok": true
+  },
+  "rect_lqr_fall": {
+    "video": "Screencast From 2026-09-11 20-35-13.mp4",
+    "video_s": 876.6360578536987,
+    "log_wall_epoch": 1789134589.6360579,
+    "ok": true
+  },
+  "l_shape_hinf_end": {
+    "video": "Screencast From 2026-09-11 21-17-17.mp4",
+    "video_s": 1647.9921851158142,
+    "log_wall_epoch": 1789137884.992185,
+    "ok": true
+  },
+  "l_shape_lqr_end": {
+    "video": "Screencast From 2026-09-11 22-34-02.mp4",
+    "video_s": 1836.5602173805237,
+    "log_wall_epoch": 1789142678.5602174,
+    "ok": true
+  },
+  "u_shape_hinf_end": {
+    "video": "Screencast From 2026-09-12 11-18-20.mp4",
+    "video_s": 1631.4969909191132,
+    "log_wall_epoch": 1789188331.496991,
+    "ok": true
+  },
+  "u_shape_lqr_end": {
+    "video": "Screencast From 2026-09-12 12-53-45.mp4",
+    "video_s": 2036.9323706626892,
+    "log_wall_epoch": 1789194461.9323707,
+    "ok": true
+  },
+  "plus_hinf_end": {
+    "video": "Screencast From 2026-09-12 15-29-13.mp4",
+    "video_s": 1627.594787120819,
+    "log_wall_epoch": 1789203380.5947871,
+    "ok": true
+  },
+  "plus_hinf_upset_m1": {
+    "video": "Screencast From 2026-09-12 15-29-13.mp4",
+    "video_s": 702.6670575141907,
+    "log_wall_epoch": 1789202455.6670575,
+    "ok": true
+  },
+  "plus_hinf_upset": {
+    "video": "Screencast From 2026-09-12 15-29-13.mp4",
+    "video_s": 710.2389929294586,
+    "log_wall_epoch": 1789202463.238993,
+    "ok": true
+  },
+  "plus_hinf_upset_p1": {
+    "video": "Screencast From 2026-09-12 15-29-13.mp4",
+    "video_s": 718.4093096256256,
+    "log_wall_epoch": 1789202471.4093096,
+    "ok": true
+  },
+  "plus_lqr_end": {
+    "video": "Screencast From 2026-09-12 16-06-51.mp4",
+    "video_s": 1736.5881125926971,
+    "log_wall_epoch": 1789205747.5881126,
+    "ok": true
+  },
+  "plus_lqr_upset_m1": {
+    "video": "Screencast From 2026-09-12 16-06-51.mp4",
+    "video_s": 619.7254383563995,
+    "log_wall_epoch": 1789204630.7254384,
+    "ok": true
+  },
+  "plus_lqr_upset": {
+    "video": "Screencast From 2026-09-12 16-06-51.mp4",
+    "video_s": 627.3140339851379,
+    "log_wall_epoch": 1789204638.314034,
+    "ok": true
+  },
+  "plus_lqr_upset_p1": {
+    "video": "Screencast From 2026-09-12 16-06-51.mp4",
+    "video_s": 634.861255645752,
+    "log_wall_epoch": 1789204645.8612556,
+    "ok": true
+  }
+}
