@@ -1,0 +1,98 @@
+{
+  "rect_hinf": {
+    "source_video": "Screencast From 2026-09-11 19-20-53.mp4",
+    "coordinator_log": "01_rect/pid_hinf/coordinator.log",
+    "trim_s": [
+      26.7,
+      2130.3
+    ],
+    "speedup": 8,
+    "clip_s": 262.9,
+    "recording_rtf": 0.124,
+    "size_mb": 8.07
+  },
+  "rect_lqr": {
+    "source_video": "Screencast From 2026-09-11 20-35-13.mp4",
+    "coordinator_log": "01_rect/pid_lqr/coordinator.log",
+    "trim_s": [
+      27.8,
+      880.7
+    ],
+    "speedup": 8,
+    "clip_s": 106.6,
+    "recording_rtf": 0.092,
+    "size_mb": 2.86
+  },
+  "l_shape_hinf": {
+    "source_video": "Screencast From 2026-09-11 21-17-17.mp4",
+    "coordinator_log": "02_l-shape/pid_hinf/coordinator.log",
+    "trim_s": [
+      39.1,
+      1677.7
+    ],
+    "speedup": 8,
+    "clip_s": 204.8,
+    "recording_rtf": 0.125,
+    "size_mb": 5.93
+  },
+  "l_shape_lqr": {
+    "source_video": "Screencast From 2026-09-11 22-34-02.mp4",
+    "coordinator_log": "02_l-shape/pid_lqr/coordinator.log",
+    "trim_s": [
+      18.4,
+      1865.0
+    ],
+    "speedup": 8,
+    "clip_s": 230.8,
+    "recording_rtf": 0.129,
+    "size_mb": 5.58
+  },
+  "u_shape_hinf": {
+    "source_video": "Screencast From 2026-09-12 11-18-20.mp4",
+    "coordinator_log": "03_u-shape/pid_hinf/coordinator.log",
+    "trim_s": [
+      18.7,
+      1660.7
+    ],
+    "speedup": 8,
+    "clip_s": 205.3,
+    "recording_rtf": 0.126,
+    "size_mb": 4.55
+  },
+  "u_shape_lqr": {
+    "source_video": "Screencast From 2026-09-12 12-53-45.mp4",
+    "coordinator_log": "03_u-shape/pid_lqr/coordinator.log",
+    "trim_s": [
+      22.4,
+      2067.3
+    ],
+    "speedup": 8,
+    "clip_s": 255.6,
+    "recording_rtf": 0.118,
+    "size_mb": 5.19
+  },
+  "plus_hinf": {
+    "source_video": "Screencast From 2026-09-12 15-29-13.mp4",
+    "coordinator_log": "04_plus/pid_hinf/coordinator.log",
+    "trim_s": [
+      21.1,
+      1656.3
+    ],
+    "speedup": 8,
+    "clip_s": 204.4,
+    "recording_rtf": 0.122,
+    "size_mb": 5.29
+  },
+  "plus_lqr": {
+    "source_video": "Screencast From 2026-09-12 16-06-51.mp4",
+    "coordinator_log": "04_plus/pid_lqr/coordinator.log",
+    "trim_s": [
+      16.9,
+      1766.1
+    ],
+    "speedup": 8,
+    "clip_s": 218.7,
+    "recording_rtf": 0.128,
+    "size_mb": 5.59
+  }
+}
