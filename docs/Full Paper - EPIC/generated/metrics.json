@@ -5,6 +5,7 @@
       "ctrl": "hinf",
       "aborted": false,
       "t_total": 260.0,
+      "t_mission": 257.0,
       "cov_final": 98.2,
       "t97": 240.0,
       "cov_at_success": 97.1,
@@ -31,7 +32,7 @@
           "drone": 4,
           "cov": 18.8,
           "trigger": 18.0,
-          "t_log": 35.0,
+          "t_log": 36.0,
           "helpers": [
             7,
             6
@@ -42,7 +43,7 @@
           "drone": 7,
           "cov": 32.0,
           "trigger": 32.0,
-          "t_log": 56.0,
+          "t_log": 57.0,
           "helpers": [
             6,
             1,
@@ -225,7 +226,7 @@
         "4": 36.884,
         "7": 57.888
       },
-      "t_offset_csv_minus_log": 1.8859999999999992,
+      "t_offset_csv_minus_log": 0.8859999999999992,
       "t_end_csv": 261.004,
       "lat_rms_cm": 7.1600392197601,
       "lat_p95_cm": 17.679921753177137,
@@ -276,6 +277,7 @@
       "ctrl": "lqr",
       "aborted": true,
       "t_total": null,
+      "t_mission": null,
       "cov_final": null,
       "t97": null,
       "cov_at_success": null,
@@ -294,7 +296,7 @@
           "drone": 7,
           "cov": 19.2,
           "trigger": 18.0,
-          "t_log": 60.0,
+          "t_log": 61.0,
           "helpers": [
             3,
             6
@@ -305,7 +307,7 @@
       "abort": {
         "drone": 2,
         "z": 0.11,
-        "t_log": 77.0
+        "t_log": 78.0
       },
       "cells": {
         "1": {
@@ -473,7 +475,7 @@
       "kills_csv": {
         "7": 61.52
       },
-      "t_offset_csv_minus_log": 1.5200000000000031,
+      "t_offset_csv_minus_log": 0.5200000000000031,
       "t_end_csv": 78.8,
       "lat_rms_cm": 11.734592607121217,
       "lat_p95_cm": 23.39222032866305,
@@ -551,6 +553,7 @@
       "ctrl": "hinf",
       "aborted": false,
       "t_total": 204.0,
+      "t_mission": 201.0,
       "cov_final": 98.4,
       "t97": 187.0,
       "cov_at_success": 97.2,
@@ -577,7 +580,7 @@
           "drone": 4,
           "cov": 18.8,
           "trigger": 18.0,
-          "t_log": 35.0,
+          "t_log": 36.0,
           "helpers": [
             3,
             7
@@ -588,7 +591,7 @@
           "drone": 7,
           "cov": 32.5,
           "trigger": 32.0,
-          "t_log": 51.0,
+          "t_log": 52.0,
           "helpers": [
             3,
             1,
@@ -765,7 +768,7 @@
         "4": 36.44,
         "7": 52.404
       },
-      "t_offset_csv_minus_log": 1.4220000000000006,
+      "t_offset_csv_minus_log": 0.4220000000000006,
       "t_end_csv": 204.608,
       "lat_rms_cm": 8.43404852726803,
       "lat_p95_cm": 19.71501838126398,
@@ -816,6 +819,7 @@
       "ctrl": "lqr",
       "aborted": false,
       "t_total": 236.0,
+      "t_mission": 233.0,
       "cov_final": 98.5,
       "t97": 216.0,
       "cov_at_success": 97.2,
@@ -842,7 +846,7 @@
           "drone": 4,
           "cov": 18.3,
           "trigger": 18.0,
-          "t_log": 39.0,
+          "t_log": 40.0,
           "helpers": [
             3,
             7
@@ -853,7 +857,7 @@
           "drone": 7,
           "cov": 32.7,
           "trigger": 32.0,
-          "t_log": 55.0,
+          "t_log": 56.0,
           "helpers": [
             3,
             1,
@@ -1042,7 +1046,7 @@
         "4": 40.628,
         "7": 56.628
       },
-      "t_offset_csv_minus_log": 1.6280000000000001,
+      "t_offset_csv_minus_log": 0.6280000000000001,
       "t_end_csv": 236.756,
       "lat_rms_cm": 12.213982356675784,
       "lat_p95_cm": 23.559232127657847,
@@ -1093,6 +1097,7 @@
       "ctrl": "hinf",
       "aborted": false,
       "t_total": 205.0,
+      "t_mission": 202.0,
       "cov_final": 98.5,
       "t97": 187.0,
       "cov_at_success": 97.0,
@@ -1119,7 +1124,7 @@
           "drone": 4,
           "cov": 18.5,
           "trigger": 18.0,
-          "t_log": 39.0,
+          "t_log": 40.0,
           "helpers": [
             5,
             6
@@ -1130,7 +1135,7 @@
           "drone": 5,
           "cov": 33.0,
           "trigger": 32.0,
-          "t_log": 56.0,
+          "t_log": 57.0,
           "helpers": [
             6,
             1,
@@ -1313,7 +1318,7 @@
         "4": 40.544,
         "5": 57.544
       },
-      "t_offset_csv_minus_log": 1.543999999999997,
+      "t_offset_csv_minus_log": 0.5439999999999969,
       "t_end_csv": 205.66,
       "lat_rms_cm": 8.309093022369355,
       "lat_p95_cm": 19.230808062451672,
@@ -1364,6 +1369,7 @@
       "ctrl": "lqr",
       "aborted": false,
       "t_total": 240.0,
+      "t_mission": 237.0,
       "cov_final": 96.9,
       "t97": 237.0,
       "cov_at_success": 96.9,
@@ -1390,7 +1396,7 @@
           "drone": 4,
           "cov": 18.4,
           "trigger": 18.0,
-          "t_log": 51.0,
+          "t_log": 52.0,
           "helpers": [
             5,
             6
@@ -1401,7 +1407,7 @@
           "drone": 5,
           "cov": 32.9,
           "trigger": 32.0,
-          "t_log": 69.0,
+          "t_log": 70.0,
           "helpers": [
             6,
             1,
@@ -1584,7 +1590,7 @@
         "4": 52.304,
         "5": 70.336
       },
-      "t_offset_csv_minus_log": 1.3200000000000003,
+      "t_offset_csv_minus_log": 0.3200000000000003,
       "t_end_csv": 240.48,
       "lat_rms_cm": 11.415860815660004,
       "lat_p95_cm": 21.84721840625972,
@@ -1635,6 +1641,7 @@
       "ctrl": "hinf",
       "aborted": false,
       "t_total": 198.0,
+      "t_mission": 195.0,
       "cov_final": 98.4,
       "t97": 176.0,
       "cov_at_success": 97.1,
@@ -1661,7 +1668,7 @@
           "drone": 1,
           "cov": 18.5,
           "trigger": 18.0,
-          "t_log": 44.0,
+          "t_log": 45.0,
           "helpers": [
             7,
             2
@@ -1672,7 +1679,7 @@
           "drone": 7,
           "cov": 33.0,
           "trigger": 32.0,
-          "t_log": 59.0,
+          "t_log": 60.0,
           "helpers": [
             4,
             2,
@@ -1849,7 +1856,7 @@
         "1": 45.54,
         "7": 60.528
       },
-      "t_offset_csv_minus_log": 1.533999999999999,
+      "t_offset_csv_minus_log": 0.5339999999999989,
       "t_end_csv": 198.68,
       "lat_rms_cm": 9.655768098273363,
       "lat_p95_cm": 19.980440596835066,
@@ -1914,6 +1921,7 @@
       "ctrl": "lqr",
       "aborted": false,
       "t_total": 222.0,
+      "t_mission": 219.0,
       "cov_final": 99.0,
       "t97": 194.0,
       "cov_at_success": 97.0,
@@ -1940,7 +1948,7 @@
           "drone": 1,
           "cov": 18.5,
           "trigger": 18.0,
-          "t_log": 46.0,
+          "t_log": 47.0,
           "helpers": [
             7,
             2
@@ -1951,7 +1959,7 @@
           "drone": 7,
           "cov": 33.1,
           "trigger": 32.0,
-          "t_log": 62.0,
+          "t_log": 63.0,
           "helpers": [
             4,
             2,
@@ -2134,7 +2142,7 @@
         "1": 47.236,
         "7": 63.5
       },
-      "t_offset_csv_minus_log": 1.3679999999999986,
+      "t_offset_csv_minus_log": 0.36799999999999855,
       "t_end_csv": 222.616,
       "lat_rms_cm": 11.538622211075902,
       "lat_p95_cm": 22.000159665653246,

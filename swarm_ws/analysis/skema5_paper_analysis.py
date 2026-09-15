@@ -126,6 +126,7 @@ RE_HELP = re.compile(r'\[HELPER ALLOCATION\] Terpilih (\d+) drone helper: \[([^\
 RE_SUCC = re.compile(r'\[SWARM SUCCESS\] Target Coverage ([\d.]+)% Tercapai! .*Durasi Misi: ([\d.]+)s .*d_min\): ([\d.]+)m')
 RE_CBF = re.compile(r'CBF-QP: (\d+) solve \| T0 (\d+) T1 (\d+) T2 (\d+) T3 (\d+) \| P\(tier>0\)=([\d.]+)% \| slack_maks=([\d.]+)')
 RE_TOTAL = re.compile(r'Total Waktu Misi: ([\d.]+)s .*Coverage final: ([\d.]+)%')
+RE_DONE = re.compile(r'\[AUTO-EXIT: SUCCESS\] Seluruh drone tuntas di centroid \(Cov: ([\d.]+)%\)')
 RE_ABORT = re.compile(r'\[AUTO-EXIT: FAILURE\] Drone iris_(\d+) jatuh tak terkendali ke Z=([\d.]+)m')
 RE_TIER2 = re.compile(r'\[iris_(\d+)\] QP Tier 2 \(slack=([\d.]+), pembatas=(\w+):?(\d*), h_min=(-?[\d.]+)m\)')
 RE_PLANT = re.compile(r'PlantModel\(k_v=([\d.]+)/s, a_max=([\d.]+) m/s\^2, T_lead=([\d.]+) s, v_c=([\d.]+) m/s\)')
@@ -136,9 +137,11 @@ RE_RECROWS = re.compile(r'\[DYNAMIC RECOVERY\] Terbentuk (\d+) baris')
 
 def parse_log(path):
     out = {'status': [], 'kills': [], 'tier2': [], 'cells': {}, 'peta': [],
-           'success': None, 'cbf': None, 'total': None, 'abort': None, 'plant': None}
+           'success': None, 'cbf': None, 'total': None, 'done': None, 'abort': None, 'plant': None}
     for line in Path(path).read_text(errors='replace').splitlines():
-        t = float(len(out['status']))          # 1 baris STATUS = 1 s sim (divalidasi di audit)
+        # Baris STATUS ke-i (dari 0) dicetak pada detik misi ke-(i+1): SWARM SUCCESS "Durasi Misi:
+        # 187.0s" muncul setelah tepat 186 baris STATUS (konsisten di 7 log). Diperiksa di audit.
+        t = float(len(out['status']) + 1)
         if m := RE_STATUS.search(line):
             out['status'].append((float(m.group(1)), float(m.group(2))))
         elif m := RE_FAULT.search(line):
@@ -148,11 +151,14 @@ def parse_log(path):
             out['kills'][-1]['helpers'] = [int(x) for x in re.findall(r'iris_(\d+)', m.group(2))]
             out['kills'][-1]['rows'] = int(m.group(3))
         elif m := RE_SUCC.search(line):
-            out['success'] = {'cov': float(m.group(1)), 't': float(m.group(2)), 'dmin': float(m.group(3))}
+            out['success'] = {'cov': float(m.group(1)), 't': float(m.group(2)), 'dmin': float(m.group(3)),
+                              't_log': t}
         elif m := RE_CBF.search(line):
             g = [float(x) for x in m.groups()]
             out['cbf'] = {'solves': int(g[0]), 'T0': int(g[1]), 'T1': int(g[2]), 'T2': int(g[3]),
                           'T3': int(g[4]), 'p_tier': g[5], 'slack_max': g[6]}
+        elif m := RE_DONE.search(line):
+            out['done'] = {'t': t, 'cov': float(m.group(1))}
         elif m := RE_TOTAL.search(line):
             out['total'] = {'t': float(m.group(1)), 'cov': float(m.group(2))}
         elif m := RE_ABORT.search(line):
@@ -271,7 +277,8 @@ def run_metrics(region, ctrl, drones, log):
     r = {'region': region, 'ctrl': ctrl}
     # ── misi (log) ──
     r['aborted'] = log['abort'] is not None
-    r['t_total'] = log['total']['t'] if log['total'] else None
+    r['t_total'] = log['total']['t'] if log['total'] else None     # dicetak saat node dimatikan
+    r['t_mission'] = log['done']['t'] if log['done'] else None     # semua survivor tuntas di centroid
     r['cov_final'] = log['total']['cov'] if log['total'] else None
     r['t97'] = log['success']['t'] if log['success'] else None
     r['cov_at_success'] = log['success']['cov'] if log['success'] else None
@@ -551,10 +558,10 @@ def fig_coverage(runs):
         for ctrl, col, ls in (('hinf', C_HINF, '-'), ('lqr', C_LQR, '--')):
             log = runs[(region, ctrl)]['log']
             cov = np.array([s[0] for s in log['status']])
-            t = np.arange(len(cov), dtype=float)
+            t = np.arange(1, len(cov) + 1, dtype=float)
             ax.plot(t, cov, c=col, ls=ls, lw=1.0, label=CTRL_LABEL[ctrl])
             for k in log['kills']:
-                i = int(k['t_log'])
+                i = int(k['t_log']) - 1
                 ax.plot(t[min(i, len(t) - 1)], cov[min(i, len(t) - 1)], marker='v', ms=4, c=col, mec='k', mew=0.3)
             if log['abort']:
                 ax.plot(t[-1], cov[-1], marker='X', ms=6, c='red', mec='k', mew=0.4)
@@ -702,7 +709,7 @@ def export(runs, design):
             M = metrics[f'{region}_{ctrl}']
             s = MACRO_REGION[region] + MACRO_CTRL[ctrl]
             mac('Cov' + s, fmt(M['cov_final']))
-            mac('Tmis' + s, fmt(M['t_total'], 0) if M['t_total'] else fmt(M['t_end_csv'], 1))
+            mac('Tmis' + s, fmt(M['t_mission'], 0) if M['t_mission'] else fmt(M['t_end_csv'], 1))
             mac('Tninetyseven' + s, fmt(M['t97'], 0))
             mac('Latrms' + s, fmt(M['lat_rms_cm']))
             mac('Latpfive' + s, fmt(M['lat_p95_cm']))
@@ -736,7 +743,7 @@ def export(runs, design):
     # ── turunan lintas-run (untuk kalimat abstrak/diskusi) ──
     pairs = [r for r, _ in REGIONS]
     done = [r for r in pairs if not metrics[f'{r}_lqr']['aborted'] and not metrics[f'{r}_hinf']['aborted']]
-    tred = [100 * (1 - metrics[f'{r}_hinf']['t_total'] / metrics[f'{r}_lqr']['t_total']) for r in done]
+    tred = [100 * (1 - metrics[f'{r}_hinf']['t_mission'] / metrics[f'{r}_lqr']['t_mission']) for r in done]
     effr = [metrics[f'{r}_hinf']['effort_rate'] / metrics[f'{r}_lqr']['effort_rate'] for r in done]
     latred = [100 * (1 - metrics[f'{r}_hinf']['lat_rms_cm'] / metrics[f'{r}_lqr']['lat_rms_cm']) for r in pairs]
     covs = [metrics[f'{r}_{c}']['cov_final'] for r in pairs for c in ('hinf', 'lqr')
@@ -824,7 +831,7 @@ def export(runs, design):
             else:
                 status = 'done'
                 cov = fmt(M['cov_final'])
-                tm = fmt(M['t_total'], 0)
+                tm = fmt(M['t_mission'], 0)
             dv2v = fmt(M['v2v_min_csv'], 2)
             T.append(' & '.join([reg, CTRL_LABEL[ctrl], status, cov, tm,
                                  fmt(M['lat_rms_cm']), fmt(M['v_sweep'], 2), fmt(M['alt_rms_cm']),
@@ -846,6 +853,16 @@ def audit(runs, design):
             n = M['n_status']
             tt = M['t_total']
             A.append(f"- baris STATUS = {n}; Total Waktu Misi log = {tt}; akhir CSV = {M['t_end_csv']:.2f} s")
+            tm = M['t_mission']
+            A.append(f"- misi tuntas (AUTO-EXIT centroid) t = {tm}; Total Waktu Misi − t tuntas = "
+                     f"{(tt - tm) if (tt is not None and tm is not None) else 'n/a'} s (jeda tutup node 3 s)")
+            if tt is not None and tm is not None and abs((tt - tm) - 3.0) > 1.0:
+                A.append('  - **TIDAK COCOK**: selisih Total Waktu Misi dan misi tuntas bukan ~3 s'); ok = False
+            if log['success']:
+                su = log['success']
+                A.append(f"- jam log: SWARM SUCCESS dicetak pada t_log = {su['t_log']:.0f} s, 'Durasi Misi' = {su['t']} s")
+                if abs(su['t'] - su['t_log']) > 0.5:
+                    A.append('  - **TIDAK COCOK**: jam log (STATUS ke-i = detik i+1) vs Durasi Misi'); ok = False
             if tt is not None and abs(n - tt) > 2:
                 A.append('  - **TIDAK COCOK**: asumsi 1 STATUS = 1 s'); ok = False
             if tt is not None and abs(M['t_end_csv'] - tt) > 2.0:

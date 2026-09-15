@@ -2,9 +2,11 @@
 
 ## rect / hinf
 - baris STATUS = 259; Total Waktu Misi log = 260.0; akhir CSV = 261.00 s
-- kill iris_4: log t≈35 s (cov 18.8%), CSV onset 36.884
-- kill iris_7: log t≈56 s (cov 32.0%), CSV onset 57.888
-- offset CSV−log (median kill) = 1.8859999999999992
+- misi tuntas (AUTO-EXIT centroid) t = 257.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 240 s, 'Durasi Misi' = 240.0 s
+- kill iris_4: log t≈36 s (cov 18.8%), CSV onset 36.884
+- kill iris_7: log t≈57 s (cov 32.0%), CSV onset 57.888
+- offset CSV−log (median kill) = 0.8859999999999992
 - coverage final log = 98.2 | STATUS terakhir = 98.2 | offline batas atas CSV = 98.9
 - lateral: mean 1.6 cm, std 7.0 cm, jendela integrator LQR 87%
 - d_min V2V: log = 1.71 | CSV = 1.71 m (pasangan [2, 3], t=8.977999999999975)
@@ -14,8 +16,9 @@
 
 ## rect / lqr
 - baris STATUS = 77; Total Waktu Misi log = None; akhir CSV = 78.80 s
-- kill iris_7: log t≈60 s (cov 19.2%), CSV onset 61.52
-- offset CSV−log (median kill) = 1.5200000000000031
+- misi tuntas (AUTO-EXIT centroid) t = None; Total Waktu Misi − t tuntas = n/a s (jeda tutup node 3 s)
+- kill iris_7: log t≈61 s (cov 19.2%), CSV onset 61.52
+- offset CSV−log (median kill) = 0.5200000000000031
 - coverage final log = None | STATUS terakhir = 29.0 | offline batas atas CSV = 42.6
 - lateral: mean -7.0 cm, std 9.4 cm, jendela integrator LQR 64%
 - d_min V2V: log = 1.52 | CSV = 1.52 m (pasangan [4, 7], t=4.787999999999991)
@@ -24,13 +27,15 @@
 - Tier-2 per pembatas: {'v2v_soft': 46, 'dynamic': 15, 'static': 30}; h_min log (semua baris) saat baris bergerak mengikat = -0.57
 - upset iris_2 t=77.1 tilt=155.9° pos=(0.07,1.95) zmin=0.11 surf_min=0.06 recovered=False
 - upset iris_6 t=24.4 tilt=50.8° pos=(3.90,-3.38) zmin=1.66 surf_min=0.55 recovered=True
-- ABORT: iris_2 Z=0.11 pada log t≈77 s
+- ABORT: iris_2 Z=0.11 pada log t≈78 s
 
 ## l_shape / hinf
 - baris STATUS = 203; Total Waktu Misi log = 204.0; akhir CSV = 204.61 s
-- kill iris_4: log t≈35 s (cov 18.8%), CSV onset 36.44
-- kill iris_7: log t≈51 s (cov 32.5%), CSV onset 52.404
-- offset CSV−log (median kill) = 1.4220000000000006
+- misi tuntas (AUTO-EXIT centroid) t = 201.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 187 s, 'Durasi Misi' = 187.0 s
+- kill iris_4: log t≈36 s (cov 18.8%), CSV onset 36.44
+- kill iris_7: log t≈52 s (cov 32.5%), CSV onset 52.404
+- offset CSV−log (median kill) = 0.4220000000000006
 - coverage final log = 98.4 | STATUS terakhir = 98.4 | offline batas atas CSV = 98.6
 - lateral: mean 1.0 cm, std 8.4 cm, jendela integrator LQR 87%
 - d_min V2V: log = 1.32 | CSV = 1.32 m (pasangan [1, 3], t=129.32799999999955)
@@ -40,9 +45,11 @@
 
 ## l_shape / lqr
 - baris STATUS = 235; Total Waktu Misi log = 236.0; akhir CSV = 236.76 s
-- kill iris_4: log t≈39 s (cov 18.3%), CSV onset 40.628
-- kill iris_7: log t≈55 s (cov 32.7%), CSV onset 56.628
-- offset CSV−log (median kill) = 1.6280000000000001
+- misi tuntas (AUTO-EXIT centroid) t = 233.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 216 s, 'Durasi Misi' = 216.0 s
+- kill iris_4: log t≈40 s (cov 18.3%), CSV onset 40.628
+- kill iris_7: log t≈56 s (cov 32.7%), CSV onset 56.628
+- offset CSV−log (median kill) = 0.6280000000000001
 - coverage final log = 98.5 | STATUS terakhir = 98.5 | offline batas atas CSV = 98.7
 - lateral: mean -5.7 cm, std 10.8 cm, jendela integrator LQR 56%
 - d_min V2V: log = 0.79 | CSV = 0.79 m (pasangan [5, 6], t=45.029999999999845)
@@ -52,9 +59,11 @@
 
 ## u_shape / hinf
 - baris STATUS = 204; Total Waktu Misi log = 205.0; akhir CSV = 205.66 s
-- kill iris_4: log t≈39 s (cov 18.5%), CSV onset 40.544
-- kill iris_5: log t≈56 s (cov 33.0%), CSV onset 57.544
-- offset CSV−log (median kill) = 1.543999999999997
+- misi tuntas (AUTO-EXIT centroid) t = 202.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 187 s, 'Durasi Misi' = 187.0 s
+- kill iris_4: log t≈40 s (cov 18.5%), CSV onset 40.544
+- kill iris_5: log t≈57 s (cov 33.0%), CSV onset 57.544
+- offset CSV−log (median kill) = 0.5439999999999969
 - coverage final log = 98.5 | STATUS terakhir = 98.5 | offline batas atas CSV = 99.0
 - lateral: mean 0.7 cm, std 8.3 cm, jendela integrator LQR 86%
 - d_min V2V: log = 1.77 | CSV = 1.77 m (pasangan [3, 7], t=3.3779999999999957)
@@ -64,9 +73,11 @@
 
 ## u_shape / lqr
 - baris STATUS = 239; Total Waktu Misi log = 240.0; akhir CSV = 240.48 s
-- kill iris_4: log t≈51 s (cov 18.4%), CSV onset 52.304
-- kill iris_5: log t≈69 s (cov 32.9%), CSV onset 70.336
-- offset CSV−log (median kill) = 1.3200000000000003
+- misi tuntas (AUTO-EXIT centroid) t = 237.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 237 s, 'Durasi Misi' = 237.0 s
+- kill iris_4: log t≈52 s (cov 18.4%), CSV onset 52.304
+- kill iris_5: log t≈70 s (cov 32.9%), CSV onset 70.336
+- offset CSV−log (median kill) = 0.3200000000000003
 - coverage final log = 96.9 | STATUS terakhir = 96.9 | offline batas atas CSV = 97.8
 - lateral: mean -5.8 cm, std 9.8 cm, jendela integrator LQR 56%
 - d_min V2V: log = 1.73 | CSV = 1.73 m (pasangan [5, 6], t=11.379999999999967)
@@ -76,9 +87,11 @@
 
 ## plus / hinf
 - baris STATUS = 197; Total Waktu Misi log = 198.0; akhir CSV = 198.68 s
-- kill iris_1: log t≈44 s (cov 18.5%), CSV onset 45.54
-- kill iris_7: log t≈59 s (cov 33.0%), CSV onset 60.528
-- offset CSV−log (median kill) = 1.533999999999999
+- misi tuntas (AUTO-EXIT centroid) t = 195.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 176 s, 'Durasi Misi' = 176.0 s
+- kill iris_1: log t≈45 s (cov 18.5%), CSV onset 45.54
+- kill iris_7: log t≈60 s (cov 33.0%), CSV onset 60.528
+- offset CSV−log (median kill) = 0.5339999999999989
 - coverage final log = 98.4 | STATUS terakhir = 98.4 | offline batas atas CSV = 99.6
 - lateral: mean 1.0 cm, std 9.6 cm, jendela integrator LQR 84%
 - d_min V2V: log = 1.24 | CSV = 1.24 m (pasangan [4, 7], t=27.989999999999906)
@@ -89,9 +102,11 @@
 
 ## plus / lqr
 - baris STATUS = 221; Total Waktu Misi log = 222.0; akhir CSV = 222.62 s
-- kill iris_1: log t≈46 s (cov 18.5%), CSV onset 47.236
-- kill iris_7: log t≈62 s (cov 33.1%), CSV onset 63.5
-- offset CSV−log (median kill) = 1.3679999999999986
+- misi tuntas (AUTO-EXIT centroid) t = 219.0; Total Waktu Misi − t tuntas = 3.0 s (jeda tutup node 3 s)
+- jam log: SWARM SUCCESS dicetak pada t_log = 194 s, 'Durasi Misi' = 194.0 s
+- kill iris_1: log t≈47 s (cov 18.5%), CSV onset 47.236
+- kill iris_7: log t≈63 s (cov 33.1%), CSV onset 63.5
+- offset CSV−log (median kill) = 0.36799999999999855
 - coverage final log = 99.0 | STATUS terakhir = 99.0 | offline batas atas CSV = 99.5
 - lateral: mean -6.5 cm, std 9.6 cm, jendela integrator LQR 55%
 - d_min V2V: log = 1.12 | CSV = 1.12 m (pasangan [4, 7], t=29.879999999999903)
