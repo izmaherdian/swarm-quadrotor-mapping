@@ -17,6 +17,7 @@ log/
 # IDE & OS Files
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 

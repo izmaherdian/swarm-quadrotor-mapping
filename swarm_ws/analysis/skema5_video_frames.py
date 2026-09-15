@@ -2,8 +2,8 @@
 """
 Ekstrak frame video Skema 5 untuk verifikasi & figure paper.
 
-Waktu video dipetakan dari stempel WALL-clock log coordinator (epoch UNIX, lihat
-CLAUDE.md: stempel log = wall, bukan sim) dan waktu mulai rekaman yang tertera
+Waktu video dipetakan dari stempel WALL-clock log coordinator (epoch UNIX,
+stempel log coordinator adalah wall-clock, bukan waktu simulasi) dan waktu mulai rekaman yang tertera
 di nama file screencast (zona Asia/Jakarta, UTC+7):
 
     posisi_video_ms = (epoch_baris_log - epoch_mulai_rekaman) * 1000
