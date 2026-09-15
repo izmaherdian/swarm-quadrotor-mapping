@@ -19,7 +19,7 @@ setup(
     maintainer='user',
     maintainer_email='user@todo.todo',
     description='Low level control for swarm quadrotor',
-    license='TODO: License declaration',
+    license='MIT',
 
     entry_points={
         'console_scripts': [

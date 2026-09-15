@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Penghindaran tabrakan CBF-QP untuk swarm quadrotor</description>
   <maintainer email="user@todo.todo">user</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <!-- Library murni numpy/scipy: tidak butuh ROS untuk diuji maupun dipakai.
        Itu yang membuat suite CBF berjalan dalam hitungan detik tanpa Gazebo. -->

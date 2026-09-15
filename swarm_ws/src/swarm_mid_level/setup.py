@@ -19,5 +19,5 @@ setup(
     description=('Penghindaran tabrakan CBF-QP untuk swarm quadrotor: rintangan '
                  'statis, rintangan bergerak, dan jarak antar-drone resiprokal '
                  'sebagai constraint dalam satu QP per drone per tick.'),
-    license='Apache-2.0',
+    license='MIT',
 )

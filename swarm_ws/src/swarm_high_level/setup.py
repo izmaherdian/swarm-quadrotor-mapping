@@ -21,7 +21,7 @@ setup(
     maintainer_email='izmaherdian@todo.todo',
     description=('Koordinasi swarm: definisi dunia, metrik evaluasi, dan '
                  'pelaporan kuantitatif untuk pemetaan Voronoi-boustrophedon.'),
-    license='Apache-2.0',
+    license='MIT',
 
     entry_points={
         'console_scripts': [

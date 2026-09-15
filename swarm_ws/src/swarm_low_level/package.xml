@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Low level control for swarm quadrotor</description>
   <maintainer email="user@todo.todo">user</maintainer>
-  <license>TODO: License declaration</license>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>nav_msgs</depend>

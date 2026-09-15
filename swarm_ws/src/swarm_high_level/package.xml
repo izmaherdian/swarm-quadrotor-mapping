@@ -5,7 +5,7 @@
   <version>0.0.0</version>
   <description>Swarm coordination algorithms: Voronoi, Bezier paths, Heartbeat P2P</description>
   <maintainer email="izmaherdian@todo.todo">izmaherdian</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
   <depend>nav_msgs</depend>

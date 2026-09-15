@@ -39,6 +39,7 @@ This repository holds the simulation stack, the analysis scripts and the full pa
 - [Repository layout](#repository-layout)
 - [Getting started](#getting-started)
 - [Citation](#citation)
+- [License](#license)
 
 ---
 
@@ -334,3 +335,13 @@ PYTHONPATH=src/swarm_high_level:src/swarm_mid_level:src/swarm_low_level \
 <sup>2</sup> Center for Instrumentation Technology and Automation (CITA), Institut Teknologi Bandung.
 
 The authors thank CITA, ITB, for covering the conference registration and publication fees of the paper.
+
+## License
+
+| What | License |
+|---|---|
+| Source code and everything not listed below | [MIT](LICENSE) |
+| Figures, video clips and thumbnails in [`media/`](media) | [CC BY 4.0](media/LICENSE) |
+| Paper and abstract (`docs/Full Paper - EPIC/`, `docs/Abstract - EPIC/`, `docs/Progress/`: text, PDFs and Word files) | All rights reserved by the authors; copyright may pass to the publisher on publication |
+| `EPIC2026_Author_Guidelines.pdf`, `AIPCP_Article_Template_Sept1_2023.*` | Property of EPIC 2026 and AIP Publishing; included for reference only |
+| `docs/Full Paper - EPIC/aipnum4-1-epic.bst` | Modified from `aipnum4-1.bst` (REVTeX 4.1), LaTeX Project Public License |
