@@ -133,6 +133,12 @@ def montage():
     for run in ('rect_hinf', 'l_shape_hinf', 'u_shape_hinf', 'plus_hinf'):
         img = cv2.imread(str(OUT / f'{run}_end.png'))
         panels.append(cv2.resize(_green_bbox(img), (side, side), interpolation=cv2.INTER_AREA))
+    # label panel (a)-(e) di pojok kiri atas, sesuai rujukan di caption paper
+    for k, p in enumerate(panels):
+        lbl = f'({"abcde"[k]})'
+        (tw, th), base = cv2.getTextSize(lbl, cv2.FONT_HERSHEY_SIMPLEX, 1.6, 3)
+        cv2.rectangle(p, (8, 8), (8 + tw + 16, 8 + th + base + 14), (255, 255, 255), -1)
+        cv2.putText(p, lbl, (16, 8 + th + 7), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 0, 0), 3, cv2.LINE_AA)
     gap = np.full((side, 12, 3), 255, np.uint8)
     row = panels[0]
     for p in panels[1:]:

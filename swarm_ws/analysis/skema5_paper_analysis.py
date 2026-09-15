@@ -818,7 +818,7 @@ def export(runs, design):
             M = metrics[f'{region}_{ctrl}']
             reg = f'\\multirow{{2}}{{*}}{{{REGION_LABEL[region]}}}' if ci == 0 else ''
             if M['aborted']:
-                status = f"abort@{fmt(M['t_end_csv'], 1)}"
+                status = f"abort@{fmt(M['t_end_csv'], 1)}~s"
                 cov = 'n/a'
                 tm = 'n/a'
             else:
