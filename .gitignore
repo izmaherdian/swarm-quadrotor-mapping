@@ -66,6 +66,12 @@ PRD_Swarm_Quadrotor_Geodesy.md
 *.synctex.gz
 *.bak
 *.run.xml
+*.nav
+*.snm
+*.vrb
+
+# Temporary files
+sed*
 
 # docs/Progress — only track .tex, .bib, .pdf
 docs/Progress/*

@@ -18,3 +18,5 @@
 *.pdf binary
 *.onnx binary
 *.zip binary
+*.mp4 binary
+*.pptx binary

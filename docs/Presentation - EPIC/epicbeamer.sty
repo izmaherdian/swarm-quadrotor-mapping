@@ -1,0 +1,239 @@
+% ---------------------------------------------------------------------------
+%  epicbeamer.sty -- tema slide EPIC 2026
+%
+%  Gaya editorial: judul frame adalah KLAIM (kalimat pesan), bukan topik;
+%  bullet hanya pendukung; ada frame angka-besar sebagai jeda; baris atas
+%  memuat label seksi + progres, footer hanya nomor halaman.
+%
+%  Mode video dipilih saat kompilasi lewat \videomode:
+%     link   (default) -- poster frame + \href{run:} + QR ke playlist
+%     movie            -- anotasi /Movie, diputar pdfpc/pympress
+%  Lihat Makefile.
+% ---------------------------------------------------------------------------
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{epicbeamer}[2026/10/12 EPIC 2026 slide theme]
+
+\RequirePackage{graphicx}
+\RequirePackage{adjustbox}
+\RequirePackage{xcolor}
+\RequirePackage{booktabs}
+\RequirePackage{colortbl}
+\RequirePackage{tikz}
+\RequirePackage{qrcode}
+\RequirePackage{multimedia}
+\RequirePackage[most]{tcolorbox}
+\RequirePackage{hyperref}
+
+\providecommand{\videomode}{link}
+
+% ------------------------------------------------------------------- warna
+% Palet coklat hangat (HEX dari pengguna; dua di antaranya punya RGB yang
+% tidak cocok dengan HEX-nya -- HEX yang dipakai, lihat README).
+\definecolor{epicbrick}{HTML}{331106}   % Dark Brick Brown  -- paling gelap
+\definecolor{epicrust}{HTML}{502611}    % Deep Rust Brown   -- teks judul
+\definecolor{epicclay}{HTML}{AA7158}    % Warm Clay Tan     -- aksen, garis
+\definecolor{epicpeach}{HTML}{E7BAA5}   % Soft Peach Nude   -- garis kotak, banding
+\definecolor{epicbeige}{HTML}{F6D0B9}   % Light Skin Beige  -- isi kotak
+
+% Nama peran dipakai di seluruh tema; ganti di sini saja kalau palet berubah.
+\colorlet{epicnavy}{epicrust}           % nama lama, kini coklat
+\colorlet{epicink}{epicbrick}
+\colorlet{epicbody}{epicbrick!82}
+\colorlet{epicmuted}{epicclay!92!black}
+\colorlet{epicrule}{epicpeach!55}
+\colorlet{epicboxfill}{epicbeige!42}
+\colorlet{epicboxline}{epicpeach!85}
+\colorlet{epicband}{epicbeige!28}
+\colorlet{epicaccent}{epicclay}
+
+% Warna pembeda kontroler TIDAK diubah: harus tetap sama dengan figure paper,
+% supaya legenda di gambar dan teks di slide merujuk hal yang sama.
+\definecolor{epicblue}{HTML}{1F77B4}    % PID-H-inf
+\definecolor{epicorange}{HTML}{DD7A2E}  % PID-LQR
+\definecolor{epicred}{HTML}{B02A24}
+\definecolor{epicwhite}{HTML}{FFFFFF}
+
+\setbeamercolor{normal text}{fg=epicbody}
+\setbeamercolor{frametitle}{fg=epicrust}
+\setbeamercolor{structure}{fg=epicclay}
+\setbeamercolor{itemize item}{fg=epicclay}
+\setbeamercolor{itemize subitem}{fg=epicclay}
+\setbeamercolor{background canvas}{bg=white}
+
+% ------------------------------------------------------------------- huruf
+% Tiga genre dari satu superfamily Source: berbeda jelas, tapi memang dirancang
+% menyatu. Serif untuk judul, sans untuk isi, mono untuk besaran bernilai.
+%   \headfont  judul frame, angka besar, pembatas seksi
+%   (default)  isi, bullet, takarir
+%   \num{...}  angka dan satuan di dalam kalimat
+\usefonttheme{professionalfonts}
+\newcommand{\headfont}{\rmfamily\bfseries}
+\newcommand{\num}[1]{\mbox{\ttfamily\footnotesize #1}}  % \mbox: sah di teks DAN matematika
+\setbeamerfont{frametitle}{size=\Large}
+\setbeamerfont{framesubtitle}{size=\small}
+\setbeamerfont{itemize/enumerate body}{size=\normalsize}
+\setbeamerfont{itemize/enumerate subbody}{size=\small}
+
+% ------------------------------------------------------ kerangka halaman
+\setbeamertemplate{navigation symbols}{}
+\setbeamersize{text margin left=10mm, text margin right=10mm}
+
+% Label kiri dan kanan pada baris atas. Frame biasa mewarisi dari seksi;
+% \kick menimpanya untuk appendix (Q&A, backup).
+\newcommand{\sectioncount}{11}
+\newcommand{\kickleft}{}
+\newcommand{\kickright}{}
+\newcommand{\kick}[2]{\renewcommand{\kickleft}{#1}\renewcommand{\kickright}{#2}}
+\newcommand{\autokick}{%
+  \renewcommand{\kickleft}{\insertsection}%
+  \renewcommand{\kickright}{\insertsectionnumber\,/\,\sectioncount}}
+\AtBeginSection{\autokick}
+
+\setbeamertemplate{headline}{%
+  \ifnum\thepage=1\relax\else
+    \vskip3.4mm%
+    \hbox to \paperwidth{\hskip10mm
+      \parbox{\dimexpr\paperwidth-20mm\relax}{%
+        \color{epicclay}\scriptsize\bfseries\MakeUppercase{\kickleft}%
+        \hfill\color{epicmuted}\mdseries\kickright\\[1.1mm]
+        \color{epicrule}\rule{\linewidth}{0.4pt}}%
+      \hskip10mm}%
+  \fi}
+
+\setbeamertemplate{footline}{%
+  \ifnum\thepage=1\relax\else
+    \hbox to \paperwidth{\hfill
+      \color{epicmuted}\scriptsize\insertframenumber\hskip10mm}%
+    \vskip2.6mm%
+  \fi}
+
+% Judul frame = klaim. Rata kiri, navy, tanpa garis bawah tambahan.
+\setbeamertemplate{frametitle}{%
+  \vskip1.6mm%
+  \begin{minipage}{\dimexpr\paperwidth-20mm\relax}
+    \raggedright\color{epicrust}\headfont\usebeamerfont{frametitle}%
+    \insertframetitle\par
+  \end{minipage}%
+  \vskip1.3mm}
+
+% ------------------------------------------------------------------ bullet
+\setbeamertemplate{itemize item}{\color{epicmuted}\rule[0.45ex]{1.6mm}{0.6pt}}
+\setbeamertemplate{itemize subitem}{\color{epicmuted}\textperiodcentered}
+\setlength{\leftmargini}{5.2mm}
+\setlength{\leftmarginii}{4.4mm}
+
+% Jarak antar butir sedikit dilonggarkan: bullet di sini sedikit dan pendek.
+\newcommand{\bulletgap}{\setlength{\itemsep}{1.05ex}}
+
+% --------------------------------------------------------------- callout
+% Kotak catatan dengan rel aksen di kiri. Untuk kalimat yang harus terbaca
+% utuh, bukan untuk bullet tambahan.
+\newtcolorbox{callout}[1]{%
+  enhanced, sharp corners, boxrule=0.4pt,
+  colback=epicboxfill, colframe=epicboxline,
+  borderline west={1.0mm}{0pt}{epicclay},
+  left=4mm, right=3.5mm, top=2mm, bottom=2mm,
+  before upper={\color{epicrust}\scriptsize\bfseries\MakeUppercase{#1}\par
+                \vskip0.7ex\color{epicink}\mdseries\small}}
+
+% ----------------------------------------------------------- anggaran waktu
+% \mins{N} = N persepuluh menit untuk frame ini. Dijumlahkan ke sebuah counter
+% dan dicetak ke log saat \end{document}; Makefile memeriksa totalnya = 200
+% (20,0 menit). Tanpa ini, klaim "20 menit" tidak pernah terverifikasi.
+\newcounter{talktenths}
+\setcounter{talktenths}{0}
+\newcommand{\mins}[1]{\addtocounter{talktenths}{#1}}
+\AtEndDocument{\typeout{^^JTALK-BUDGET-TENTHS=\thetalktenths^^J}}
+
+% ------------------------------------------------------------- angka besar
+% Frame jeda: satu angka raksasa, satu kalimat, satu paragraf konteks.
+\newcommand{\bignum}[3]{%
+  \vskip4mm
+  {\color{epicrust}\headfont\fontsize{58}{62}\selectfont #1\par}
+  \vskip3mm
+  {\color{epicaccent}\rule{22mm}{1.1pt}\par}
+  \vskip3mm
+  {\color{epicink}\fontsize{15}{19}\selectfont #2\par}
+  \vskip3.5mm
+  \begin{minipage}{0.80\linewidth}\color{epicmuted}\small #3\end{minipage}}
+
+% -------------------------------------------------------------- pembatas
+\newcommand{\sectionframe}[3]{%  #1 nomor  #2 judul  #3 kalimat pengantar
+  {\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}%
+  \begin{frame}[plain]
+    \begin{tikzpicture}[remember picture,overlay]
+      \fill[epicbrick] (current page.north west) rectangle
+        ([xshift=3.2mm]current page.south west);
+    \end{tikzpicture}%
+    \vskip16mm
+    \hbox{\hskip6mm
+      \parbox{20mm}{\color{epicpeach}\headfont\fontsize{54}{54}\selectfont #1}%
+      \hskip4mm
+      \parbox{0.60\paperwidth}{\raggedright
+        {\color{epicrust}\headfont\fontsize{26}{30}\selectfont #2\par}
+        \vskip3mm
+        {\color{epicmuted}\fontsize{11}{14}\selectfont #3\par}}}
+  \end{frame}}}
+
+% ---------------------------------------------------------------- figure
+% Panel tunggal dari figure paper yang bermuka banyak. viewport absolut:
+% trim relatif (\width) rusak di TeX Live 2025 ini. Angka diturunkan dari
+% ukuran halaman tiap PDF x pecahan panel yang diukur dari gambarnya.
+\newcommand{\panelcbfa}[1]{\includegraphics[viewport=0 0 226 148,clip,#1]{fig_concept_cbf}}
+\newcommand{\panelcbfb}[1]{\includegraphics[viewport=218 0 393 148,clip,#1]{fig_concept_cbf}}
+\newcommand{\panelhigha}[1]{\includegraphics[viewport=0 0 144 150,clip,#1]{fig_concept_high}}
+\newcommand{\paneltracka}[1]{\includegraphics[viewport=0 0 142 141,clip,#1]{fig_tracking}}
+\newcommand{\paneltrackb}[1]{\includegraphics[viewport=134 0 276 141,clip,#1]{fig_tracking}}
+\newcommand{\paneltrackc}[1]{\includegraphics[viewport=275 0 407 141,clip,#1]{fig_tracking}}
+\newcommand{\paneleventa}[1]{\includegraphics[viewport=0 23 213 164,clip,#1]{fig_events}}
+\newcommand{\paneleventb}[1]{\includegraphics[viewport=203 23 406 164,clip,#1]{fig_events}}
+
+% Bingkai tipis supaya figure berlatar putih tidak mengambang, DAN batas tinggi
+% supaya figure selebar kolom tidak mendorong takarir keluar bawah slide.
+% Badan slide tersisa ~55 mm untuk judul dua baris; \figmaxh menyisakan ruang
+% untuk takarir dan callout. Timpa per frame bila perlu.
+\newlength{\figmaxh}
+\setlength{\figmaxh}{44mm}
+\newcommand{\figcard}[1]{%
+  \setlength{\fboxsep}{2.2mm}\setlength{\fboxrule}{0.4pt}%
+  % Padding \fbox ditambahkan DI LUAR isinya, jadi isinya harus dibatasi
+  % selebar kolom dikurangi padding -- kalau tidak, kartunya melebihi kolom
+  % tepat sebesar 2(fboxsep+fboxrule).
+  {\color{epicboxline}\fbox{\color{epicbody}%
+    \adjustbox{max height=\figmaxh,
+               max width=\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{#1}}}}
+
+\newcommand{\figcaption}[1]{\par\vskip1.4ex{\color{epicmuted}\scriptsize #1\par}}
+
+% ----------------------------------------------------------------- video
+\newcommand{\playlisturl}{https://youtube.com/playlist?list=PLfxyCAwHmhHI}
+
+% \videoposter{id}{lebar} -- poster yang bisa diklik; perilakunya ikut
+% \videomode. Nama \clipbox sengaja dihindari: bentrok dengan trimclip.
+\newcommand{\videoposter}[2]{%
+  \edef\@vm{\videomode}\def\@mv{movie}%  \edef: bandingkan NILAI, bukan token
+  \ifx\@vm\@mv
+    \movie[width=#2,height=\dimexpr#2*339/640\relax]
+      {\includegraphics[width=#2]{assets/posters/#1.jpg}}{assets/clips/#1.mp4}%
+  \else
+    \href{run:assets/clips/#1.mp4}{\includegraphics[width=#2]{assets/posters/#1.jpg}}%
+  \fi}
+
+% Catatan kaki video: apa yang terjadi kalau diklik.
+\newcommand{\videonote}{%
+  \edef\@vm{\videomode}\def\@mv{movie}%  \edef: bandingkan NILAI, bukan token
+  \ifx\@vm\@mv Played in place by pdfpc%
+  \else Click the frame to play%
+  \fi}
+
+\newcommand{\playlistqr}[1][9mm]{%
+  \raisebox{-1mm}{\qrcode[height=#1]{\playlisturl}}}
+
+% ------------------------------------------------------------------ tabel
+\newcommand{\hinf}{PID-$H_\infty$}
+\newcommand{\lqr}{PID-LQR}
+\newcommand{\cH}[1]{{\color{epicblue}#1}}
+\newcommand{\cL}[1]{{\color{epicorange}#1}}
+\newcommand{\cBad}[1]{{\color{epicred}\bfseries #1}}
+
+\endinput

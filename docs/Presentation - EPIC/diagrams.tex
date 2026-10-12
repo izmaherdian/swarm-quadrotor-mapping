@@ -1,0 +1,196 @@
+% ===========================================================================
+%  Diagram TikZ untuk rantai penurunan.
+%
+%  Ditulis untuk audiens yang bukan orang kendali: tiap gambar menerjemahkan
+%  SATU persamaan jadi sesuatu yang bisa ditunjuk. Warna mengikuti palet tema
+%  (epicbeamer.sty), jadi tidak ada warna baru diperkenalkan di sini.
+%
+%    \diagfbd     Langkah 1  gaya menyamping hanya dari thrust yang dimiringkan
+%    \diagbudget  Langkah 5  dead time + pengereman harus muat di clearance h
+%    \diagrow     Langkah 7  hanya komponen MENDEKAT yang dibatasi
+% ===========================================================================
+\usetikzlibrary{arrows.meta, angles, quotes, decorations.pathreplacing, calc}
+
+\tikzset{
+  vec/.style    = {-{Stealth[length=2.2mm]}, line width=0.8pt},
+  vecfat/.style = {-{Stealth[length=2.8mm]}, line width=1.3pt},
+  hair/.style   = {line width=0.4pt},
+  lbl/.style    = {font=\scriptsize, inner sep=1.5pt},
+  wee/.style    = {font=\tiny, inner sep=1.5pt},
+}
+
+% --------------------------------------------------------------- Langkah 1
+% Kenapa miring adalah SATU-SATUNYA cara bergerak menyamping.
+\newcommand{\diagfbd}{%
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \def\th{26}\def\L{2.55}
+  \pgfmathsetmacro{\tx}{\L*sin(\th)}
+  \pgfmathsetmacro{\ty}{\L*cos(\th)}
+
+  \draw[hair, epicpeach, dashed] (0,-1.5) -- (0,3.0);
+
+  % badan quadrotor, dimiringkan \th
+  \begin{scope}[rotate=-\th]
+    \draw[line width=1.8pt, epicbrick] (-1.0,0) -- (1.0,0);
+    \draw[epicclay, line width=1.0pt] (-1.32,0.14) -- (-0.68,0.14);
+    \draw[epicclay, line width=1.0pt] ( 0.68,0.14) -- ( 1.32,0.14);
+    \fill[epicbrick] (-1.0,0) circle (1.7pt) (1.0,0) circle (1.7pt);
+  \end{scope}
+
+  % thrust tegak lurus badan
+  \draw[vecfat, epicrust] (0,0) -- (\tx,\ty)
+        node[lbl, epicrust, anchor=south west, inner sep=2pt] {$T$};
+
+  % penguraian: dua kaki persegi panjang
+  \draw[hair, epicpeach] (\tx,\ty) -- (0,\ty);
+  \draw[hair, epicpeach] (\tx,\ty) -- (\tx,0);
+  \draw[vec, epicclay] (0,0) -- (0,\ty)
+        node[lbl, epicclay, anchor=east, pos=0.68] {$T\cos\theta$};
+  \draw[vec, epicclay] (0,\ty) -- (\tx,\ty)
+        node[lbl, epicclay, anchor=south, pos=0.5] {$T\sin\theta$};
+
+  \draw[vec, epicbrick] (0,0) -- (0,-1.25)
+        node[lbl, epicbrick, anchor=north] {$mg$};
+
+  \coordinate (O) at (0,0);
+  \coordinate (V) at (0,0.95);
+  \coordinate (B) at ({0.95*sin(\th)},{0.95*cos(\th)});
+  % Urutan titik penting: pic 'angle' menyapu BERLAWANAN arah jarum jam, jadi
+  % V--O--B akan menggambar 334 derajat (nyaris lingkaran penuh), bukan 26.
+  \pic[draw=epicrust, line width=0.6pt, angle radius=8mm,
+       "{$\theta$}"{epicrust, font=\scriptsize, inner sep=1pt}] {angle = B--O--V};
+
+  \node[wee, epicclay, anchor=south] at (0,3.0) {vertical};
+\end{tikzpicture}}
+
+% --------------------------------------------------------------- Langkah 5
+% Anggaran jarak: dead time + pengereman harus muat di dalam clearance h.
+\newcommand{\diagbudget}{%
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \def\Hh{8.0}\def\Td{2.3}
+
+  \fill[epicpeach] (\Hh+0.8,0) circle (0.78);
+  \draw[epicclay, line width=0.8pt] (\Hh+0.8,0) circle (0.78);
+  \node[wee, epicbrick] at (\Hh+0.8,0) {obstacle};
+
+  % drone
+  \draw[line width=1.8pt, epicbrick] (-0.5,0) -- (0.5,0);
+  \draw[epicclay, line width=1.0pt] (-0.68,0.13) -- (-0.32,0.13);
+  \draw[epicclay, line width=1.0pt] ( 0.32,0.13) -- ( 0.68,0.13);
+  \fill[epicbrick] (-0.5,0) circle (1.7pt) (0.5,0) circle (1.7pt);
+  \draw[vec, epicrust] (0.85,0) -- (1.85,0)
+        node[lbl, epicrust, anchor=south, pos=0.5] {speed $s$};
+
+  % clearance
+  \draw[hair, epicclay] (0,-0.9) -- (0,-1.85);
+  \draw[hair, epicclay] (\Hh,-0.9) -- (\Hh,-1.85);
+  \draw[{Stealth[length=2mm]}-{Stealth[length=2mm]}, epicclay, line width=0.7pt]
+        (0,-1.6) -- (\Hh,-1.6);
+  \node[lbl, epicclay, fill=white, inner sep=2pt] at (\Hh/2,-1.6)
+    {clearance $h$ to the surface};
+
+  % dua ruas anggaran
+  \draw[decorate, decoration={brace, amplitude=5pt}, epicrust, line width=0.8pt]
+        (0,1.0) -- (\Td,1.0)
+        node[midway, lbl, epicrust, anchor=south, yshift=4pt] {$s\,T_d$};
+  \draw[decorate, decoration={brace, amplitude=5pt}, epicbrick, line width=0.8pt]
+        (\Td,1.0) -- (\Hh,1.0)
+        node[midway, lbl, epicbrick, anchor=south, yshift=4pt]
+        {$D(s)$, the braking distance};
+  \draw[hair, epicpeach, dashed] (\Td,-0.9) -- (\Td,1.0);
+
+  \node[wee, epicrust, anchor=north, align=center] at (\Td/2,-0.35)
+    {reacting:\\[-0.3ex] still closing};
+  \node[wee, epicbrick, anchor=north] at ({(\Td+\Hh)/2},-0.35) {slowing down};
+\end{tikzpicture}}
+
+% --------------------------------------------------------------- Langkah 7
+% Satu baris constraint: hanya komponen MENDEKAT yang dibatasi.
+\newcommand{\diagrow}{%
+\begin{tikzpicture}[x=1cm, y=1cm]
+  \fill[epicpeach] (5.3,0) circle (0.8);
+  \draw[epicclay, line width=0.8pt] (5.3,0) circle (0.8);
+  \node[wee, epicbrick] at (5.3,0) {hazard};
+
+  \fill[epicbrick] (0,0) circle (2.4pt);
+  \node[wee, epicbrick, anchor=north east] at (-0.1,-0.12) {agent};
+
+  \draw[hair, epicpeach, dashed] (0,0) -- (4.5,0);
+  \draw[vec, epicclay] (0,0) -- (1.35,0);
+  \node[lbl, epicclay, anchor=south] at (0.7,0.06) {$\mathbf{n}_{ij}$};
+
+  % kecepatan yang diminta, dan penguraiannya
+  \draw[vecfat, epicrust] (0,0) -- (3.0,1.9)
+        node[lbl, epicrust, anchor=south west] {$\mathbf{u}_i$};
+  \draw[hair, epicbrick, dashed] (3.0,1.9) -- (3.0,0);
+  \draw[hair, epicbrick, dashed] (3.0,1.9) -- (0,1.9);
+  \draw[vec, epicbrick] (0,0) -- (3.0,0);
+  \node[wee, epicbrick, anchor=north] at (2.2,-0.12) {closing component};
+  \draw[vec, epicbrick] (0,0) -- (0,1.9);
+  \node[wee, epicbrick, anchor=south, rotate=90] at (-0.16,0.95) {tangential};
+
+  % batas
+  \draw[epicrust, line width=1.1pt, dash pattern=on 2.5pt off 2pt]
+        (3.6,-0.95) -- (3.6,2.5);
+  \node[lbl, epicrust, anchor=south, align=center] at (3.6,2.5)
+    {capped at $\lambda_{ij}\varphi(h_{ij})$};
+  \node[wee, epicclay, anchor=north, align=center] at (2.4,-1.05)
+    {only the closing component is capped --- turning is free};
+\end{tikzpicture}}
+
+% --------------------------------------------------- kontrak masuk/keluar
+% Strip tiga kotak: APA YANG MASUK (dengan satuan) -> APA YANG DIHITUNG ->
+% APA YANG KELUAR (dengan satuan). Dipakai sekali di tiap lapis, sehingga
+% keluaran satu lapis terlihat persis menjadi masukan lapis berikutnya.
+\newcommand{\iobox}[4]{% #1 x  #2 judul  #3 warna judul  #4 isi
+  \node[draw=epicboxline, line width=0.5pt, fill=white, rounded corners=1pt,
+        minimum width=38mm, minimum height=21mm, align=left, inner sep=2.2mm,
+        font=\scriptsize, text=epicbrick, anchor=north west] (b#1) at (#1,0) {#4};
+  \node[fill=#3, text=white, font=\bfseries\tiny, inner xsep=2mm, inner ysep=0.9mm,
+        anchor=north west] at ($(b#1.north west)+(1.6mm,1.9mm)$) {#2};}
+
+\newcommand{\diagio}[3]{%
+\begin{tikzpicture}[x=1mm, y=1mm]
+  \iobox{0}{WHAT GOES IN}{epicclay}{#1}
+  \iobox{45}{WHAT IS COMPUTED}{epicrust}{#2}
+  \iobox{90}{WHAT COMES OUT}{epicbrick}{#3}
+  \draw[vec, epicclay] (38.5,-9.5) -- (44,-9.5);
+  \draw[vec, epicclay] (83.5,-9.5) -- (89,-9.5);
+\end{tikzpicture}}
+
+% ------------------------------------------- kaskade low level + satuannya
+% Rantai yang benar-benar dieksekusi 250 kali per detik, dengan SATUAN di tiap
+% panah -- itu yang membuat jelas apa yang masuk dan apa yang keluar.
+\newcommand{\diagcascade}{%
+\begin{tikzpicture}[x=1mm, y=1mm,
+   blk/.style={draw=epicrust, line width=0.6pt, fill=epicbeige!35, rounded corners=1pt,
+               minimum width=20mm, minimum height=10mm, align=center,
+               font=\tiny, text=epicbrick},
+   sig/.style={font=\tiny, text=epicclay, inner sep=1pt}]
+  \node[blk] (pf) at (0,0)   {pre-filter};
+  \node[blk] (op) at (28,0)  {outer PID};
+  \node[blk] (ip) at (56,0)  {inner PD};
+  \node[blk] (mx) at (84,0)  {mixer};
+  \node[draw=epicclay, line width=0.7pt, fill=epicpeach!40, rounded corners=1pt,
+        minimum width=20mm, minimum height=10mm, align=center, font=\tiny,
+        text=epicbrick] (pl) at (112,0) {quadrotor};
+
+  % jalur maju; label SINYAL di atas panah, bukan di atas kotak
+  \draw[vec, epicbrick] (-17,0) -- (pf);
+  \node[sig, anchor=south] at (-8.5,6) {$\mathbf{p}^\star$ [m]};
+  \node[sig, anchor=north, text=epicrust] at (-8.5,-6) {from mid level};
+  \foreach \a/\b/\x/\t in {pf/op/14/{[m], [m/s]}, op/ip/42/{$\theta_{\mathrm{ref}}$ [rad]},
+                           ip/mx/70/{$\tau$ [N$\cdot$m]}, mx/pl/98/{$\Omega$ [rad/s]}} {
+    \draw[vec, epicbrick] (\a) -- (\b);
+    \node[sig, anchor=south] at (\x,6) {\t};}
+
+  % umpan balik: dua lintasan terpisah dari plant
+  \draw[vec, epicclay] (pl.south) -- (112,-13) -- (56,-13) -- (ip.south);
+  \node[sig, anchor=south] at (84,-12.6) {$\theta,\dot\theta$ [rad], [rad/s]};
+  \draw[vec, epicclay] (116,-5) -- (116,-22) -- (28,-22) -- (op.south);
+  \draw[epicclay, line width=0.8pt] (pl.south east) ++(-2,0) -- (116,-5);
+  \node[sig, anchor=south] at (72,-21.6) {$\mathbf{p},\mathbf{v}$ [m], [m/s]};
+
+  \node[sig, text=epicrust, anchor=north west, align=left] at (-17,-26)
+    {the whole chain runs 250 times per second};
+\end{tikzpicture}}

@@ -1,0 +1,1660 @@
+% ===========================================================================
+%  EPIC 2026 -- Fault-Tolerant Swarm Quadrotor Control for Non-Convex
+%  Geodetic Mapping.  Slide deck, 20 min talk + 10 min Q&A.
+%
+%  Angka TIDAK pernah diketik di sini. \input{numbers} memuat file makro yang
+%  SAMA dengan yang dipakai paper (docs/Full Paper - EPIC/generated/numbers.tex,
+%  dihasilkan swarm_ws/analysis/skema5_paper_analysis.py). Makro yang tidak ada
+%  menggagalkan kompilasi, persis seperti yang kita mau.
+%
+%  Bangun lewat Makefile, bukan pdflatex langsung -- TEXINPUTS perlu diset.
+%     make            -> main.pdf   satu berkas untuk semua: disubmit, dibaca di
+%                                   mana pun, DAN dipresentasikan lewat pdfpc
+%                                   (video lewat tautan run:, catatan + hitung
+%                                   mundur lewat metadata pdfpc)
+%     make pptx       -> main.pptx  cadangan untuk laptop panitia
+%
+%  Kalau video tidak mau diputar di pdfpc, ganti satu baris di bawah ke
+%  \def\videomode{movie} dan bangun ulang: itu memakai anotasi /Movie dari
+%  paket multimedia alih-alih tautan run:.
+%
+%  Gaya: judul frame adalah KLAIM, bukan topik. Bullet maksimal empat, pendek.
+%  Uraian panjang masuk ke \note, bukan ke layar.
+% ===========================================================================
+\documentclass[aspectratio=169,11pt,t]{beamer}
+\usepackage[T1]{fontenc}
+% Tiga genre dari satu superfamily Source (lihat epicbeamer.sty): serif untuk
+% judul, sans untuk isi, mono untuk besaran bernilai. Urutannya penting --
+% sourcesanspro[default] yang terakhir supaya isi memakai sans.
+\usepackage{sourceserifpro}
+\usepackage{sourcecodepro}
+\usepackage[default]{sourcesanspro}
+\usepackage{newtxsf}
+\usepackage{epicbeamer}
+
+% Catatan pembicara + hitung mundur ditanam sebagai METADATA di main.pdf.
+% pdfpc membacanya; pembaca PDF biasa tidak menampilkannya sama sekali, jadi
+% berkas yang disubmit tetap bersih. Opsi "overridenote" membuat \note{} bawaan
+% Beamer langsung menjadi catatan pdfpc -- tidak ada perintah baru untuk dihafal.
+\input{diagrams}         % diagram TikZ untuk rantai penurunan
+\usepackage[overridenote]{pdfpc}
+\pdfpcsetup{duration=27, lastminutes=3}
+
+\def\videomode{link}      % link | movie  (lihat catatan di atas)
+\input{numbers}           % <-- file yang sama dengan paper
+\input{slowfactors}       % <-- faktor gerak lambat, dari tools/build_media.py
+\renewcommand{\sectioncount}{9}
+
+\title{Fault-Tolerant Swarm Quadrotor Control for Non-Convex Geodetic Mapping}
+\author{Izma Alhazmi Herdian}
+\date{24 October 2026}
+\hypersetup{pdftitle={\inserttitle}, pdfauthor={Izma Alhazmi Herdian},
+            colorlinks=false, pdfborder={0 0 0}}
+
+\begin{document}
+
+% =============================================== 0. Pembuka (1,0 min) ======
+{\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
+\begin{frame}[plain]
+  \mins{5}%
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[epicbrick] (current page.north west) rectangle
+      ([yshift=-27mm]current page.north east);
+    \fill[epicclay] ([yshift=-27mm]current page.north west) rectangle
+      ([yshift=-27.9mm]current page.north east);
+  \end{tikzpicture}%
+  \vskip4mm
+  \begin{minipage}{0.92\linewidth}
+    {\color{epicwhite}\headfont\fontsize{19}{23}\selectfont
+     Fault-Tolerant Swarm Quadrotor Control\\for Non-Convex Geodetic Mapping\par}
+  \end{minipage}
+  \vskip16mm
+  {\color{epicrust}\headfont\small
+   Izma Alhazmi Herdian\textsuperscript{1,2}\quad
+   Sulthan Naufal Affan\textsuperscript{1}\\[0.6ex]
+   Estiyanti Ekawati\textsuperscript{1,2}\quad
+   Faqihza Mukhlish\textsuperscript{1,2}\par}
+  \vskip2.5mm
+  {\color{epicbody}\small
+   \textsuperscript{1}Engineering Physics Department, Institut Teknologi Bandung\\
+   \textsuperscript{2}Center for Instrumentation Technology and Automation, ITB\par}
+  \vskip6mm
+  {\color{epicmuted}\small
+   5th Engineering Physics International Conference (EPIC 2026)\\
+   24 October 2026 \textperiodcentered{} Bandar Lampung, Indonesia\par}
+  \vfill
+  {\color{epicrule}\rule{\linewidth}{0.4pt}\par}
+  \vskip1.5mm
+  {\color{epicclay}\bfseries\small github.com/izmaherdian/swarm-quadrotor-mapping\par}
+  \note{20 min + 10 min Q\&A. Open by naming the result out loud, then move on.
+        Everything after this explains how --- and what failed.}
+\end{frame}}
+
+\kick{Opening}{}
+\begin{frame}{Seven of eight missions finished after losing 28.6\% of the fleet}
+  \mins{5}%
+  \begin{itemize}\bulletgap
+    \item The problem --- non-convex area, wind, unmapped obstacles, agent loss
+    \item Three layers --- who sweeps where, a safety filter, two controllers
+    \item Eight recorded missions, including the one that crashed
+    \item What we would not yet claim
+  \end{itemize}
+  \vfill
+  \begin{callout}{The numbers behind that sentence}
+    \CovMin--\CovMax\% coverage \textperiodcentered{} \hinf{} finished
+    \TimeRedMin--\TimeRedMax\% sooner than \lqr, at
+    \EffRatioMin--\EffRatioMax$\times$ the torque effort \textperiodcentered{}
+    one mission ended in an obstacle strike.
+  \end{callout}
+  \note{30 s. Tell them the answer first, then spend the talk earning it.
+        Signalling the crash this early buys credibility for every number after.}
+\end{frame}
+
+% =============================================== 1. Masalah (1,1 min) ======
+\sectionframe{1}{The problem}{Why one drone is not enough --- and why a swarm
+  is not automatically better}
+\kick{Problem}{1 / \sectioncount}
+
+\begin{frame}{The question is not whether a swarm is faster, but whether it still finishes}
+  \mins{7}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item Non-convex region --- notches and arms break a naive raster
+        \item Wind --- mean \WindMeanMag\,m/s, gusts to \WindMaxH\,m/s
+        \item Nine cylinders the swarm has never seen, plus two moving
+        \item Two quadrotors killed mid-mission, at 18\% and 32\% coverage
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \vskip2mm\small
+      \[ T_{\mathrm{cover}}\sim\frac{A}{N\cdot 2r_s\cdot\bar v}+T_{\mathrm{coord}}(N) \]
+    \end{column}
+  \end{columns}
+  \vfill
+  \begin{callout}{All four at once}
+    Not one at a time. Sweep time falls with agent count; coordination cost
+    rises with it.
+  \end{callout}
+  \note{45 s. Survey mapping is a coverage problem --- every point must pass
+        under a sensor. The equation is a budget, not a result; say so. Name the
+        scenario ``Scheme 5'' once and move on.}
+\end{frame}
+
+\begin{frame}{Four mechanisms, and a campaign honest enough to include a crash}
+  \mins{5}%
+  \begin{itemize}\bulletgap
+    \item Lanes that follow the cell boundary, so tapered corners get swept
+    \item Lane-level reallocation when an agent dies --- merge, re-lane, hand over
+    \item A safety filter whose speed limit comes from the real tilt limit
+    \item \lqr{} vs \hinf{} on an identical structure --- only the gains differ
+    \item Eight logged missions, an auditable number pipeline, one failure
+  \end{itemize}
+  \note{The slide reviewers remember. 30 s, one breath per bullet. Do not expand
+        on any of them here --- each has its own slide later.}
+\end{frame}
+
+% ======================================== 2. Diagram blok (1,4 min) =======
+\sectionframe{2}{The system as blocks}{What enters each layer, what it computes,
+  what it hands down}
+\kick{System}{2 / \sectioncount}
+
+\begin{frame}{Three nested loops, each one handing a set-point to the next}
+  \mins{8}%
+  \centering\setlength{\figmaxh}{27mm}
+  \figcard{\includegraphics[width=0.92\textwidth]{architecture}}
+  \vskip1.4ex
+  \begin{columns}[T,onlytextwidth]\scriptsize
+    \begin{column}{0.31\textwidth}
+      {\color{epicrust}\bfseries HIGH \textperiodcentered{} event-driven}\\[0.3ex]
+      \textbf{in} region polygon, agent poses, agent deaths\\
+      \textbf{out} a lane to follow
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      {\color{epicrust}\bfseries MID \textperiodcentered{} 20\,Hz}\\[0.3ex]
+      \textbf{in} desired velocity, LiDAR map, neighbours\\
+      \textbf{out} a safe velocity
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      {\color{epicrust}\bfseries LOW \textperiodcentered{} 250\,Hz}\\[0.3ex]
+      \textbf{in} position set-point, state\\
+      \textbf{out} four rotor speeds
+    \end{column}
+  \end{columns}
+  \note{Spend 45 s. Read the three columns aloud left to right, then say the
+        sentence that sets up the rest of the talk: we are going to walk this
+        diagram BACKWARDS, because every limit upstairs is derived from what the
+        rotors can actually do.}
+\end{frame}
+
+\begin{frame}{We derive the stack backwards: what the rotors allow decides what the planner may ask}
+  \mins{6}%
+  \centering\setlength{\figmaxh}{26mm}
+  \figcard{\includegraphics[width=0.92\textwidth]{signal_path}}
+  \vskip1.2ex
+  \begin{callout}{The chain, in three steps}
+    \textbf{Low} tilt limit $\rightarrow$ velocity plant.
+    \textbf{Mid} plant $\rightarrow$ stopping distance $\rightarrow$
+    $\varphi(h)$ $\rightarrow$ one row per hazard.
+    \textbf{High} $\varphi(h)$ and sensor footprint $\rightarrow$ keep-out radius
+    and lane pitch. Nothing upstairs is tuned by hand.
+  \end{callout}
+  \note{This slide is the promise of the talk. Say it plainly: no magic
+        constants; every number upstairs has a derivation. Also mention what is
+        NOT in the loop -- ground-truth odometry, no PX4, no estimator; it is on
+        the Limitations slide and in Q2.}
+\end{frame}
+
+% ====================================== 3. Low level -- turunan (2,5 min) ==
+\sectionframe{3}{Low level}{From rotor limits to a one-line velocity plant}
+\kick{Low level}{3 / \sectioncount}
+
+\begin{frame}{Low level: a position in metres goes in, four rotor speeds come out}
+  \mins{7}%
+  \centering
+  \scalebox{0.92}{\diagio
+    {\textbf{set-point}\\ $\mathbf{p}^\star$ [m]\\ from the mid level\\[0.6ex]
+     \textbf{measured state}\\ $\mathbf{p}$ [m], $\mathbf{v}$ [m/s]\\
+     $\eta$ [rad], $\omega$ [rad/s]}
+    {pre-filter, outer PID,\\ inner PD, mixer ---\\
+     a fixed chain, no\\ optimisation at run time\\[0.6ex]
+     every 4\,ms}
+    {\textbf{four rotor speeds}\\ $\Omega_{1..4}$ [rad/s]\\
+     bounded to\\ $[250,\,1050]$\\[0.6ex]
+     effect: thrust and torque}}
+  \vskip2.4ex
+  \scalebox{0.86}{\diagcascade}
+  \note{45 s. Read the three boxes left to right, then trace the chain. The two
+        feedback paths are the point: the inner loop sees attitude, the outer
+        loop sees position, and they run at the same 250 Hz.}
+\end{frame}
+
+\begin{frame}{Step 1 --- the only horizontal force a quadrotor has is tilted thrust}
+  \mins{8}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Four rotors give one force, along the body $z$ axis
+        \item Hover needs $T\cos\theta=mg$; what is left sideways is $T\sin\theta$
+        \item Divide the two and the mass drops out --- no mass, no thrust, just
+              the tilt angle
+        \item Cap the tilt for stable mapping flight and the acceleration is
+              capped with it
+      \end{itemize}
+      \vskip1.2ex
+      \[ \theta\le15^\circ \;\Longrightarrow\; a_{\max}=g\tan\theta_{\max} \]
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \centering\vskip-5mm
+      \scalebox{0.80}{\diagfbd}
+    \end{column}
+  \end{columns}
+  \vskip-1ex
+  \begin{callout}{Where $15^\circ$ comes from}
+    A design choice, not physics: the mapping sensor needs a steady attitude.
+    It caps the attitude \emph{reference}, which is why measured tilt exceeds it
+    at lane-end pivots (Q11).
+  \end{callout}
+  \note{50 s. The algebra is two lines; do not labour it. The point is that one
+        design choice -- 15 degrees -- becomes a hard acceleration ceiling.}
+\end{frame}
+
+\begin{frame}
+  \mins{2}%
+  \bignum{\PlantAmax\,m/s\textsuperscript{2}}
+    {is every bit of horizontal acceleration this vehicle has}
+    {$a_{\max}=g\tan 15^\circ$. About a quarter of $g$. Each of the next nine
+     slides uses this number; nothing downstream hardcodes physics.}
+  \note{12 s. Say the number, pause, move on. It is the hinge of the whole talk.}
+\end{frame}
+
+\begin{frame}{Step 2 --- twelve coupled states become four simple chains}
+  \mins{8}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item A quadrotor carries twelve states: position [m], velocity [m/s],
+              attitude [rad] and body rates [rad/s]
+        \item Nonlinear, because rotation couples all of them: you tilt to move,
+              and the thrust direction moves with you
+        \item Linearise about hover with small angles and those couplings vanish
+              to first order
+        \item What is left is four independent subsystems
+      \end{itemize}
+      \vskip1.0ex
+      {\tiny
+      \begin{tabular}{@{}ll@{}}
+        X $\rightarrow$ pitch & $x \leftarrow \theta \leftarrow \tau_y$ \\
+        Y $\rightarrow$ roll  & $y \leftarrow \phi \leftarrow \tau_x$ \\
+        Z                     & $z \leftarrow$ collective thrust \\
+        yaw                   & $\psi \leftarrow \tau_z$ \\
+      \end{tabular}}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \vskip1mm
+      \[ \underbrace{\mathbf{p},\mathbf{v},\eta,\omega}_{12\ \text{states, nonlinear}}
+         \;\xrightarrow{\ \text{hover}\ }\;
+         \underbrace{4\ \text{chains}}_{\text{2 states each}} \]
+      \vskip1ex
+      \begin{callout}{Where this stops being true}
+        The linearisation is why the $15^\circ$ cap matters. The upsets we
+        measured, $\UpPlusHinfTilt^\circ$ and $\TiltmaxRectLqr^\circ$, lie
+        outside its validity --- so we report them as events, not as tracking
+        error.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{50 s. For a non-control audience this is the bridge: do not let them
+        wonder why a quadrotor became a 2x2 matrix. Say the word 'decoupled'
+        once and point at the table.}
+\end{frame}
+
+\begin{frame}{Step 3 --- augment with the input, and the integral term falls out}
+  \mins{12}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.46\textwidth}
+      \vskip0.5mm {\small
+      \[ A=\begin{bmatrix}0&1\\0&0\end{bmatrix},\;
+         B=\begin{bmatrix}0\\b\end{bmatrix},\;
+         C=\begin{bmatrix}1&0\end{bmatrix} \]}
+      \vskip-1ex
+      {\tiny $b=g$ (outer X), $-g$ (outer Y),
+       $1/I_{yy}$, $1/I_{xx}$ (inner)\par}
+      \vskip1.4ex {\small
+      \[ A_{\mathrm{aug}}=\begin{bmatrix}A&B\\0&0\end{bmatrix},\quad
+         B_{\mathrm{aug}}=\begin{bmatrix}0\\I\end{bmatrix} \]}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item The augmented state carries the \emph{input} itself, so the design
+              variable becomes $\dot u$ --- feed back a rate and you have already
+              integrated once
+        \item LQR solves the Riccati equation on
+              $(A_{\mathrm{aug}},B_{\mathrm{aug}},Q,R)$; $H_\infty$ solves the
+              HARE with $\gamma=1.3\gamma_{\min}$ and a Hurwitz check
+        \item $K_a$ is then projected onto the PID structure through
+              $\Gamma^{+}$, giving $K_p$, $K_i$, $K_d$
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vskip0.6ex
+  \begin{callout}{So $K_i$ is not a tuning knob}
+    It is a consequence of designing on $\dot u$. The two controllers differ only
+    in $Q$, $R$ and $\gamma$ --- never in structure.
+  \end{callout}
+  \note{60 s, the densest slide of the talk. Q for the outer loops is
+        diag(0.08, 0.35) with R = 1; for the inner loops diag(6, 0.6) with
+        R = 0.05. Gamma is found by bisection. Do not read those out.}
+\end{frame}
+
+\begin{frame}{Step 4 --- same augmented plant, two Riccati equations}
+  \mins{10}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.47\textwidth}
+      {\scriptsize\color{epicrust}\bfseries PID-LQR --- optimal for the model you wrote}
+      \vskip-0.6ex {\footnotesize
+      \[ J=\int_0^\infty\!\bigl(\tilde x^{\top}\!\tilde Q\tilde x
+            +\dot u^{\top}\! R\,\dot u\bigr)\mathrm{d}t \]
+      \vskip-1.8ex
+      \[ \tilde A^{\top}\!P+P\tilde A-P\tilde B R^{-1}\tilde B^{\top}\!P+\tilde Q=0 \]}
+      \vskip-0.4ex
+      {\scriptsize $K_a=R^{-1}\tilde B^{\top}P$\par}
+    \end{column}
+    \begin{column}{0.49\textwidth}
+      {\scriptsize\color{epicrust}\bfseries PID-$H_\infty$ --- optimal against the worst disturbance}
+      \vskip-0.6ex {\footnotesize
+      \[ \text{find }K:\;\;\|T_{w\rightarrow z}\|_\infty<\gamma \]
+      \vskip-1.8ex
+      \[ \tilde A^{\top}\!P+P\tilde A
+         +P\bigl(\gamma^{-2}B_wB_w^{\top}-B_uR^{-1}B_u^{\top}\bigr)P+\tilde Q=0 \]}
+      \vskip-0.4ex
+      {\scriptsize $K_a=R^{-1}B_u^{\top}P$, with $\gamma=1.3\,\gamma_{\min}$ by
+       bisection\par}
+    \end{column}
+  \end{columns}
+  \vskip1.2ex
+  \begin{callout}{One solver, two problems}
+    The HARE is obtained from the same Riccati routine by stacking
+    $\tilde B=[B_u\;\;B_w]$ and setting
+    $\tilde R=\mathrm{diag}(R,\,-\gamma^{2}I)$ --- the negative block is what
+    turns ``cheapest'' into ``safest against the worst case''. Every solution is
+    Hurwitz-checked on $\tilde A-B_uK_a$ before it is accepted.
+  \end{callout}
+  \note{55 s. Do not derive either equation. The message is that the two designs
+        pose the SAME augmented plant and differ only in which Riccati equation
+        they solve -- and in Q, R, gamma.}
+\end{frame}
+
+\begin{frame}{Step 5 --- project the state feedback onto a PID, and that is what flies}
+  \mins{9}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      {\footnotesize
+      \[ \Gamma=\begin{bmatrix}
+           C^{\top} & (CA)^{\top} & (CA^2)^{\top}\\
+           0 & (CB)^{\top} & (CAB)^{\top}\end{bmatrix},\quad
+         \hat K=\Gamma^{+}K_a^{\top} \]}
+      \vskip-0.8ex {\scriptsize
+      \[ K_d=\hat k_3\bigl(I+CB\,\hat k_3\bigr)^{-1} \]
+      \vskip-2.2ex
+      \[ K_p=\bigl(I-K_d\,CB\bigr)\hat k_2,\qquad
+         K_i=\bigl(I-K_d\,CB\bigr)\hat k_1 \]}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item $\Gamma^{+}$ is a pseudo-inverse: the optimal state feedback is
+              \emph{projected} onto what a PID can express
+        \item So the gains are not fitted --- they are the closest PID to an
+              optimal controller
+        \item What runs on the vehicle is still an ordinary PID, which is why
+              the two designs are swappable at run time
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vskip0.8ex
+  \begin{callout}{The law that actually executes, 250 times a second}
+    $\theta_{\mathrm{ref}}=K_p\,e+K_i\!\int\! e\,\mathrm{d}t-K_d\,v
+     +k_{\!f\!f}\,v_{\mathrm{cmd}}$, saturated at $|\theta_{\mathrm{ref}}|\le15^\circ$
+    --- and the integrator is gated at $|e|<0.25$\,m for LQR, always active for
+    $H_\infty$. That one asymmetry returns in the results.
+  \end{callout}
+  \note{50 s. The callout is the single most important line of the low level:
+        it is the actual control law, and it names the asymmetry that explains
+        the headline result.}
+\end{frame}
+
+\begin{frame}{Step 6 --- the outer PID plus a lead reference collapse into a velocity plant}
+  \mins{12}%
+  \begin{itemize}\bulletgap\scriptsize
+    \item The outer loop forms an attitude reference from position error, measured
+          velocity and a velocity feedforward; for small angles $a\approx g\,\theta_{\mathrm{ref}}$
+    \item The coordinator never sends a velocity. It sends a position that
+          \emph{leads} the agent by $T_{\mathrm{lead}}v_{\mathrm{cmd}}$, so the
+          position error \emph{is} the command
+  \end{itemize}
+  \vskip-0.2ex {\small
+  \[ \theta_{\mathrm{ref}}=K_p e+i-K_d v+k_{\!f\!f}v_{\mathrm{cmd}},
+     \qquad e=T_{\mathrm{lead}}v_{\mathrm{cmd}} \]
+  \vskip-1.6ex
+  \[ a=\underbrace{g\,(K_pT_{\mathrm{lead}}+k_{\!f\!f})}_{\text{gain on command}}v_{\mathrm{cmd}}
+       \;-\;\underbrace{g K_d}_{k_v}\,v \]}
+  \begin{callout}{Choose $T_{\mathrm{lead}}$ so the DC gain is exactly one}
+    $g(K_pT_{\mathrm{lead}}+k_{\!f\!f})=gK_d$ gives
+    $T_{\mathrm{lead}}=(K_d-k_{\!f\!f})/K_p$: a commanded speed is the speed
+    actually held, and the closed loop is one first-order equation.
+  \end{callout}
+  \note{The longest slide of the talk, 60 s. Walk the three lines. The payoff is
+        on the next slide: four numbers that everything else is built on.}
+\end{frame}
+
+\begin{frame}{Step 7 --- four numbers, and they come from the gains, not from tuning}
+  \mins{5}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.46\textwidth}
+      \vskip1mm
+      \[ \dot v=\mathrm{sat}_{\pm a_{\max}}\!\bigl(k_v(v_{\mathrm{cmd}}-v)\bigr) \]
+      \vskip0.5ex
+      {\scriptsize
+      \begin{tabular}{@{}ll@{\hskip3mm}l@{}}
+        $k_v=gK_d$ & \num{\PlantKv} & s$^{-1}$ \\
+        $a_{\max}=g\tan\theta_{\max}$ & \num{\PlantAmax} & m/s\textsuperscript{2} \\
+        $T_{\mathrm{lead}}=(K_d-k_{\!f\!f})/K_p$ & \num{\PlantTlead} & s \\
+        $v_c=a_{\max}/k_v$ & \num{\PlantVc} & m/s \\
+      \end{tabular}}
+    \end{column}
+    \begin{column}{0.50\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item $v_c$ is where saturation stops binding --- below it the response
+              is exponential, above it acceleration-limited
+        \item Change a gain or the tilt cap and all four move together
+        \item The same two designs, LQR and $H_\infty$, differ only here:
+              $\|G\|_\infty$ \num{\HnormLqr} $\rightarrow$ \num{\HnormHinf}\,s\textsuperscript{2}
+              (\HnormRatio$\times$), $K_i$ \KiRatio$\times$ larger, phase margin
+              \PmLqr\textdegree{} $\rightarrow$ \PmHinf\textdegree
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{40 s. These four numbers are the interface between the low level and
+        everything above. Table 1 of the paper has the full gain set; do not put
+        it on screen unless asked.}
+\end{frame}
+
+% ====================================== 4. Mid level -- turunan (3,4 min) ==
+\begin{frame}{What $Q$, $R$ and $\gamma$ actually bought, before any flight}
+  \mins{6}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.44\textwidth}
+      \setlength{\figmaxh}{40mm}\figcard{\paneltrackc{width=\linewidth}}
+      \figcaption{Disturbance-to-position gain \textperiodcentered{} dotted line
+        is the wind corner frequency}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Worst-case gain from disturbance to position:
+              $\|G\|_\infty$ \num{\HnormLqr} $\rightarrow$ \num{\HnormHinf}\,s\textsuperscript{2},
+              a \HnormRatio$\times$ reduction
+        \item Predicted deviation under this wind falls \SigxRatio$\times$
+              ($\sigma_x$ \num{\SigxLqr} $\rightarrow$ \num{\SigxHinf})
+        \item Bought with bandwidth: crossover \WcLqr{} $\rightarrow$ \WcHinf\,rad/s
+        \item Paid for in margin: phase \PmLqr\textdegree{} $\rightarrow$
+              \PmHinf\textdegree, gain \GmLqr{} $\rightarrow$ \GmHinf\,dB
+      \end{itemize}
+      \vskip0.8ex
+      \begin{callout}{A prediction, not a result}
+        This is the linear model talking. Whether the flown data agrees --- and
+        whether it agrees for \emph{this} reason --- is the tracking slide in
+        the results.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{35 s. Set up the honest caveat early: the model predicts broadband
+        attenuation, but the flight data will show the gain is mostly a rejected
+        mean offset. Full gain table is in backup.}
+\end{frame}
+
+\sectionframe{4}{Mid level}{From the velocity plant to one linear row per hazard}
+\kick{Mid level}{4 / \sectioncount}
+
+\begin{frame}{Mid level: a wish in metres per second goes in, a safe one comes out}
+  \mins{7}%
+  \centering
+  \scalebox{0.92}{\diagio
+    {\textbf{desired velocity}\\ $\mathbf{u}_{\mathrm{des}}$ [m/s]\\ from the lane follower\\[0.6ex]
+     \textbf{confirmed map}\\ centre [m], radius [m]\\[0.6ex]
+     \textbf{neighbours}\\ $\mathbf{p}$ [m], $\mathbf{v}$ [m/s]}
+    {one linear row per\\ hazard, built from\\ the barrier $\varphi(h)$\\[0.6ex]
+     then a quadratic\\ program --- the only\\ optimisation in the stack}
+    {\textbf{safe velocity}\\ $\mathbf{u}^\star$ [m/s]\\[0.6ex]
+     becomes the set-point\\
+     $\mathbf{p}^\star=\mathbf{p}+T_{\mathrm{lead}}\mathbf{u}^\star$ [m]\\[0.6ex]
+     effect: the agent never\\ closes faster than it\\ can brake}}
+  \vskip2.6ex
+  \begin{columns}[T,onlytextwidth]\scriptsize
+    \begin{column}{0.47\textwidth}
+      What is optimised: the \emph{deviation from what the planner asked},
+      $\|\mathbf{u}-\mathbf{u}_{\mathrm{des}}\|^2$ --- never the safety rows,
+      which are hard constraints.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      Runs 20 times per second, per agent. The output is the box marked
+      ``set-point'' on the previous section --- this is where the two layers meet.
+    \end{column}
+  \end{columns}
+  \note{45 s. The key sentence: the state machine proposes, the QP disposes, and
+        the only thing traded away is how closely we honour the wish.}
+\end{frame}
+
+\begin{frame}{Step 8 --- integrate the plant and you get an exact stopping distance}
+  \mins{7}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item Command zero and the plant decelerates at
+              $\min(k_v v,\,a_{\max})$
+        \item Fast: acceleration-limited, a parabola. Slow: exponential
+        \item The two regimes meet exactly at $v_c$
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \vskip1mm {\small
+      \[ D(s)=\begin{cases}
+           \dfrac{s}{k_v}, & s\le v_c\\[2.2ex]
+           \dfrac{s^2+v_c^2}{2a_{\max}}, & s>v_c
+         \end{cases} \]}
+    \end{column}
+  \end{columns}
+  \vfill
+  \begin{callout}{This is exact, not a bound}
+    $D(s)$ is the integral of the identified plant, so the safety argument below
+    inherits whatever fidelity the identification has --- no extra conservatism,
+    and no optimism either.
+  \end{callout}
+  \note{45 s. Emphasise that nothing has been approximated yet beyond the small
+        angle step.}
+\end{frame}
+
+\begin{frame}{Step 9 --- add dead time, and safety becomes one inequality}
+  \mins{6}%
+  \begin{itemize}\bulletgap\small
+    \item The agent reacts $T_d=0.40$\,s late: sensing, the QP, the set-point
+          hand-off, actuator lag
+    \item During that window it keeps closing at speed $s$; only afterwards does
+          $D(s)$ begin, so the clearance $h$ must cover both
+  \end{itemize}
+  \vskip-0.4ex
+  \centering\scalebox{0.60}{\diagbudget}\par
+  \vskip-0.2ex
+  \raggedright
+  \begin{callout}{Read it as a speed limit, not a distance check}
+    Linear in $h$, quadratic in $s$. Solving for $s$ turns a safety requirement
+    into something the controller can act on.
+  \end{callout}
+  \note{45 s. The budget a is not quite a\_max: a = max(0.15 a\_max, mu a\_max
+        minus obstacle and wind accelerations), mu = 0.75, 0.85 for walls.
+        Mention only if asked.}
+\end{frame}
+
+\begin{frame}{Step 10 --- solve for the speed and the barrier $\varphi(h)$ falls out}
+  \mins{13}%
+  \vskip-0.8ex {\small
+  \[ \varphi(h)=\max\!\Bigl(0,-aT_d+\sqrt{a^2T_d^2+2ah-v_c^2}\Bigr),
+     \quad \varphi(h)=\gamma_r h \;\text{ for } h<0 \]}
+  \vskip-0.6ex
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.44\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item The fastest approach that can still be stopped --- an extended
+              class-$\mathcal{K}$ function with units of speed
+        \item $\varphi=0$ for $h\le v_c^2/2a=0.16$\,m: at that clearance the
+              vehicle must already be stopped
+        \item Below zero it goes negative and \emph{commands} separation
+              ($\gamma_r=3.5$\,s$^{-1}$)
+        \item A linear $\gamma h$ matched at 1.6\,m/s still permits approach
+              inside 0.16\,m --- it fails exactly where it matters
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \setlength{\figmaxh}{44mm}\figcard{\panelcbfa{width=\linewidth}}
+    \end{column}
+  \end{columns}
+  \note{The core of the method, 65 s. Point at the pink band in the figure: that
+        is the region where the linear function lies above zero but the vehicle
+        cannot stop.}
+\end{frame}
+
+\begin{frame}
+  \mins{2}%
+  \bignum{1.67\,m}{of clearance before 1.6\,m/s is an allowed approach speed}
+    {1.0\,m/s needs 0.90\,m \textperiodcentered{} 0.5\,m/s needs 0.44\,m
+     \textperiodcentered{} at 0.16\,m the admissible speed is zero. Read off
+     $\varphi$, with no parameter left to choose.}
+  \note{12 s. This is what makes the barrier concrete for the audience, and it is
+        the number the planner inherits on the next section.}
+\end{frame}
+
+\begin{frame}{Step 11 --- one hazard, one linear row on the commanded velocity}
+  \mins{5}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \vskip1mm {\small
+      \[ \mathbf{n}_{ij}^{\top}\mathbf{u}_i\;\le\;\lambda_{ij}\,\varphi(h_{ij}),
+         \qquad \lambda_{ij}+\lambda_{ji}=1 \]}
+      \begin{itemize}\bulletgap\scriptsize
+        \item $\mathbf{n}_{ij}$ points from agent to hazard; the row caps only
+              the \emph{closing} component, never the tangential one
+        \item Static cylinders, moving cylinders, arena walls and neighbours all
+              produce rows of this one shape
+        \item Agent pairs split the burden reciprocally --- exact only from one
+              snapshot, so all seven are solved together
+        \item Hard separation 0.70\,m, soft 1.20\,m
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \centering\vskip2mm
+      \scalebox{0.60}{\diagrow}
+    \end{column}
+  \end{columns}
+  \note{40 s. Stress that the row shape is the same for every hazard class --
+        that is what keeps the QP small and the code auditable.}
+\end{frame}
+
+\begin{frame}{Step 12 --- stack the rows and the safe velocity is a projection}
+  \mins{7}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.50\textwidth}
+      \vskip1mm {\small
+      \[ \mathbf{u}^{\star}=\arg\min_{\mathbf{u}}\;
+         \|\mathbf{u}-\mathbf{u}_{\mathrm{des}}\|^2
+         \quad\text{s.t.}\quad A\mathbf{u}\le b \]}
+      \begin{itemize}\bulletgap\scriptsize
+        \item The state machine proposes $\mathbf{u}_{\mathrm{des}}$; the QP
+              returns the nearest admissible velocity
+        \item Two variables only, so it is solved \emph{exactly} by active-set
+              enumeration --- \num{138}\,$\mu$s at 24 rows, no solver dependency
+        \item Validated on 3000 random instances: SLSQP failed 320, this none
+        \item Deadlock recovery touches only the objective, never $A$ or $b$ ---
+              liveness is never traded against safety
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \vskip2mm
+      \begin{callout}{Measured over eight missions}
+        19{,}500--25{,}900 solves each. Tier 1--2 fallbacks on
+        \PtierRectHinf--\PtierPlusLqr\%; tier 3 never in a completed run.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{40 s. CBF rows only prevent approach, they never restore separation --
+        that is why the recovery term exists at all.}
+\end{frame}
+
+% ===================================== 5. High level -- turunan (2,1 min) ==
+\sectionframe{5}{High level}{From $\varphi(h)$ and the sensor footprint to the
+  lane grid}
+\kick{High level}{5 / \sectioncount}
+
+\begin{frame}{High level: a polygon goes in, a lane to fly comes out}
+  \mins{5}%
+  \centering
+  \scalebox{0.92}{\diagio
+    {\textbf{region}\\ polygon, [m\textsuperscript{2}]\\[0.6ex]
+     \textbf{agent poses}\\ $\mathbf{p}_{1..7}$ [m]\\[0.6ex]
+     \textbf{coverage grid}\\ 0.30\,m cells\\[0.6ex]
+     \textbf{events}\\ an agent has died}
+    {clip, partition, Lloyd,\\ Hungarian assignment\\[0.6ex]
+     boustrophedon lanes\\ at $\le1.45$\,m pitch\\[0.6ex]
+     keep-out routing at\\ 1.30\,m; on a loss,\\ merge and re-lane}
+    {\textbf{one lane}\\ two endpoints [m]\\[0.6ex]
+     and a carrot on it,\\ giving
+     $\mathbf{u}_{\mathrm{des}}$ [m/s]\\[0.6ex]
+     effect: every cell gets\\ swept, and a dead agent's\\ cell still gets swept}}
+  \vskip2.6ex
+  \begin{columns}[T,onlytextwidth]\scriptsize
+    \begin{column}{0.47\textwidth}
+      No clock: this layer only runs when a lane ends, an obstacle is confirmed,
+      or an agent dies.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      Its output is the leftmost box of the mid level --- the chain closes, and
+      every limit it applies came from below.
+    \end{column}
+  \end{columns}
+  \note{40 s. Close the loop out loud: high level output = mid level input, mid
+        level output = low level input, and the limits travelled the other way.}
+\end{frame}
+
+\begin{frame}{Step 13 --- the planner's keep-out radius is read off the barrier, not chosen}
+  \mins{8}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Physical need: cylinder 0.40 $+$ airframe 0.22 $+$ margin 0.25
+              $=$ \num{0.87}\,m
+        \item But a detour is an \emph{arc}, and a chord cuts inside it. Capping
+              the chord at $70^\circ$ gives
+              $1.30\cos35^\circ=\num{1.065}$\,m --- still clear of
+              $\num{1.10}$\,m, the proved minimum
+        \item So the planner routes at \num{1.30}\,m, and the string-pulling pass
+              may only shorten a path if it can prove $\ge\num{1.10}$\,m
+        \item At \num{1.30}\,m with a \num{0.95}\,m sensor, the ring around each
+              cylinder is still swept --- the detour costs no coverage
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \vskip2mm
+      \begin{callout}{Planner versus filter}
+        The planner keeps the nominal path clear of what is \emph{known}. The QP
+        handles what was not known yet. Between a LiDAR discovery and the
+        re-plan, the QP is the only thing keeping the agent safe.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{50 s. The 70 degree cap also keeps chords long (1.49 m) so the 0.60 m
+        minimum-segment merge cannot cut the corner back into the keep-out zone.}
+\end{frame}
+
+\begin{frame}{Step 14 --- the sensor sets the lane pitch, the region sets the cells}
+  \mins{6}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Sensor radius \num{0.95}\,m $\rightarrow$ \num{1.90}\,m swath;
+              lanes at $\le\num{1.45}$\,m leave $\ge\num{0.45}$\,m overlap, so
+              heading error opens no gaps
+        \item Cells: each agent takes the points nearest to it, generators move
+              to the centroid, repeat --- Lloyd, 25 passes, then Hungarian
+              assignment on transit cost
+        \item Every cell is clipped to the region polygon first and shrunk
+              \num{0.35}\,m, so nothing assumes a rectangle
+        \item First and last lanes follow the cell's own boundary chain --- a
+              fixed-pitch raster misses the wedges at tapered corners
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \setlength{\figmaxh}{36mm}\figcard{\panelhigha{width=\linewidth}}
+      \figcaption{Take-off: 7 agents, 54 lanes}
+    \end{column}
+  \end{columns}
+  \note{40 s. Entry points are chosen combinatorially, not greedily: two
+        neighbours can otherwise be assigned entries exactly 0.70 m apart -- the
+        hard separation -- and then neither can arrive. Observed: 317 s at 0\%.}
+\end{frame}
+
+\begin{frame}{Step 15 --- when an agent dies, the same geometry is simply re-run}
+  \mins{6}%
+  \centering\setlength{\figmaxh}{40mm}
+  \figcard{\includegraphics[width=0.90\textwidth]{concept_high}}
+  \figcaption{(a) 7 agents, 54 lanes \textperiodcentered{} (b) agent 4 lost at
+    41\,s \textperiodcentered{} (c) agent 5 lost at 58\,s}
+  \note{On a loss: erase coverage inside the failed cell, merge it with its
+        neighbours, re-lane the union with the same pitch, drop lanes already
+        80\% covered, and hand contiguous serpentine blocks to 1-3 helpers.
+        Contiguity is the key choice -- a helper should not shuttle across the
+        arena between lanes.}
+\end{frame}
+
+% =========================================== 7. Eksperimen (1,2 min) =======
+\sectionframe{6}{Experiment}{Every stressor at once, eight recorded missions}
+\kick{Experiment}{6 / \sectioncount}
+
+\begin{frame}{Every stressor applied at once, to seven quadrotors}
+  \mins{6}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \begin{itemize}\bulletgap
+        \item Seven 3DR Iris in Gazebo + ROS 2 \textperiodcentered{} cruise
+              2.0\,m \textperiodcentered{} sweep 1.6\,m/s
+        \item Wind: Gauss--Markov, $\sigma=2.5$\,m/s, plus a constant
+              $-2$\,m/s per axis
+          \begin{itemize}
+            \item recorded mean (\WindMeanX, \WindMeanY)\,m/s, peaks \WindMaxH\,m/s
+          \end{itemize}
+        \item Two moving cylinders oscillating diagonally at up to 2.5\,m/s
+        \item Two agents killed fail-stop, at 18\% and 32\% coverage
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \figcard{\includegraphics[width=\linewidth]{fig_traj}}
+      \figcaption{Flown trajectories --- \hinf{} (top), \lqr{} (bottom)}
+    \end{column}
+  \end{columns}
+  \note{45 s. m = 1.50 kg, arm 0.22 m, rotor under 1100 rad/s. Correlation time
+        0.5 s, wind starts at t = 5 s. Let the results table carry the rest.}
+\end{frame}
+
+\begin{frame}{Every number here traces to a CSV, or it is not shown}
+  \mins{4}%
+  \begin{itemize}\bulletgap
+    \item Four regions $\times$ two controllers, recorded 11--12 September 2026
+    \item Each run carries a manifest: recording, log, git commit, who was killed
+    \item One analysis script over 56 CSVs and 8 logs generates every figure
+    \item $N=1$ per configuration, one wind seed --- single-run observations
+  \end{itemize}
+  \vfill
+  \begin{callout}{Why we say this up front}
+    Earlier tooling in this project silently synthesised telemetry when CSVs were
+    missing. Missing data now prints \texttt{n/a} and is never substituted.
+  \end{callout}
+  \note{This slide buys you the right to show a crash next. Q3 in the pack.
+        These very slides read the same generated macro file as the paper.}
+\end{frame}
+
+% =============================================== 8. Video (2,8 min) =======
+\sectionframe{7}{The missions}{Four clips --- one full mission, two mechanisms,
+  one failure}
+\kick{Missions}{7 / \sectioncount}
+
+\begin{frame}
+  \mins{2}%
+  \bignum{7 of 8}{missions finished, after losing two of seven quadrotors}
+    {\CovMin--\CovMax\% coverage under turbulence, unmapped static obstacles and
+     moving obstacles. The eighth is four slides away, and we are going to watch it.}
+  \note{12 s. Then straight into the video section.}
+\end{frame}
+
+\begin{frame}{A full mission: partition, transit, sweep, two losses, return to centroid}
+  \mins{10}%
+  \centering
+  \videoposter{rect_hinf}{0.64\textwidth}
+  \figcaption{rect, \hinf{} \textperiodcentered{} 8$\times$ wall clock $\approx$
+    real mission time \textperiodcentered{} \CovRectHinf\% in \TmisRectHinf\,s,
+    agents \VictimsRectHinf{} killed \textperiodcentered{} \videonote}
+  \note{Play about 40 s then stop --- do not play all 263 s. Narrate the phases
+        as they happen. The HUD in the clip carries sim time and live coverage.}
+\end{frame}
+
+\begin{frame}{The swarm never pauses --- survivors keep sweeping through a reallocation}
+  \mins{5}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \videoposter{h1_fault_kill1}{0.92\linewidth}
+      \figcaption{rect, \hinf{} \textperiodcentered{} 25\,s of mission time
+        around the first kill \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \vskip3mm
+      \begin{itemize}\bulletgap
+        \item Agent 4 killed at 18\% coverage
+        \item Coverage inside its cell is erased
+        \item The cell is merged and re-laned
+        \item Helper groups this run: \HelpersRectHinf
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{24 s clip. Let it run once and talk over it. The coverage dip is visible
+        on the curve two slides later.}
+\end{frame}
+
+\begin{frame}{One mission ended in an obstacle strike, and we report it as such}
+  \mins{6}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \videoposter{h3_crash_rect_lqr}{0.92\linewidth}
+      \figcaption{Slowed \SlowHthree$\times$ relative to real time
+        \textperiodcentered{} the only one of eight missions that did not finish
+        \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \vskip3mm
+      \begin{itemize}\bulletgap
+        \item Agent 2 reaches \UpRectLqrSurf\,m from a cylinder surface
+        \item Inside the airframe envelope --- \BodyHalf\,m body,
+              \RotorReach\,m rotors
+        \item Tilt \UpRectLqrTilt\textdegree, altitude \UpRectLqrZmin\,m, no recovery
+        \item Stopped at \TmisRectLqr\,s; coverage reported \texttt{n/a}
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Do not apologise for this slide. State it plainly --- it is the most
+        scientifically useful result in the set. The cause comes two slides later.}
+\end{frame}
+
+% =============================================== 9. Hasil (3,4 min) =======
+\sectionframe{8}{Results}{What finished, how tightly it flew, and what it cost}
+\kick{Results}{8 / \sectioncount}
+
+\begin{frame}{$H_\infty$ finished every region; LQR finished three and struck a cylinder in the fourth}
+  \mins{10}%
+  \centering\scriptsize
+  \setlength{\tabcolsep}{3.4pt}\renewcommand{\arraystretch}{1.18}
+  \begin{tabular}{llcrrrrcrrr}
+    \toprule
+    \textbf{Region} & \textbf{Controller} & \textbf{Status} & \textbf{Cov.\%} &
+    \textbf{T (s)} & \textbf{lat.\,(cm)} & $\bar v$\,\textbf{(m/s)} &
+    \textbf{tilt}$_{95}$\,/\,\textbf{max (\textdegree)} & \textbf{effort} &
+    $d_{\mathrm{obs}}$\,\textbf{(m)} & $d_{\mathrm{v2v}}$\,\textbf{(m)} \\
+    \midrule
+    rect & \cH{\hinf} & done & \CovRectHinf & \TmisRectHinf & \LatrmsRectHinf
+      & \VsweepRectHinf & \TiltpfiveRectHinf\,/\,\TiltmaxRectHinf
+      & \EffortRectHinf & \ObssurfRectHinf & \VtwovRectHinf \\
+    \rowcolor{epicband}
+    \cBad{rect} & \cBad{\lqr} & \cBad{abort @ \TmisRectLqr\,s} & \cBad{n/a}
+      & \cBad{n/a} & \cBad{\LatrmsRectLqr} & \cBad{\VsweepRectLqr}
+      & \cBad{\TiltpfiveRectLqr\,/\,\TiltmaxRectLqr} & \cBad{\EffortRectLqr}
+      & \cBad{\ObssurfRectLqr} & \cBad{\VtwovRectLqr} \\
+    L-shape & \cH{\hinf} & done & \CovLshapeHinf & \TmisLshapeHinf & \LatrmsLshapeHinf
+      & \VsweepLshapeHinf & \TiltpfiveLshapeHinf\,/\,\TiltmaxLshapeHinf
+      & \EffortLshapeHinf & \ObssurfLshapeHinf & \VtwovLshapeHinf \\
+    L-shape & \cL{\lqr} & done & \CovLshapeLqr & \TmisLshapeLqr & \LatrmsLshapeLqr
+      & \VsweepLshapeLqr & \TiltpfiveLshapeLqr\,/\,\TiltmaxLshapeLqr
+      & \EffortLshapeLqr & \ObssurfLshapeLqr & \VtwovLshapeLqr \\
+    U-shape & \cH{\hinf} & done & \CovUshapeHinf & \TmisUshapeHinf & \LatrmsUshapeHinf
+      & \VsweepUshapeHinf & \TiltpfiveUshapeHinf\,/\,\TiltmaxUshapeHinf
+      & \EffortUshapeHinf & \ObssurfUshapeHinf & \VtwovUshapeHinf \\
+    U-shape & \cL{\lqr} & done & \CovUshapeLqr & \TmisUshapeLqr & \LatrmsUshapeLqr
+      & \VsweepUshapeLqr & \TiltpfiveUshapeLqr\,/\,\TiltmaxUshapeLqr
+      & \EffortUshapeLqr & \ObssurfUshapeLqr & \VtwovUshapeLqr \\
+    plus & \cH{\hinf} & done & \CovPlusHinf & \TmisPlusHinf & \LatrmsPlusHinf
+      & \VsweepPlusHinf & \TiltpfivePlusHinf\,/\,\TiltmaxPlusHinf
+      & \EffortPlusHinf & \ObssurfPlusHinf & \VtwovPlusHinf \\
+    plus & \cL{\lqr} & done & \CovPlusLqr & \TmisPlusLqr & \LatrmsPlusLqr
+      & \VsweepPlusLqr & \TiltpfivePlusLqr\,/\,\TiltmaxPlusLqr
+      & \EffortPlusLqr & \ObssurfPlusLqr & \VtwovPlusLqr \\
+    \bottomrule
+  \end{tabular}
+  \vskip1.8ex
+  \begin{itemize}\bulletgap\scriptsize
+    \item LQR is not uniformly worse: best coverage of the campaign
+          (\CovPlusLqr\% in plus) and the lowest peak tilt
+          (\TiltmaxUshapeLqr\textdegree{} in U-shape)
+    \item Sweep-phase tilt sits at the 15\textdegree{} reference cap in every
+          run; the maxima come from lane-end pivots and upsets
+  \end{itemize}
+  \note{Ten seconds of silence so they can read it. Then name three things: the
+        abort row, the 0.06 m clearance, and that Hinf finished every region.}
+\end{frame}
+
+\begin{frame}
+  \mins{2}%
+  \bignum{\ObssurfRectLqr\,m}{was the clearance at which the one failure happened}
+    {Inside the \BodyHalf\,m body half-width, let alone the \RotorReach\,m rotor
+     reach. Every upset in the campaign was preceded by 1--4\,s of tier-2 QP
+     solves bound by that same cylinder --- the filter saw it coming and ran out
+     of control authority.}
+  \note{12 s. This is the number a reviewer will remember; own it.}
+\end{frame}
+
+\begin{frame}{Coverage goes backwards at every loss --- by design}
+  \mins{4}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \figcard{\includegraphics[width=\linewidth]{fig_coverage}}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \vskip3mm
+      \begin{itemize}\bulletgap
+        \item Coverage inside a failed cell is erased, so the curve genuinely drops
+        \item The cross marks the aborted rect / \lqr{} run at about 79\,s
+        \item \hinf{} (solid) reaches the 97\% target sooner in every region it
+              completed
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{The backwards step is a design choice, not a plotting artefact. Say so
+        explicitly or someone will think it is a bug.}
+\end{frame}
+
+\begin{frame}{Most of the $H_\infty$ advantage is a rejected mean offset, not broadband attenuation}
+  \mins{10}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.40\textwidth}
+      \setlength{\figmaxh}{37mm}\figcard{\paneltracka{width=\linewidth}}
+    \end{column}
+    \begin{column}{0.56\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item RMS \LatRmsLqrMin--\LatRmsLqrMax{} $\rightarrow$
+              \LatRmsHinfMin--\LatRmsHinfMax\,cm --- a
+              \LatRedMin--\LatRedMax\% reduction
+        \item But the spread is close: std \LatStdLqrMin--\LatStdLqrMax{} vs
+              \LatStdHinfMin--\LatStdHinfMax\,cm
+        \item The MEAN is what moved: LQR \LatMeanLqrMin{} to \LatMeanLqrMax\,cm,
+              $H_\infty$ \LatMeanHinfMin--\LatMeanHinfMax\,cm
+      \end{itemize}
+      \vskip1ex
+      \begin{callout}{Two real effects, not one claim}
+        $H_\infty$ does attenuate (\HnormRatio$\times$ lower $\|G\|_\infty$) and
+        does have a \KiRatio$\times$ larger integral gain. Here the second
+        dominates; saying only the first would overstate the method.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{The slide that separates a careful paper from a marketing one. Take the
+        full 50 s. Median fell from \LatMedLqrMin--\LatMedLqrMax{} to
+        \LatMedHinfMin--\LatMedHinfMax{} cm.}
+\end{frame}
+
+\begin{frame}
+  \mins{3}%
+  \bignum{\IntegWinLqrMin--\IntegWinLqrMax\%}
+    {of sweep samples had the LQR integrator open --- against
+     \IntegWinHinfMin--\IntegWinHinfMax\% for $H_\infty$}
+    {The LQR position integrator is gated to $|e|<0.25$\,m, but the set-point
+     leads by $T_{\mathrm{lead}}u^\star\approx0.4$\,m during a sweep, so the gate
+     is shut much of the time. That is the mechanism behind the lateral bias ---
+     and it is a tuning choice, not a property of LQR.}
+  \note{18 s. The most interesting finding in the paper and the one that stops an
+        unfair conclusion. Expect Q5 here.}
+\end{frame}
+
+\begin{frame}{Holding the lane tighter costs torque, and the trade is one scatter}
+  \mins{6}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.44\textwidth}
+      \setlength{\figmaxh}{40mm}\figcard{\paneltrackb{width=\linewidth}}
+      \figcaption{Lateral RMS against torque effort
+        $\overline{\tau_x^2+\tau_y^2}$ \textperiodcentered{} marker shape is the
+        region}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Every $H_\infty$ run sits lower \emph{and} further right: tighter
+              lanes, more effort
+        \item Torque effort \EffRatioMin--\EffRatioMax$\times$ higher ---
+              \num{\EffortLshapeLqr}--\num{\EffortPlusLqr} for LQR against
+              \num{\EffortUshapeHinf}--\num{\EffortLshapeHinf} for $H_\infty$
+        \item Motor saturation stayed under 0.2\% of samples for both: effort
+              spent, not authority exhausted
+        \item On a battery-limited platform this ratio, not the lateral error,
+              may be what decides
+      \end{itemize}
+      \vskip0.6ex
+      \begin{callout}{Neither design wins outright}
+        $H_\infty$ is tighter on the lane and harder on the airframe; LQR is
+        gentler and looser.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{35 s. Point at the gap between the blue and orange clusters on the x
+        axis -- that is the whole cost argument in one picture.}
+\end{frame}
+
+\begin{frame}{No pair went below 0.70\,m --- which is not the same as no collisions}
+  \mins{5}%
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.44\textwidth}
+      \setlength{\figmaxh}{36mm}\figcard{\paneleventb{width=\linewidth}}
+      \figcaption{plus, iris\_2 \textperiodcentered{} \hinf{} (blue) vs \lqr{}
+        (orange) \textperiodcentered{} surface distance, tilt, altitude}
+    \end{column}
+    \begin{column}{0.52\textwidth}
+      \begin{itemize}\bulletgap\scriptsize
+        \item Closest agent pair of the campaign: \VtwovLshapeLqr\,m vs a
+              0.70\,m hard radius
+        \item Static clearance --- $H_\infty$ \ObssurfRectHinf\,/\,%
+              \ObssurfLshapeHinf\,/\,\ObssurfUshapeHinf\,m, LQR
+              \ObssurfRectLqr\,/\,\ObssurfLshapeLqr\,/\,\ObssurfUshapeLqr\,m
+        \item Three missions passed within rotor reach without contact being provable
+      \end{itemize}
+      \vskip0.4ex
+      \begin{callout}{What we do not claim}
+        Rotor guards are an assumption, not a simulated result, and inter-agent
+        contact is never detected --- only $d_{\min}$ is tracked.
+      \end{callout}
+    \end{column}
+  \end{columns}
+  \note{All eight runs logged a negative moving-obstacle barrier, to
+        \HdynMinLogged{} m --- Q7 covers it.
+        Q6 and Q7 live here. Saying it first is cheaper than defending it later.
+        Torque effort \EffRatioMin--\EffRatioMax{}x higher for Hinf; motor
+        saturation under 0.2\% of samples for both.}
+\end{frame}
+
+% ============================================= 10. Penutup (1,2 min) ======
+\kick{Conclusion}{9 / \sectioncount}
+
+\begin{frame}{What this work does not establish}
+  \mins{3}%
+  \begin{itemize}\bulletgap
+    \item Single runs, one wind seed --- $N=1$ per configuration
+    \item Perfect state and perfect moving-obstacle feedback
+    \item Instant failure detection; geometric coverage only
+    \item Rotor guards assumed, not simulated
+    \item Centralised upper layers; no ablation, no re-implemented baseline
+  \end{itemize}
+  \note{Read quickly and without hedging. A short slide that earns trust. Runs
+        are stopped at unscheduled crashes rather than continued.}
+\end{frame}
+
+\begin{frame}{Seven of eight, under every stressor at once}
+  \mins{4}%
+  \begin{itemize}\bulletgap
+    \item \CovMin--\CovMax\% coverage while losing two of seven quadrotors
+    \item Where both finished, $H_\infty$ held lanes \LatRedMin--\LatRedMax\%
+          tighter and finished \TimeRedMin--\TimeRedMax\% sooner
+    \item --- at several times the torque effort, and with smaller margins
+    \item One LQR mission struck a cylinder; three others came within rotor reach
+    \item Next: several wind seeds, a guard-sized gust-aware barrier, distributed
+          upper layers, flight tests
+  \end{itemize}
+  \note{Land on the future work, then go straight to the thank-you slide.}
+\end{frame}
+
+{\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
+\begin{frame}[plain]
+  \mins{3}%
+  \begin{tikzpicture}[remember picture,overlay]
+    \fill[epicbrick] (current page.north west) rectangle
+      ([yshift=-27mm]current page.north east);
+    \fill[epicclay] ([yshift=-27mm]current page.north west) rectangle
+      ([yshift=-27.9mm]current page.north east);
+  \end{tikzpicture}%
+  \vskip8mm
+  {\color{epicwhite}\headfont\fontsize{30}{34}\selectfont Thank you\par}
+  \vskip18mm
+  {\color{epicrust}\headfont\normalsize Questions welcome\par}
+  \vskip3mm
+  {\color{epicbody}\small
+   Izma Alhazmi Herdian \textperiodcentered{} izmaherdian@gmail.com\\
+   Engineering Physics, Institut Teknologi Bandung\par}
+  \vskip5mm
+  {\color{epicmuted}\small
+   Code MIT, media CC BY 4.0 \textperiodcentered{} all eight mission recordings
+   are public\\
+   Acknowledgment: CITA ITB covered registration and publication fees\par}
+  \vfill
+  \hbox{\playlistqr[13mm]\hskip4mm
+    \raisebox{4mm}{\color{epicblue}\small\bfseries
+      github.com/izmaherdian/swarm-quadrotor-mapping}}
+  \note{End here. Do NOT advance -- the backup section behind this slide holds
+        the anticipated-question pack; jump to it only if a question lands.}
+\end{frame}}
+
+% ======================================================== Backup ==========
+\sectionframe{B}{Backup}{Extra material --- not part of the 20-minute talk}
+\kick{Backup}{}
+
+% =========================================================== Q&A ==========
+% Nomor slide di indeks memakai \pageref, bukan diketik tangan: kalau urutan
+% frame berubah, rujukannya ikut. Perlu dua kali kompilasi (latexmk mengurus).
+\kick{Q\&A \textperiodcentered{} anticipated}{Backup}
+
+\begin{frame}{Questions we expect}
+  \scriptsize\vskip-0.8ex
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.48\textwidth}
+      \textbf{Q1} Why a CBF-QP? The abstract said ORCA.\\
+      {\color{epicmuted}\scriptsize ORCA assumes an integrator that can change
+        velocity instantly \textperiodcentered{} slide \pageref{q:orca}}\\[0.45ex]
+      \textbf{Q2} Why no PX4 SITL? Where is the estimator?\\
+      {\color{epicmuted}\scriptsize Ground-truth odometry, no PX4 in the loop;
+        stated as a limitation \textperiodcentered{} slide \pageref{q:px4}}\\[0.45ex]
+      \textbf{Q3} $N=1$. Is this statistically meaningful?\\
+      {\color{epicmuted}\scriptsize No --- single-run observations, and the
+        abstract says so \textperiodcentered{} slide \pageref{q:n1}}\\[0.45ex]
+      \textbf{Q4} Why did the LQR run crash? Is it fair?\\
+      {\color{epicmuted}\scriptsize Identical structure; the crash follows from
+        the bias \textperiodcentered{} slide \pageref{q:crash}}\\[0.45ex]
+      \textbf{Q5} Is $H_\infty$ better, or just a bigger integrator?\\
+      {\color{epicmuted}\scriptsize Both are real and we separate them
+        \textperiodcentered{} slide \pageref{q:atten}}\\[0.45ex]
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Q6} Did any two drones collide?\\
+      {\color{epicmuted}\scriptsize Closest pair \VtwovLshapeLqr\,m, but contact
+        is never detected \textperiodcentered{} slide \pageref{q:v2v}}\\[0.45ex]
+      \textbf{Q7} A barrier of \HdynMinLogged\,m is negative. Contact?\\
+      {\color{epicmuted}\scriptsize Cannot be confirmed or excluded; guards are
+        an assumption \textperiodcentered{} slide \pageref{q:hdyn}}\\[0.45ex]
+      \textbf{Q8} What does the filter cost? Is it real-time?\\
+      {\color{epicmuted}\scriptsize 138\,$\mu$s per agent against a 50\,ms budget
+        \textperiodcentered{} slide \pageref{q:cost}}\\[0.45ex]
+      \textbf{Q9} Does this scale past seven agents?\\
+      {\color{epicmuted}\scriptsize The QP does; the upper layers are centralised
+        \textperiodcentered{} slide \pageref{q:scale}}\\[0.45ex]
+      \textbf{Q10} Why is coverage not 100\%?\\
+      {\color{epicmuted}\scriptsize Geometric coverage; offline ceiling is
+        \CovofflineUshapeLqr--\CovofflinePlusHinf\%
+        \textperiodcentered{} slide \pageref{q:cov}}\\[0.45ex]
+      \textbf{Q11} Tilt limit is 15\textdegree{} but the table shows 21--26\textdegree.\\
+      {\color{epicmuted}\scriptsize 15\textdegree{} caps the reference, not the
+        measured attitude \textperiodcentered{} slide \pageref{q:tilt}}
+    \end{column}
+  \end{columns}
+  \note{Leave this up during the whole Q\&A. The slide numbers resolve through
+        \textbackslash pageref, so they stay correct if frames move.}
+\end{frame}
+
+\kick{Q1 \textperiodcentered{} Why not ORCA}{Q\&A}
+\begin{frame}{ORCA's guarantee assumes an actuator this vehicle does not have}
+  \label{q:orca}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item ORCA's half-plane is safe only if velocity can change instantly
+        \item This quadrotor has \PlantAmax\,m/s\textsuperscript{2} and 0.40\,s
+              of dead time
+        \item So a half-plane can be geometrically feasible and actuator-infeasible
+        \item A CBF row states the real limit: the fastest approach that can
+              still stop
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}\figcard{\panelcbfa{width=\linewidth}}\end{column}
+  \end{columns}
+  \note{Be direct that the accepted abstract said ORCA and we report the
+        substitution rather than quietly keeping the wording.}
+\end{frame}
+
+\kick{Q2 \textperiodcentered{} No PX4, no estimator}{Q\&A}
+\begin{frame}{Removing the estimator is what keeps the controller comparison clean}
+  \label{q:px4}
+  \begin{itemize}\bulletgap
+    \item Controllers read ground-truth odometry and write rotor speeds directly
+    \item No EKF2, commander, mixer or MAVLink --- PX4 gives airframe parameters only
+    \item Upside: the LQR--$H_\infty$ difference is not confounded by estimator dynamics
+    \item Cost: no claim about state noise, latency or GPS dropout. Listed as a limit
+  \end{itemize}
+  \vfill\centering\setlength{\figmaxh}{22mm}
+  \figcard{\includegraphics[width=0.66\textwidth]{signal_path}}
+  \note{Closing this gap is explicitly future work, together with flight tests.}
+\end{frame}
+
+\kick{Q3 \textperiodcentered{} On $N=1$}{Q\&A}
+\begin{frame}{No --- and we call them single-run observations in the abstract}
+  \label{q:n1}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item Eight missions, one wind seed. Not statistics
+        \item Still readable: the mechanisms, and a lateral bias that appears in
+              all four regions
+        \item Not readable: ranking by a few percent of time, or crash
+              probability from one crash
+        \item What it would take: several seeds $\times$ repetitions, paired statistics
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \figcard{\includegraphics[width=\linewidth]{fig_coverage}}
+    \end{column}
+  \end{columns}
+  \note{The run matrix and every CSV are published, so the campaign can be
+        extended rather than re-created. First item of future work.}
+\end{frame}
+
+\kick{Q4 \textperiodcentered{} The crash, and fairness}{Q\&A}
+\begin{frame}{The crash is a consequence of the bias, not of an unfair setup}
+  \label{q:crash}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item Shared: cascade, every limit, planner, QP, scenario. Different:
+              gains and the integrator gate
+        \item The chain --- \LatMeanLqrMin{} to \LatMeanLqrMax\,cm downwind bias
+              $\rightarrow$ \UpRectLqrSurf\,m clearance $\rightarrow$ tilt
+              \UpRectLqrTilt\textdegree{} $\rightarrow$ no recovery
+        \item An earlier upset in the same run recovered: iris\_6,
+              \UpRectLqrSecondTilt\textdegree{} at \UpRectLqrSecondSurf\,m
+        \item Reported as abort with coverage \texttt{n/a} --- not scored
+              partially, not dropped
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \figcard{\paneleventa{width=\linewidth}}
+      \figcaption{rect, \lqr, iris\_2 \textperiodcentered{} surface distance,
+        tilt, altitude}
+    \end{column}
+  \end{columns}
+  \note{Every upset in the campaign was preceded by 1--4 s of tier-2 QP solves
+        bound by that cylinder --- the filter saw it coming and ran out of authority.}
+\end{frame}
+
+\kick{Q5 \textperiodcentered{} Attenuation or integrator}{Q\&A}
+\begin{frame}{Both effects are real --- and here the integrator policy dominates}
+  \label{q:atten}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item Design side: $\|G\|_\infty$ \HnormLqr{} $\rightarrow$ \HnormHinf\,s\textsuperscript{2},
+              a \HnormRatio$\times$ reduction; predicted deviation falls \SigxRatio$\times$
+        \item Flight side: the spread barely moved --- the mean did
+        \item $H_\infty$ integral gain is \KiRatio$\times$ larger; the LQR gate is
+              shut much of a sweep
+        \item Measured open fraction: \IntegWinLqrMin--\IntegWinLqrMax\% vs
+              \IntegWinHinfMin--\IntegWinHinfMax\%
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \setlength{\figmaxh}{38mm}\figcard{\paneltrackc{width=\linewidth}}
+      \figcaption{Disturbance-to-position gain \textperiodcentered{} dotted line
+        is the wind corner frequency}
+    \end{column}
+  \end{columns}
+  \note{Honest claim: Hinf rejects the mean wind better here, partly by design
+        and partly by integrator policy. Not pure L2 attenuation.}
+\end{frame}
+
+\kick{Q6 \textperiodcentered{} Inter-agent separation}{Q\&A}
+\begin{frame}{No pair went below 0.70\,m --- which is a weaker statement than no collisions}
+  \label{q:v2v}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \videoposter{h7_v2v_closest}{0.92\linewidth}
+      \figcaption{L-shape, \lqr{} \textperiodcentered{} the closest
+        drone-to-drone pass, \VtwovLshapeLqr\,m \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \vskip2mm
+      \begin{itemize}\bulletgap\small
+        \item Closest pair: \VtwovLshapeLqr\,m (L-shape, \lqr)
+        \item Per-run minima range up to \VtwovUshapeHinf\,m
+        \item The system tracks $d_{\min}$ only --- it never detects a contact
+        \item $\lambda_{ij}+\lambda_{ji}=1$ keeps it symmetric: both give way
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Start-point de-confliction matters here too: without it two agents can be
+        assigned entries exactly 0.70 m apart and never arrive.}
+\end{frame}
+
+\kick{Q7 \textperiodcentered{} The negative dynamic barrier}{Q\&A}
+\begin{frame}{It can be neither confirmed nor excluded --- and we say exactly that}
+  \label{q:hdyn}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item All \NRunsHdynNeg{} missions logged a negative barrier, to
+              \HdynMinLogged\,m
+        \item That implies about 0.34\,m of surface distance
+        \item Outside the \BodyHalf\,m body, inside the \RotorReach\,m rotor reach
+        \item Rotor guards would enlarge the envelope --- but they are an
+              assumption, and would not have saved the rect/LQR agent
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}\figcard{\paneleventb{width=\linewidth}}\end{column}
+  \end{columns}
+  \note{Moving-obstacle contact logging is named as future work for precisely
+        this reason. The rect/LQR agent struck a STATIC cylinder.}
+\end{frame}
+
+\kick{Q8 \textperiodcentered{} Computational cost}{Q\&A}
+\begin{frame}{The filter uses about 0.3\% of its own 50\,ms budget}
+  \label{q:cost}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item One QP per agent per tick, exact active-set enumeration,
+              $\sim$138\,$\mu$s at 24 rows
+        \item Pure numpy --- no solver dependency, deliberately
+        \item 19{,}500--25{,}900 solves per mission; tier 1--2 at
+              \PtierRectHinf--\PtierPlusLqr\%, tier 3 never in a completed run
+        \item The 0.12 real-time factor is Gazebo rendering seven drones, not
+              this code
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}\figcard{\panelcbfb{width=\linewidth}}\end{column}
+  \end{columns}
+  \note{No solver dependency was deliberate: the launcher calls bare python3 and
+        cp314 wheels for osqp/quadprog are not guaranteed.}
+\end{frame}
+
+\kick{Q9 \textperiodcentered{} Scalability}{Q\&A}
+\begin{frame}{The filter scales; the upper layers are the real limit}
+  \label{q:scale}
+  \begin{itemize}\bulletgap
+    \item Rows grow with nearby hazards, not with fleet size --- the QP scales
+    \item But the reciprocal split is exact only from one snapshot, so one
+          process holds all agents
+    \item Partition, assignment and reallocation are centralised: one ROS 2 node
+    \item Seven matched the arena, not a computational ceiling
+  \end{itemize}
+  \vfill\centering\setlength{\figmaxh}{22mm}
+  \figcard{\includegraphics[width=0.64\textwidth]{architecture}}
+  \note{Distributed upper layers are named in the paper's future work --- the
+        honest answer is that we have not demonstrated it.}
+\end{frame}
+
+\kick{Q10 \textperiodcentered{} The missing percent}{Q\&A}
+\begin{frame}{The flown coverage sits within a point of its own planner's ceiling}
+  \label{q:cov}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item A 0.30\,m grid cell counts once a 0.95\,m sensor disc passes above 0.8\,m
+        \item Offline upper bound for the planned lanes:
+              \CovofflineUshapeLqr--\CovofflinePlusHinf\%
+        \item So the residual is cell geometry and lane spacing, not sweep failure
+        \item The weakest completed run, U-shape / LQR at \CovUshapeLqr\%, is
+              reported rather than re-run
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \figcard{\includegraphics[width=\linewidth]{fig_coverage}}
+    \end{column}
+  \end{columns}
+  \note{Tightening it means obstacle-aware lane ends, listed as future work.}
+\end{frame}
+
+\kick{Q11 \textperiodcentered{} Reference limit vs measured tilt}{Q\&A}
+\begin{frame}{15\textdegree{} caps the attitude reference, not the physical attitude}
+  \label{q:tilt}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.54\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item The cap applies to $\theta_{\mathrm{ref}}$ leaving the outer loop
+        \item During steady sweeping the 95th percentile is
+              \TiltpfiveUshapeLqr--\TiltpfiveUshapeHinf\textdegree{} --- right at the cap
+        \item Maxima come from the $\sim$180\textdegree{} lane-end pivots and from upsets
+        \item Extremes are diagnostic, not nominal: \TiltmaxRectLqr\textdegree{}
+              is the crash, \TiltmaxPlusHinf\textdegree{} the recovered graze
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.42\textwidth}\figcard{\paneleventb{width=\linewidth}}\end{column}
+  \end{columns}
+  \note{That is why attitude statistics are filtered to the sweeping phase ---
+        unfiltered percentiles are dominated by pivots.}
+\end{frame}
+
+
+\begin{frame}{B1 \textperiodcentered{} The acceleration budget behind $\varphi(h)$}
+  \begin{itemize}\bulletgap\small
+    \item The $a$ in the barrier is not $a_{\max}$: part of the envelope is
+          reserved for the hazard's own motion and for wind
+    \item $\mu=0.75$ for obstacles, $0.85$ for arena walls; wind allowance
+          $0.5$\,m/s\textsuperscript{2}
+    \item The floor keeps the barrier defined even when the budget is eaten
+  \end{itemize}
+  \vfill
+  \[ a=\max\bigl(0.15\,a_{\max},\;\mu\,a_{\max}-|a_{\mathrm{obs}}|-|a_{\mathrm{wind}}|\bigr) \]
+  \vskip0.5ex
+  \[ D(s)=\frac{s}{k_v}\;\;(s\le v_c),\qquad
+     D(s)=\frac{s^2+v_c^2}{2a_{\max}}\;\;(s>v_c),\qquad
+     \varphi(h)=\gamma_r h\;\;(h<0) \]
+\end{frame}
+
+\begin{frame}{B2 \textperiodcentered{} Offline step and turbulence response from gain synthesis}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.56\textwidth}
+      \setlength{\figmaxh}{44mm}
+      \figcard{\includegraphics[width=\linewidth]{assets/fig/grafik_pid_hinf_wind_turbulence}}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \vskip2mm
+      \begin{itemize}\bulletgap\small
+        \item Offline plant simulation used while choosing $\gamma$
+        \item \emph{Not} from the Gazebo campaign --- shown only to illustrate
+              the design step
+        \item Every number in the talk comes from the flown runs instead
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B3 \textperiodcentered{} A cylinder found in flight re-plans only the lanes still ahead}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.60\textwidth}
+      \videoposter{h6_obstacle_detour}{0.92\linewidth}
+      \figcaption{rect, \hinf{} \textperiodcentered{} 20\,s around the closest
+        static approach \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \vskip3mm
+      \begin{itemize}\bulletgap
+        \item LiDAR confirms a cylinder never seen before
+        \item Lanes below the sweep line are left alone
+        \item Until the re-plan, the QP alone keeps it clear
+        \item Closest static approach: \ObssurfRectHinf\,m
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \note{Point at the arc in the RViz pane rather than the Gazebo pane.
+        Re-planning finished lanes would sweep them twice.}
+\end{frame}
+
+
+\begin{frame}{B4 \textperiodcentered{} Gain synthesis and linear analysis in full}
+  \centering\scriptsize
+  \setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.25}
+  \begin{tabular}{llcccccc}
+    \toprule
+    \textbf{Design} & \textbf{Loop} & $K_p$ & $K_i$ & $K_d$ &
+      $\|G\|_\infty$ (s\textsuperscript{2}) & $\omega_c$ (rad/s) & PM / GM \\
+    \midrule
+    \cL{\lqr}  & outer & \KoutkpLqr  & \KoutkiLqr  & \KoutkdLqr
+               & \HnormLqr  & \WcLqr  & \PmLqr\textdegree{} / \GmLqr\,dB \\
+               & inner & \KinkpLqr   & --          & \KinkdLqr
+               &            &         &            \\[0.3ex]
+    \cH{\hinf} & outer & \KoutkpHinf & \KoutkiHinf & \KoutkdHinf
+               & \HnormHinf & \WcHinf & \PmHinf\textdegree{} / \GmHinf\,dB \\
+               & inner & \KinkpHinf  & --          & \KinkdHinf
+               &            &         &            \\
+    \bottomrule
+  \end{tabular}
+  \vskip2.4ex
+  \begin{columns}[T,onlytextwidth]\scriptsize
+    \begin{column}{0.47\textwidth}
+      Outer loops: $Q=\mathrm{diag}(0.08,\,0.35)$, $R=1$ for LQR;
+      $\mathrm{diag}(0.10,\,0.40)$ for $H_\infty$.
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      Inner loops: $Q=\mathrm{diag}(6,\,0.6)$, $R=0.05$;
+      $\gamma_{\min}=2.54$, used at $\gamma=3.30$.
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B5 \textperiodcentered{} Upset events in full}
+  \centering
+  \figcard{\includegraphics[width=0.88\textwidth]{fig_events}}
+  \figcaption{(a) contact leading to loss --- rect, \lqr, iris\_2
+    \textperiodcentered{} (b) near-contact with recovery --- plus, both
+    controllers, iris\_2}
+\end{frame}
+
+\begin{frame}{B6 \textperiodcentered{} The $H_\infty$ graze: a violent excursion that still recovered}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.58\textwidth}
+      \videoposter{h4_upset_plus_hinf}{\linewidth}
+      \figcaption{Slowed \SlowHfour$\times$ relative to real time
+        \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \vskip2mm
+      \begin{itemize}\bulletgap\small
+        \item Agent 2 grazes the central cylinder between lanes 4 and 5
+        \item Tilt \UpPlusHinfTilt\textdegree, altitude to \UpPlusHinfZmin\,m,
+              clearance \UpPlusHinfSurf\,m
+        \item Recovered in about 3\,s
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B7 \textperiodcentered{} The same graze under LQR was milder}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.58\textwidth}
+      \videoposter{h5_upset_plus_lqr}{\linewidth}
+      \figcaption{Slowed \SlowHfive$\times$ relative to real time
+        \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \vskip2mm
+      \begin{itemize}\bulletgap\small
+        \item Peak tilt \UpPlusLqrTilt\textdegree{} against
+              \UpPlusHinfTilt\textdegree{} for $H_\infty$
+        \item Altitude held at \UpPlusLqrZmin\,m against \UpPlusHinfZmin\,m
+        \item The two are not ordered on every metric
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B8 \textperiodcentered{} The second loss needs three helpers}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.58\textwidth}
+      \videoposter{h2_fault_kill2}{\linewidth}
+      \figcaption{rect, \hinf{} \textperiodcentered{} 25\,s around the second
+        kill \textperiodcentered{} \videonote}
+    \end{column}
+    \begin{column}{0.38\textwidth}
+      \vskip2mm
+      \begin{itemize}\bulletgap\small
+        \item Agent 7 killed at 32\% coverage, agent 4 already gone
+        \item The merged region is larger, so three helpers take it
+        \item Helper groups across both losses: \HelpersRectHinf
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B9 \textperiodcentered{} Older data in this repository disagrees, and here is why}
+  \begin{itemize}\bulletgap
+    \item A 3 September 2026 sweep under \texttt{results/skema5/} shows eight FAIL runs
+    \item Superseded configuration; only 10 of its 40 matrix rows ever ran
+    \item Four benchmark figures were deleted in August 2026 after the tooling
+          was found to synthesise telemetry when CSVs were missing
+    \item Current reporting prints \texttt{n/a} and never substitutes a value
+    \item Every number in this talk comes from the 11--12 September campaign
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{B10 \textperiodcentered{} All eight recordings are available here and published}
+  \begin{columns}[T,onlytextwidth]
+    \begin{column}{0.68\textwidth}
+      \begin{itemize}\bulletgap\small
+        \item \hinf{} --- rect \CovRectHinf\% \textperiodcentered{} L-shape
+              \CovLshapeHinf\% \textperiodcentered{} U-shape \CovUshapeHinf\%
+              \textperiodcentered{} plus \CovPlusHinf\%
+        \item \lqr{} --- rect aborted \textperiodcentered{} L-shape
+              \CovLshapeLqr\% \textperiodcentered{} U-shape \CovUshapeLqr\%
+              \textperiodcentered{} plus \CovPlusLqr\%
+        \item The next slides hold the full recordings --- jump to one if a
+              specific region comes up
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.26\textwidth}
+      \centering\playlistqr[22mm]\\[1ex]
+      {\color{epicmuted}\scriptsize public playlist}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{B11 \textperiodcentered{} Full mission --- rect, \lqr{} (aborted)}
+  \centering\videoposter{rect_lqr}{0.62\textwidth}
+  \figcaption{stopped at \TmisRectLqr\,s --- the full recording of the failure
+    \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B12 \textperiodcentered{} Full mission --- L-shape, \hinf}
+  \centering\videoposter{l_shape_hinf}{0.62\textwidth}
+  \figcaption{\CovLshapeHinf\% in \TmisLshapeHinf\,s \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B13 \textperiodcentered{} Full mission --- L-shape, \lqr}
+  \centering\videoposter{l_shape_lqr}{0.62\textwidth}
+  \figcaption{\CovLshapeLqr\% in \TmisLshapeLqr\,s \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B14 \textperiodcentered{} Full mission --- U-shape, \hinf}
+  \centering\videoposter{u_shape_hinf}{0.62\textwidth}
+  \figcaption{\CovUshapeHinf\% in \TmisUshapeHinf\,s \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B15 \textperiodcentered{} Full mission --- U-shape, \lqr}
+  \centering\videoposter{u_shape_lqr}{0.62\textwidth}
+  \figcaption{\CovUshapeLqr\% in \TmisUshapeLqr\,s \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B16 \textperiodcentered{} Full mission --- plus, \hinf}
+  \centering\videoposter{plus_hinf}{0.62\textwidth}
+  \figcaption{\CovPlusHinf\% in \TmisPlusHinf\,s \textperiodcentered{} \videonote}
+\end{frame}
+\begin{frame}{B17 \textperiodcentered{} Full mission --- plus, \lqr}
+  \centering\videoposter{plus_lqr}{0.62\textwidth}
+  \figcaption{\CovPlusLqr\% in \TmisPlusLqr\,s \textperiodcentered{} \videonote}
+\end{frame}
+
+\end{document}

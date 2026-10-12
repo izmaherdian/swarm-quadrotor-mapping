@@ -1,0 +1,232 @@
+{
+  "rect_hinf": {
+    "kind": "full_mission",
+    "run": "rect_hinf",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/rect_hinf.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 262.966667,
+    "pix": "yuv420p"
+  },
+  "rect_lqr": {
+    "kind": "full_mission",
+    "run": "rect_lqr",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/rect_lqr.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 106.633333,
+    "pix": "yuv420p"
+  },
+  "l_shape_hinf": {
+    "kind": "full_mission",
+    "run": "l_shape_hinf",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/l_shape_hinf.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 204.833333,
+    "pix": "yuv420p"
+  },
+  "l_shape_lqr": {
+    "kind": "full_mission",
+    "run": "l_shape_lqr",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/l_shape_lqr.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 230.833333,
+    "pix": "yuv420p"
+  },
+  "u_shape_hinf": {
+    "kind": "full_mission",
+    "run": "u_shape_hinf",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/u_shape_hinf.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 205.266667,
+    "pix": "yuv420p"
+  },
+  "u_shape_lqr": {
+    "kind": "full_mission",
+    "run": "u_shape_lqr",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/u_shape_lqr.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 255.633333,
+    "pix": "yuv420p"
+  },
+  "plus_hinf": {
+    "kind": "full_mission",
+    "run": "plus_hinf",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/plus_hinf.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 204.4,
+    "pix": "yuv420p"
+  },
+  "plus_lqr": {
+    "kind": "full_mission",
+    "run": "plus_lqr",
+    "source": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/plus_lqr.mp4",
+    "speed_vs_sim": "~1x (8x wall clock)",
+    "w": 1280,
+    "h": 678,
+    "dur": 218.666667,
+    "pix": "yuv420p"
+  },
+  "h1_fault_kill1": {
+    "kind": "highlight",
+    "run": "rect_hinf",
+    "title": "Agent 4 lost -> cell merged, lanes handed to helpers",
+    "cut_from": "clip",
+    "sim_window": [
+      31.0,
+      56.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 24.133333,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/rect_hinf.mp4",
+    "clip_window_s": [
+      29.27,
+      53.34
+    ],
+    "anchor": "coordinator.log wall clock (derived, ~0.4 s sim)"
+  },
+  "h2_fault_kill2": {
+    "kind": "highlight",
+    "run": "rect_hinf",
+    "title": "Agent 7 lost -> second reallocation, three helpers",
+    "cut_from": "clip",
+    "sim_window": [
+      52.0,
+      77.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 24.5,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/rect_hinf.mp4",
+    "clip_window_s": [
+      49.49,
+      73.98
+    ],
+    "anchor": "coordinator.log wall clock (derived, ~0.4 s sim)"
+  },
+  "h6_obstacle_detour": {
+    "kind": "highlight",
+    "run": "rect_hinf",
+    "title": "LiDAR confirms a cylinder -> remaining lanes re-planned",
+    "cut_from": "clip",
+    "sim_window": [
+      82.0,
+      102.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 20.033333,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/rect_hinf.mp4",
+    "clip_window_s": [
+      78.96,
+      98.99
+    ],
+    "anchor": "coordinator.log wall clock (derived, ~0.4 s sim)"
+  },
+  "h7_v2v_closest": {
+    "kind": "highlight",
+    "run": "l_shape_lqr",
+    "title": "Closest drone-to-drone pass of the campaign",
+    "cut_from": "clip",
+    "sim_window": [
+      37.0,
+      53.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 14.7,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Documents/swarm-quadrotor-mapping/media/scheme5/l_shape_lqr.mp4",
+    "clip_window_s": [
+      34.19,
+      48.88
+    ],
+    "anchor": "coordinator.log wall clock (derived, ~0.4 s sim)"
+  },
+  "h3_crash_rect_lqr": {
+    "kind": "highlight",
+    "run": "rect_lqr",
+    "title": "Contact and loss: rect, PID-LQR, iris_2",
+    "cut_from": "source",
+    "sim_window": [
+      74.0,
+      80.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 16.966667,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Videos/Screencasts/Screencast From 2026-09-11 20-35-13.mp4",
+    "source_window_s": [
+      846.0,
+      880.0
+    ],
+    "speed": 2.0,
+    "anchor": "figures/frames/index.json (exact)"
+  },
+  "h4_upset_plus_hinf": {
+    "kind": "highlight",
+    "run": "plus_hinf",
+    "title": "Graze and recovery: plus, PID-H-inf, iris_2",
+    "cut_from": "source",
+    "sim_window": [
+      77.5,
+      83.0
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 11.1,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Videos/Screencasts/Screencast From 2026-09-12 15-29-13.mp4",
+    "source_window_s": [
+      700.0,
+      722.0
+    ],
+    "speed": 2.0,
+    "anchor": "figures/frames/index.json (exact)"
+  },
+  "h5_upset_plus_lqr": {
+    "kind": "highlight",
+    "run": "plus_lqr",
+    "title": "Same cylinder, PID-LQR: smaller upset, also recovered",
+    "cut_from": "source",
+    "sim_window": [
+      79.2,
+      84.7
+    ],
+    "note": "",
+    "w": 1280,
+    "h": 678,
+    "dur": 11.066667,
+    "pix": "yuv420p",
+    "source_file": "/home/izmaherdian/Videos/Screencasts/Screencast From 2026-09-12 16-06-51.mp4",
+    "source_window_s": [
+      617.0,
+      639.0
+    ],
+    "speed": 2.0,
+    "anchor": "figures/frames/index.json (exact)"
+  }
+}
