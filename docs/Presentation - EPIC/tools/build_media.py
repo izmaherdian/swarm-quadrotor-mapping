@@ -171,8 +171,60 @@ def build_clips(F: Facts, force: bool = False) -> dict:
             entry["anchor"] = "coordinator.log wall clock (derived, ~0.4 s sim)"
         manifest[hid] = entry
 
+    # 3) Gambaran umum: empat misi H-inf (semuanya selesai) dalam grid 2x2.
+    manifest[OVERVIEW["id"]] = build_overview(F, force)
+
     (ASSETS / "clips_manifest.json").write_text(json.dumps(manifest, indent=2))
     return dict(manifest=manifest, degraded=skipped)
+
+
+# Klip pembuka sesudah slide judul. Klip misi penuh sudah ~1x waktu sim, jadi
+# dipercepat lagi `speed` kali; misi yang selesai lebih dulu dibekukan di frame
+# terakhirnya (tpad) sampai misi terpanjang selesai, supaya grid tidak bolong.
+OVERVIEW = dict(id="overview_4regions", speed=8.0,
+                runs=["rect_hinf", "l_shape_hinf", "u_shape_hinf", "plus_hinf"])
+
+
+def build_overview(F: Facts, force: bool = False) -> dict:
+    hid, speed, runs = OVERVIEW["id"], OVERVIEW["speed"], OVERVIEW["runs"]
+    dest = CLIP_DIR / f"{hid}.mp4"
+    if force or not dest.exists():
+        # Detik-detik terakhir klip terbitan sudah memperlihatkan desktop (RViz
+        # ditutup), dan frame itulah yang akan dibekukan tpad. Jadi tiap tile
+        # dipotong 1,5 s sesudah misinya selesai -- banner "mission complete"
+        # masih terlihat. Waktu selesai dari numbers.tex, bukan diketik.
+        def t_end(run: str) -> float:
+            region, ctrl = run.rsplit("_", 1)
+            key = "Tmis" + region.replace("_", "").capitalize() + ctrl.capitalize()
+            return min(F.clip_s(run, float(F.n(key))) + 1.5, F.clip_len(run) - 0.5)
+
+        ends = {r: t_end(r) for r in runs}
+        longest = max(ends.values()) / speed
+        tiles = []
+        for k, run in enumerate(runs):
+            name = run.rsplit("_", 1)[0].replace("_", "-")
+            tiles.append(
+                f"[{k}:v]setpts=PTS/{speed},scale=640:-2,"
+                f"tpad=stop_mode=clone:stop_duration={longest:.2f},"
+                f"drawtext=fontfile={LABEL_FONT}:text='{name}'"
+                f":x=10:y=10:fontsize=18:fontcolor=white"
+                f":box=1:boxcolor=black@0.55:boxborderw=6[t{k}]")
+        label = f"PID-H∞ · four regions · {speed:.0f}x faster than mission time"
+        graph = ";".join(tiles) + (
+            ";[t0][t1][t2][t3]xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0,"
+            f"drawtext=fontfile={LABEL_FONT}:text='{label}'"
+            f":x=(w-tw)/2:y=h-th-12:fontsize=20:fontcolor=white"
+            f":box=1:boxcolor=black@0.6:boxborderw=8[v]")
+        # -t SEBELUM -i: membatasi input, bukan output (lihat highlight di atas).
+        inputs = [a for r in runs
+                  for a in ("-t", f"{ends[r]:.2f}", "-i", str(F.clip_path(r)))]
+        _run(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", graph,
+              "-map", "[v]", "-t", f"{longest:.2f}", *FFMPEG_V, str(dest)])
+    poster = POSTER_DIR / f"{hid}.jpg"
+    if force or not poster.exists():
+        poster_for(dest, poster, at=6.0)
+    return dict(kind="overview", runs=runs, speed=speed,
+                speed_vs_sim=f"~{speed:.0f}x", **probe(dest))
 
 
 # --------------------------------------------------------- makro ke LaTeX

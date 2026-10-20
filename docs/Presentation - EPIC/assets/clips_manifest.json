@@ -228,5 +228,20 @@
     ],
     "speed": 2.0,
     "anchor": "figures/frames/index.json (exact)"
+  },
+  "overview_4regions": {
+    "kind": "overview",
+    "runs": [
+      "rect_hinf",
+      "l_shape_hinf",
+      "u_shape_hinf",
+      "plus_hinf"
+    ],
+    "speed": 8.0,
+    "speed_vs_sim": "~8x",
+    "w": 1280,
+    "h": 680,
+    "dur": 32.766016,
+    "pix": "yuv420p"
   }
 }

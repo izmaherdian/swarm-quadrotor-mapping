@@ -56,12 +56,15 @@
 % =============================================== 0. Pembuka (1,0 min) ======
 {\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
 \begin{frame}[plain]
-  \mins{5}%
+  \mins{3}%
   \begin{tikzpicture}[remember picture,overlay]
     \fill[epicbrick] (current page.north west) rectangle
       ([yshift=-27mm]current page.north east);
     \fill[epicclay] ([yshift=-27mm]current page.north west) rectangle
       ([yshift=-27.9mm]current page.north east);
+    % arsitektur di kolom kanan, di bawah pita judul
+    \node[anchor=north east, inner sep=0pt]
+      at ([xshift=-6mm, yshift=-34mm]current page.north east) {\scalebox{0.86}{\diagarch}};
   \end{tikzpicture}%
   \vskip4mm
   \begin{minipage}{0.92\linewidth}
@@ -86,11 +89,27 @@
   {\color{epicrule}\rule{\linewidth}{0.4pt}\par}
   \vskip1.5mm
   {\color{epicclay}\bfseries\small github.com/izmaherdian/swarm-quadrotor-mapping\par}
-  \note{20 min + 10 min Q\&A. Open by naming the result out loud, then move on.
+  \narasi{Hello everyone. I am Izma Alhazmi Herdian, from Institut Teknologi Bandung. Today I present fault-tolerant swarm quadrotor control for mapping non-convex areas. On the right is the whole system in one picture: three control layers on top of a simulated swarm.}
+    {Halo semuanya. Saya Izma Alhazmi Herdian, dari Institut Teknologi Bandung. Hari ini saya mempresentasikan kendali swarm quadrotor yang toleran terhadap kegagalan untuk memetakan area non-konveks. Di sebelah kanan adalah keseluruhan sistem dalam satu gambar: tiga lapis kendali di atas swarm yang disimulasikan.}
+    {20 min + 10 min Q\&A. Open by naming the result out loud, then move on.
         Everything after this explains how --- and what failed.}
 \end{frame}}
 
 \kick{Opening}{}
+\begin{frame}{Seven quadrotors, four regions, every stressor at once}
+  \mins{4}%
+  \centering
+  \videoposter{overview_4regions}{0.70\textwidth}
+  \figcaption{\hinf{} on rect, L, U and plus \textperiodcentered{} 8$\times$
+    faster than mission time \textperiodcentered{} Gazebo left, RViz map right
+    \textperiodcentered{} \videonote}
+  \narasi{Before any equations, this is what the system does. Seven quadrotors split a region into cells, sweep their cells lane by lane, and steer around cylinders they discover with LiDAR, all under strong wind. In each of these four missions, two drones are killed in flight, and the survivors take over their work. Everything after this explains how.}
+    {Sebelum masuk ke persamaan, inilah yang dilakukan sistemnya. Tujuh quadrotor membagi area menjadi sel, menyapu selnya lajur demi lajur, dan menghindari silinder yang mereka temukan dengan LiDAR, semuanya di bawah angin kencang. Di keempat misi ini, dua drone dimatikan saat terbang, dan drone yang tersisa mengambil alih pekerjaannya. Seluruh sisa presentasi menjelaskan bagaimana caranya.}
+    {25 s. Let the clip run and say only what they are looking at: seven
+        drones split the region, sweep lanes, avoid the cylinders, and two of
+        them are killed mid-mission. Everything after this explains how.}
+\end{frame}
+
 \begin{frame}{Seven of eight missions finished after losing 28.6\% of the fleet}
   \mins{5}%
   \begin{itemize}\bulletgap
@@ -106,7 +125,9 @@
     \EffRatioMin--\EffRatioMax$\times$ the torque effort \textperiodcentered{}
     one mission ended in an obstacle strike.
   \end{callout}
-  \note{30 s. Tell them the answer first, then spend the talk earning it.
+  \narasi{So here is the answer first. Seven of our eight missions finished after losing two of seven drones, which is 28.6 percent of the fleet. Coverage was \CovMin\space to \CovMax\space percent. The PID H-infinity controller finished \TimeRedMin\space to \TimeRedMax\space percent sooner than PID-LQR, but at \EffRatioMin\space to \EffRatioMax\space times the torque effort. And one mission ended in an obstacle strike. I will show you that one as well.}
+    {Jadi saya sampaikan jawabannya lebih dulu. Tujuh dari delapan misi kami selesai meskipun kehilangan dua dari tujuh drone, yaitu 28,6 persen armada. Cakupannya \CovMin\space sampai \CovMax\space persen. Pengendali PID H-infinity selesai \TimeRedMin\space sampai \TimeRedMax\space persen lebih cepat daripada PID-LQR, tetapi dengan upaya torsi \EffRatioMin\space sampai \EffRatioMax\space kali lebih besar. Dan satu misi berakhir dengan menabrak rintangan. Misi itu juga akan saya tunjukkan.}
+    {30 s. Tell them the answer first, then spend the talk earning it.
         Signalling the crash this early buys credibility for every number after.}
 \end{frame}
 
@@ -136,7 +157,9 @@
     Not one at a time. Sweep time falls with agent count; coordination cost
     rises with it.
   \end{callout}
-  \note{45 s. Survey mapping is a coverage problem --- every point must pass
+  \narasi{Survey mapping is a coverage problem: every point of the area must pass under a sensor. The rough budget on the right says that sweep time falls as we add drones, but coordination cost rises. Our scenario combines four difficulties at once. The region is non-convex, with notches and arms that break a simple raster. The wind has a mean of about \WindMeanMag\space metres per second, with gusts up to \WindMaxH. There are nine cylinders the swarm has never seen, plus two moving ones. And two quadrotors are killed mid-mission, at 18 and 32 percent coverage. So the question is not only whether a swarm is faster, but whether it still finishes.}
+    {Pemetaan survei adalah masalah cakupan: setiap titik area harus terlewati sensor. Perkiraan kasar di sebelah kanan menunjukkan bahwa waktu sapuan turun saat drone ditambah, tetapi biaya koordinasinya naik. Skenario kami menggabungkan empat kesulitan sekaligus. Areanya non-konveks, dengan lekukan dan lengan yang merusak pola raster sederhana. Anginnya rata-rata sekitar \WindMeanMag\space meter per detik, dengan hembusan sampai \WindMaxH. Ada sembilan silinder yang belum pernah dilihat swarm, ditambah dua yang bergerak. Dan dua quadrotor dimatikan di tengah misi, pada cakupan 18 dan 32 persen. Jadi pertanyaannya bukan hanya apakah swarm lebih cepat, tetapi apakah swarm tetap bisa menyelesaikan misinya.}
+    {45 s. Survey mapping is a coverage problem --- every point must pass
         under a sensor. The equation is a budget, not a result; say so. Name the
         scenario ``Scheme 5'' once and move on.}
 \end{frame}
@@ -150,7 +173,9 @@
     \item \lqr{} vs \hinf{} on an identical structure --- only the gains differ
     \item Eight logged missions, an auditable number pipeline, one failure
   \end{itemize}
-  \note{The slide reviewers remember. 30 s, one breath per bullet. Do not expand
+  \narasi{Our contribution has four parts. First, lanes that follow the cell boundary, so tapered corners are still swept. Second, lane-level reallocation when an agent dies: merge, re-lane, and hand over. Third, a safety filter whose speed limit comes from the real tilt limit of the drone. Fourth, a fair comparison of PID-LQR and PID H-infinity on an identical structure, where only the gains differ. All of it is backed by eight logged missions, including one failure.}
+    {Kontribusi kami ada empat. Pertama, lajur yang mengikuti batas sel, sehingga sudut yang meruncing tetap tersapu. Kedua, realokasi tingkat lajur saat sebuah agen mati: gabungkan, buat lajur ulang, lalu serahkan. Ketiga, filter keselamatan yang batas kecepatannya berasal dari batas kemiringan drone yang sebenarnya. Keempat, perbandingan yang adil antara PID-LQR dan PID H-infinity pada struktur yang identik, yang berbeda hanya gain-nya. Semuanya didukung delapan misi yang terekam, termasuk satu kegagalan.}
+    {The slide reviewers remember. 30 s, one breath per bullet. Do not expand
         on any of them here --- each has its own slide later.}
 \end{frame}
 
@@ -181,7 +206,9 @@
       \textbf{out} four rotor speeds
     \end{column}
   \end{columns}
-  \note{Spend 45 s. Read the three columns aloud left to right, then say the
+  \narasi{Here is the system as blocks. It has three nested layers, and each one hands a set-point to the next. The high level is event-driven. It takes the region polygon, the drone positions and any drone failures, and outputs a lane to follow. The mid level runs at 20 hertz. It takes the desired velocity, the LiDAR obstacle map and the neighbours, and outputs a safe velocity. The low level runs at 250 hertz. It takes a position set-point and the measured state, and outputs four rotor speeds. We will walk through this diagram backwards, because every limit at the top is derived from what the rotors can actually do.}
+    {Ini sistemnya dalam bentuk blok. Ada tiga lapis bertingkat, dan tiap lapis menyerahkan set-point ke lapis berikutnya. Lapis atas berbasis kejadian. Masukannya poligon area, posisi drone, dan kegagalan drone, dan keluarannya satu lajur untuk diikuti. Lapis tengah berjalan pada 20 hertz. Masukannya kecepatan yang diinginkan, peta rintangan dari LiDAR, dan drone tetangga, dan keluarannya kecepatan yang aman. Lapis bawah berjalan pada 250 hertz. Masukannya set-point posisi dan state terukur, dan keluarannya empat kecepatan rotor. Kita akan menelusuri diagram ini dari belakang, karena setiap batas di lapis atas diturunkan dari kemampuan rotor yang sebenarnya.}
+    {Spend 45 s. Read the three columns aloud left to right, then say the
         sentence that sets up the rest of the talk: we are going to walk this
         diagram BACKWARDS, because every limit upstairs is derived from what the
         rotors can actually do.}
@@ -199,7 +226,9 @@
     \textbf{High} $\varphi(h)$ and sensor footprint $\rightarrow$ keep-out radius
     and lane pitch. Nothing upstairs is tuned by hand.
   \end{callout}
-  \note{This slide is the promise of the talk. Say it plainly: no magic
+  \narasi{This is the promise of the talk. At the low level, the tilt limit gives us a simple velocity model of the drone. At the mid level, that model gives a stopping distance, and from it a barrier function that becomes one constraint per hazard. At the high level, the same barrier and the sensor footprint set the keep-out radius and the lane spacing. Nothing at the top is tuned by hand. One honest note: the simulation uses ground-truth odometry, with no PX4 and no state estimator.}
+    {Inilah janji presentasi ini. Di lapis bawah, batas kemiringan memberi kita model kecepatan drone yang sederhana. Di lapis tengah, model itu memberi jarak berhenti, dan darinya fungsi barrier yang menjadi satu kendala untuk tiap bahaya. Di lapis atas, barrier yang sama dan jangkauan sensor menentukan radius keep-out dan jarak antarlajur. Tidak ada yang disetel tangan di lapis atas. Satu catatan jujur: simulasinya memakai odometri ground-truth, tanpa PX4 dan tanpa estimator state.}
+    {This slide is the promise of the talk. Say it plainly: no magic
         constants; every number upstairs has a derivation. Also mention what is
         NOT in the loop -- ground-truth odometry, no PX4, no estimator; it is on
         the Limitations slide and in Q2.}
@@ -224,7 +253,9 @@
      effect: thrust and torque}}
   \vskip2.4ex
   \scalebox{0.86}{\diagcascade}
-  \note{45 s. Read the three boxes left to right, then trace the chain. The two
+  \narasi{We start at the bottom. The low level receives a position set-point in metres from the mid level, plus the measured position, velocity, attitude and body rates. It runs a fixed chain: a pre-filter, an outer PID, an inner PD and a motor mixer, every four milliseconds, with no optimisation at run time. It outputs four rotor speeds, bounded between 250 and 1050 radians per second. Notice the two feedback paths: the inner loop sees attitude, the outer loop sees position, and both run at 250 hertz.}
+    {Kita mulai dari bawah. Lapis bawah menerima set-point posisi dalam meter dari lapis tengah, ditambah posisi, kecepatan, sikap, dan laju sudut yang terukur. Ia menjalankan rantai yang tetap: pre-filter, PID luar, PD dalam, dan mixer motor, setiap empat milidetik, tanpa optimasi saat berjalan. Keluarannya empat kecepatan rotor, dibatasi antara 250 dan 1050 radian per detik. Perhatikan dua jalur umpan baliknya: loop dalam melihat sikap, loop luar melihat posisi, dan keduanya berjalan pada 250 hertz.}
+    {45 s. Read the three boxes left to right, then trace the chain. The two
         feedback paths are the point: the inner loop sees attitude, the outer
         loop sees position, and they run at the same 250 Hz.}
 \end{frame}
@@ -255,7 +286,9 @@
     It caps the attitude \emph{reference}, which is why measured tilt exceeds it
     at lane-end pivots (Q11).
   \end{callout}
-  \note{50 s. The algebra is two lines; do not labour it. The point is that one
+  \narasi{Step one. A quadrotor has only one force, the thrust along its body axis. To hover, the vertical part of the thrust, T cos theta, must equal the weight. The only horizontal force left is T sin theta. Divide the two, and the mass drops out: horizontal acceleration depends only on the tilt angle, a max equals g times tan theta max. We cap the tilt at 15 degrees, because the mapping sensor needs a steady attitude. That is a design choice, not physics, but once it is made it becomes a hard ceiling on acceleration. Note that it caps the attitude reference, so measured tilt can exceed it at lane-end turns.}
+    {Langkah satu. Quadrotor hanya punya satu gaya, yaitu thrust sepanjang sumbu badannya. Agar melayang, komponen vertikal thrust, T cos theta, harus sama dengan berat. Satu-satunya gaya horizontal yang tersisa adalah T sin theta. Bagi keduanya, dan massanya hilang: percepatan horizontal hanya bergantung pada sudut kemiringan, a max sama dengan g kali tan theta max. Kami membatasi kemiringan di 15 derajat, karena sensor pemetaan butuh sikap yang stabil. Itu pilihan desain, bukan hukum fisika, tetapi begitu dipilih, ia menjadi batas keras percepatan. Perlu dicatat, yang dibatasi adalah referensi sikap, sehingga kemiringan terukur bisa melebihinya saat berbelok di ujung lajur.}
+    {50 s. The algebra is two lines; do not labour it. The point is that one
         design choice -- 15 degrees -- becomes a hard acceleration ceiling.}
 \end{frame}
 
@@ -265,7 +298,9 @@
     {is every bit of horizontal acceleration this vehicle has}
     {$a_{\max}=g\tan 15^\circ$. About a quarter of $g$. Each of the next nine
      slides uses this number; nothing downstream hardcodes physics.}
-  \note{12 s. Say the number, pause, move on. It is the hinge of the whole talk.}
+  \narasi{So the drone has \PlantAmax\space metres per second squared of horizontal acceleration, about a quarter of g. Every slide that follows uses this number.}
+    {Jadi drone ini punya percepatan horizontal \PlantAmax\space meter per detik kuadrat, sekitar seperempat g. Setiap slide berikutnya memakai angka ini.}
+    {12 s. Say the number, pause, move on. It is the hinge of the whole talk.}
 \end{frame}
 
 \begin{frame}{Step 2 --- twelve coupled states become four simple chains}
@@ -304,7 +339,9 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{50 s. For a non-control audience this is the bridge: do not let them
+  \narasi{Step two. A quadrotor has twelve states: position, velocity, attitude and body rates. They are nonlinear and coupled, because you tilt to move, and the thrust direction tilts with you. If we linearise around hover with small angles, those couplings vanish to first order. What remains is four independent chains: X through pitch, Y through roll, Z through collective thrust, and yaw through the yaw torque. This is also why the 15 degree cap matters. The upsets we measured, \UpPlusHinfTilt\space and \TiltmaxRectLqr\space degrees, lie far outside this model, so we report them as events, not as tracking error.}
+    {Langkah dua. Quadrotor punya dua belas state: posisi, kecepatan, sikap, dan laju sudut. Semuanya nonlinier dan saling terkopel, karena untuk bergerak drone harus miring, dan arah thrust ikut miring. Jika kita linierkan di sekitar kondisi melayang dengan sudut kecil, kopling itu hilang pada orde pertama. Yang tersisa adalah empat rantai independen: X lewat pitch, Y lewat roll, Z lewat thrust kolektif, dan yaw lewat torsi yaw. Ini juga alasan batas 15 derajat penting. Upset yang kami ukur, \UpPlusHinfTilt\space dan \TiltmaxRectLqr\space derajat, jauh di luar model ini, sehingga kami melaporkannya sebagai kejadian, bukan sebagai galat tracking.}
+    {50 s. For a non-control audience this is the bridge: do not let them
         wonder why a quadrotor became a 2x2 matrix. Say the word 'decoupled'
         once and point at the table.}
 \end{frame}
@@ -342,7 +379,9 @@
     It is a consequence of designing on $\dot u$. The two controllers differ only
     in $Q$, $R$ and $\gamma$ --- never in structure.
   \end{callout}
-  \note{60 s, the densest slide of the talk. Q for the outer loops is
+  \narasi{Step three. Each chain is a double integrator: A is zero one, zero zero, and B carries a single gain b, which is g for the outer loops and one over the inertia for the inner loops. We then augment the state with the input itself. The design variable becomes the rate of change of the input, u dot. Feeding back a rate means we have already integrated once, and that is where the integral term comes from. On this augmented plant, LQR solves the Riccati equation with weights Q and R, and H-infinity solves the H-infinity Riccati equation with gamma set to 1.3 times its minimum, plus a stability check. The resulting state-feedback gain is then projected onto a PID structure, which gives us Kp, Ki and Kd. So the integral gain is not a tuning knob. It is a consequence of the design. And the two controllers differ only in Q, R and gamma, never in structure.}
+    {Langkah tiga. Tiap rantai adalah integrator ganda: A bernilai nol satu, nol nol, dan B membawa satu gain b, yaitu g untuk loop luar dan satu per inersia untuk loop dalam. Lalu state-nya kami augmentasi dengan masukan itu sendiri. Variabel desainnya menjadi laju perubahan masukan, u dot. Mengumpanbalikkan laju berarti kita sudah mengintegrasikan satu kali, dan dari situlah suku integral berasal. Pada plant teraugmentasi ini, LQR menyelesaikan persamaan Riccati dengan bobot Q dan R, dan H-infinity menyelesaikan persamaan Riccati H-infinity dengan gamma 1,3 kali nilai minimumnya, ditambah pengecekan kestabilan. Gain umpan balik state yang dihasilkan lalu diproyeksikan ke struktur PID, sehingga kita mendapat Kp, Ki, dan Kd. Jadi gain integral bukan tombol tuning. Ia konsekuensi dari desain. Dan kedua pengendali hanya berbeda pada Q, R, dan gamma, tidak pernah pada strukturnya.}
+    {60 s, the densest slide of the talk. Q for the outer loops is
         diag(0.08, 0.35) with R = 1; for the inner loops diag(6, 0.6) with
         R = 0.05. Gamma is found by bisection. Do not read those out.}
 \end{frame}
@@ -380,7 +419,9 @@
     turns ``cheapest'' into ``safest against the worst case''. Every solution is
     Hurwitz-checked on $\tilde A-B_uK_a$ before it is accepted.
   \end{callout}
-  \note{55 s. Do not derive either equation. The message is that the two designs
+  \narasi{Step four puts the two designs side by side. Both start from the same augmented plant. PID-LQR minimises a quadratic cost, so it is optimal for the model you wrote down. PID H-infinity looks for a controller that keeps the worst-case gain from disturbance to output below gamma, so it is optimal against the worst disturbance. In the code, both are solved by the same Riccati routine. For H-infinity we stack the disturbance input next to the control input and give it a negative weight, minus gamma squared. That negative block is what turns cheapest into safest against the worst case. Every solution is checked for stability before it is accepted. So the comparison later is fair: same plant, same structure, same solver, different objective.}
+    {Langkah empat menyandingkan kedua desain. Keduanya berangkat dari plant teraugmentasi yang sama. PID-LQR meminimalkan biaya kuadratik, sehingga optimal untuk model yang kita tuliskan. PID H-infinity mencari pengendali yang menjaga gain terburuk dari gangguan ke keluaran tetap di bawah gamma, sehingga optimal terhadap gangguan terburuk. Di kode, keduanya diselesaikan oleh rutin Riccati yang sama. Untuk H-infinity, masukan gangguan ditumpuk di samping masukan kendali dan diberi bobot negatif, minus gamma kuadrat. Blok negatif itulah yang mengubah paling murah menjadi paling aman terhadap kasus terburuk. Setiap solusi dicek kestabilannya sebelum diterima. Jadi perbandingan nanti adil: plant sama, struktur sama, solver sama, hanya tujuannya yang berbeda.}
+    {55 s. Do not derive either equation. The message is that the two designs
         pose the SAME augmented plant and differ only in which Riccati equation
         they solve -- and in Q, R, gamma.}
 \end{frame}
@@ -418,7 +459,9 @@
     --- and the integrator is gated at $|e|<0.25$\,m for LQR, always active for
     $H_\infty$. That one asymmetry returns in the results.
   \end{callout}
-  \note{50 s. The callout is the single most important line of the low level:
+  \narasi{Step five. The optimal controller is a state feedback, but what flies is a PID. We bridge the two with a pseudo-inverse, gamma plus, which projects the optimal gain onto what a PID can express. So the gains are not fitted by hand. They are the closest PID to an optimal controller. What runs on the drone, 250 times a second, is the law at the bottom: the attitude reference is Kp times the error, plus the integral, minus Kd times velocity, plus a velocity feedforward, saturated at 15 degrees. One detail matters a lot later: the LQR integrator is only active when the error is below 25 centimetres, while the H-infinity integrator is always active. That one asymmetry returns in the results.}
+    {Langkah lima. Pengendali optimalnya berupa umpan balik state, tetapi yang terbang adalah PID. Keduanya kami jembatani dengan pseudo-invers, gamma plus, yang memproyeksikan gain optimal ke bentuk yang bisa dinyatakan PID. Jadi gain-nya tidak dicocokkan secara manual. Ia adalah PID yang paling dekat dengan pengendali optimal. Yang berjalan di drone, 250 kali per detik, adalah hukum kendali di bagian bawah: referensi sikap sama dengan Kp kali galat, ditambah integral, dikurangi Kd kali kecepatan, ditambah feedforward kecepatan, disaturasi di 15 derajat. Satu detail sangat penting nanti: integrator LQR hanya aktif saat galat di bawah 25 sentimeter, sedangkan integrator H-infinity selalu aktif. Asimetri inilah yang muncul kembali di hasil.}
+    {50 s. The callout is the single most important line of the low level:
         it is the actual control law, and it names the asymmetry that explains
         the headline result.}
 \end{frame}
@@ -443,7 +486,9 @@
     $T_{\mathrm{lead}}=(K_d-k_{\!f\!f})/K_p$: a commanded speed is the speed
     actually held, and the closed loop is one first-order equation.
   \end{callout}
-  \note{The longest slide of the talk, 60 s. Walk the three lines. The payoff is
+  \narasi{Step six turns this controller into a simple velocity model. For small angles, horizontal acceleration is roughly g times the attitude reference. Now, the coordinator never sends a velocity. It sends a position that leads the drone by T lead times the commanded velocity, so the position error is the command. Substitute that into the control law, and the acceleration becomes a gain on the commanded velocity, minus k v times the actual velocity, where k v equals g times Kd. If we choose T lead so that the two gains are equal, T lead equals Kd minus k ff, divided by Kp, then the DC gain is exactly one. In plain words: the speed we command is the speed the drone actually holds, and the whole closed loop becomes one first-order equation. That is what the safety filter will build on.}
+    {Langkah enam mengubah pengendali ini menjadi model kecepatan yang sederhana. Untuk sudut kecil, percepatan horizontal kira-kira g kali referensi sikap. Nah, koordinator tidak pernah mengirim kecepatan. Ia mengirim posisi yang mendahului drone sejauh T lead kali kecepatan perintah, sehingga galat posisi itulah perintahnya. Substitusikan ke hukum kendali, dan percepatannya menjadi sebuah gain pada kecepatan perintah, dikurangi k v kali kecepatan aktual, dengan k v sama dengan g kali Kd. Jika T lead dipilih agar kedua gain sama, yaitu T lead sama dengan Kd dikurangi k ff, dibagi Kp, maka gain DC-nya tepat satu. Dengan kata lain: kecepatan yang kita perintahkan adalah kecepatan yang benar-benar dipertahankan drone, dan seluruh loop tertutup menjadi satu persamaan orde satu. Di atas inilah filter keselamatan dibangun.}
+    {The longest slide of the talk, 60 s. Walk the three lines. The payoff is
         on the next slide: four numbers that everything else is built on.}
 \end{frame}
 
@@ -474,7 +519,9 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{40 s. These four numbers are the interface between the low level and
+  \narasi{Step seven. The low level is now summarised by four numbers, and all four come from the gains, not from tuning: k v is \PlantKv\space per second, a max is \PlantAmax, T lead is \PlantTlead\space seconds, and v c, where saturation stops binding, is \PlantVc\space metres per second. Change a gain or the tilt cap, and all four move together. These four numbers are the interface to everything above.}
+    {Langkah tujuh. Lapis bawah sekarang diringkas oleh empat angka, dan keempatnya berasal dari gain, bukan dari tuning: k v sebesar \PlantKv\space per detik, a max \PlantAmax, T lead \PlantTlead\space detik, dan v c, titik saat saturasi berhenti membatasi, \PlantVc\space meter per detik. Ubah satu gain atau batas kemiringan, maka keempatnya ikut berubah. Empat angka inilah antarmuka ke semua lapis di atasnya.}
+    {40 s. These four numbers are the interface between the low level and
         everything above. Table 1 of the paper has the full gain set; do not put
         it on screen unless asked.}
 \end{frame}
@@ -507,7 +554,9 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{35 s. Set up the honest caveat early: the model predicts broadband
+  \narasi{What did the H-infinity weights buy, before any flight? The worst-case gain from disturbance to position drops \HnormRatio\space times, from \HnormLqr\space to \HnormHinf. The predicted deviation under this wind falls \SigxRatio\space times. It is paid for with bandwidth, as crossover rises from \WcLqr\space to \WcHinf\space radians per second, and with margin, as phase margin drops from \PmLqr\space to \PmHinf\space degrees. But this is a prediction from the linear model, not a result. The flight data will tell a more nuanced story.}
+    {Apa yang didapat dari bobot H-infinity, sebelum terbang sama sekali? Gain terburuk dari gangguan ke posisi turun \HnormRatio\space kali, dari \HnormLqr\space menjadi \HnormHinf. Simpangan yang diprediksi di bawah angin ini turun \SigxRatio\space kali. Harganya dibayar dengan bandwidth, frekuensi crossover naik dari \WcLqr\space ke \WcHinf\space radian per detik, dan dengan margin, phase margin turun dari \PmLqr\space ke \PmHinf\space derajat. Tetapi ini prediksi dari model linier, bukan hasil. Data terbang akan menunjukkan cerita yang lebih bernuansa.}
+    {35 s. Set up the honest caveat early: the model predicts broadband
         attenuation, but the flight data will show the gain is mostly a rejected
         mean offset. Full gain table is in backup.}
 \end{frame}
@@ -540,7 +589,9 @@
       ``set-point'' on the previous section --- this is where the two layers meet.
     \end{column}
   \end{columns}
-  \note{45 s. The key sentence: the state machine proposes, the QP disposes, and
+  \narasi{Now the mid level. It receives a desired velocity from the lane follower, the confirmed obstacle map from LiDAR, and the positions and velocities of the neighbours. It builds one linear constraint per hazard from a barrier function, and solves a small quadratic program, the only optimisation in the whole stack. It outputs a safe velocity, which becomes the next position set-point. What is optimised is only how far we deviate from what the planner asked. The safety constraints are hard. In short: the state machine proposes, and the QP disposes.}
+    {Sekarang lapis tengah. Masukannya kecepatan yang diinginkan dari pengikut lajur, peta rintangan terkonfirmasi dari LiDAR, serta posisi dan kecepatan drone tetangga. Ia membangun satu kendala linier untuk tiap bahaya dari fungsi barrier, lalu menyelesaikan program kuadratik kecil, satu-satunya optimasi di seluruh tumpukan kendali. Keluarannya kecepatan aman, yang menjadi set-point posisi berikutnya. Yang dioptimasi hanyalah seberapa jauh kita menyimpang dari permintaan perencana. Kendala keselamatannya bersifat keras. Singkatnya: state machine mengusulkan, QP yang memutuskan.}
+    {45 s. The key sentence: the state machine proposes, the QP disposes, and
         the only thing traded away is how closely we honour the wish.}
 \end{frame}
 
@@ -569,7 +620,9 @@
     inherits whatever fidelity the identification has --- no extra conservatism,
     and no optimism either.
   \end{callout}
-  \note{45 s. Emphasise that nothing has been approximated yet beyond the small
+  \narasi{Step eight. Take the velocity model from step seven and command zero. The drone decelerates at the smaller of k v times v and a max. At high speed it is acceleration-limited, so the stopping distance is a parabola. At low speed it decays exponentially. The two regimes meet exactly at v c. Integrating gives the exact stopping distance, D of s, on the right. This is not a bound. It is the integral of the identified plant, so the safety argument adds no extra conservatism, and no optimism either.}
+    {Langkah delapan. Ambil model kecepatan dari langkah tujuh dan perintahkan nol. Drone melambat dengan nilai yang lebih kecil antara k v kali v dan a max. Pada kecepatan tinggi ia dibatasi percepatan, sehingga jarak berhentinya berbentuk parabola. Pada kecepatan rendah ia meluruh secara eksponensial. Kedua rezim bertemu tepat di v c. Integrasinya memberi jarak berhenti yang eksak, D dari s, di sebelah kanan. Ini bukan batas atas. Ini integral dari plant yang teridentifikasi, sehingga argumen keselamatannya tidak menambah konservatisme, dan juga tidak terlalu optimis.}
+    {45 s. Emphasise that nothing has been approximated yet beyond the small
         angle step.}
 \end{frame}
 
@@ -589,7 +642,9 @@
     Linear in $h$, quadratic in $s$. Solving for $s$ turns a safety requirement
     into something the controller can act on.
   \end{callout}
-  \note{45 s. The budget a is not quite a\_max: a = max(0.15 a\_max, mu a\_max
+  \narasi{Step nine adds reality: the drone reacts late. Sensing, the QP, the set-point hand-off and actuator lag add up to a dead time of 0.4 seconds. During that window the drone keeps closing at speed s, and only afterwards does braking begin. So the clearance h must cover both the dead-time distance and the stopping distance. That gives one inequality, linear in h and quadratic in s. Read it as a speed limit instead of a distance check, and the controller can act on it.}
+    {Langkah sembilan menambahkan kenyataan: drone bereaksi terlambat. Penginderaan, QP, penyerahan set-point, dan jeda aktuator berjumlah dead time 0,4 detik. Selama jeda itu drone terus mendekat dengan kecepatan s, dan baru sesudahnya pengereman dimulai. Jadi jarak bebas h harus mencakup jarak selama dead time dan jarak berhenti. Hasilnya satu pertidaksamaan, linier terhadap h dan kuadratik terhadap s. Baca ia sebagai batas kecepatan, bukan pengecekan jarak, dan pengendali bisa bertindak berdasarkan itu.}
+    {45 s. The budget a is not quite a max: a = max(0.15 a max, mu a max
         minus obstacle and wind accelerations), mu = 0.75, 0.85 for walls.
         Mention only if asked.}
 \end{frame}
@@ -617,7 +672,9 @@
       \setlength{\figmaxh}{44mm}\figcard{\panelcbfa{width=\linewidth}}
     \end{column}
   \end{columns}
-  \note{The core of the method, 65 s. Point at the pink band in the figure: that
+  \narasi{Step ten is the core of the method. Solve that inequality for the speed, and the barrier function phi of h falls out. Phi gives the fastest approach speed that can still be stopped in time at clearance h. It has units of speed, and it is an extended class-K function, which is exactly what a control barrier function needs. Below a clearance of 0.16 metres, phi is zero: at that distance the drone must already be stopped. Below zero clearance it becomes negative and actively commands separation. Why not the usual linear function, gamma times h? Look at the pink band in the figure. A linear function matched at 1.6 metres per second still allows approach inside 0.16 metres, where the drone physically cannot stop. It fails exactly where it matters. Our barrier respects the real tilt limit and the real dead time, so there is no free parameter left to tune.}
+    {Langkah sepuluh adalah inti metodenya. Selesaikan pertidaksamaan tadi untuk kecepatan, maka fungsi barrier phi dari h muncul dengan sendirinya. Phi memberi kecepatan mendekat tercepat yang masih bisa dihentikan tepat waktu pada jarak bebas h. Satuannya kecepatan, dan ia fungsi kelas-K yang diperluas, persis yang dibutuhkan control barrier function. Di bawah jarak bebas 0,16 meter, phi bernilai nol: pada jarak itu drone harus sudah berhenti. Di bawah nol ia menjadi negatif dan secara aktif memerintahkan drone menjauh. Mengapa tidak memakai fungsi linier biasa, gamma kali h? Lihat pita merah muda di gambar. Fungsi linier yang disamakan pada 1,6 meter per detik masih mengizinkan drone mendekat di dalam 0,16 meter, padahal di situ drone secara fisik tidak bisa berhenti. Ia gagal tepat di tempat yang paling penting. Barrier kami menghormati batas kemiringan dan dead time yang sebenarnya, sehingga tidak ada parameter bebas yang perlu disetel.}
+    {The core of the method, 65 s. Point at the pink band in the figure: that
         is the region where the linear function lies above zero but the vehicle
         cannot stop.}
 \end{frame}
@@ -628,7 +685,9 @@
     {1.0\,m/s needs 0.90\,m \textperiodcentered{} 0.5\,m/s needs 0.44\,m
      \textperiodcentered{} at 0.16\,m the admissible speed is zero. Read off
      $\varphi$, with no parameter left to choose.}
-  \note{12 s. This is what makes the barrier concrete for the audience, and it is
+  \narasi{To make it concrete: approaching at 1.6 metres per second needs 1.67 metres of clearance. At one metre per second it needs 0.9 metres. At 0.16 metres, the allowed speed is zero.}
+    {Supaya konkret: mendekat dengan 1,6 meter per detik butuh jarak bebas 1,67 meter. Pada satu meter per detik butuh 0,9 meter. Pada 0,16 meter, kecepatan yang diizinkan adalah nol.}
+    {12 s. This is what makes the barrier concrete for the audience, and it is
         the number the planner inherits on the next section.}
 \end{frame}
 
@@ -654,7 +713,9 @@
       \scalebox{0.60}{\diagrow}
     \end{column}
   \end{columns}
-  \note{40 s. Stress that the row shape is the same for every hazard class --
+  \narasi{Step eleven. Each hazard gives one linear row on the commanded velocity: the speed toward the hazard must stay below lambda times phi of h. Only the closing component is limited, so moving sideways is still free. Static cylinders, moving cylinders, walls and neighbours all produce rows of this same shape. For pairs of drones the burden is shared, so the two lambdas add up to one, which is why all seven drones are solved together.}
+    {Langkah sebelas. Tiap bahaya menghasilkan satu baris linier pada kecepatan perintah: kecepatan menuju bahaya harus tetap di bawah lambda kali phi dari h. Hanya komponen yang mendekat yang dibatasi, jadi bergerak ke samping tetap bebas. Silinder diam, silinder bergerak, dinding, dan tetangga semuanya menghasilkan baris dengan bentuk yang sama. Untuk pasangan drone, bebannya dibagi sehingga kedua lambda berjumlah satu, dan karena itulah ketujuh drone diselesaikan bersamaan.}
+    {40 s. Stress that the row shape is the same for every hazard class --
         that is what keeps the QP small and the code auditable.}
 \end{frame}
 
@@ -684,7 +745,9 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{40 s. CBF rows only prevent approach, they never restore separation --
+  \narasi{Step twelve. Stack all the rows, and the safe velocity is simply the admissible velocity closest to what the planner asked: a projection. With only two variables, we solve it exactly by enumerating active sets, in about 138 microseconds for 24 rows, with no external solver. On 3000 random test cases, SLSQP failed 320 times and this solver none. A separate recovery term breaks deadlocks, but it only touches the objective, never the constraints, so liveness is never traded against safety. Each mission ran 19,500 to 25,900 solves.}
+    {Langkah dua belas. Tumpuk semua baris, maka kecepatan aman adalah kecepatan yang diizinkan dan paling dekat dengan permintaan perencana: sebuah proyeksi. Karena hanya dua variabel, kami menyelesaikannya secara eksak dengan enumerasi active set, sekitar 138 mikrodetik untuk 24 baris, tanpa solver eksternal. Pada 3000 kasus uji acak, SLSQP gagal 320 kali dan solver ini tidak sekali pun. Suku pemulihan terpisah memecah deadlock, tetapi hanya menyentuh fungsi tujuan, tidak pernah kendalanya, sehingga kelancaran gerak tidak pernah ditukar dengan keselamatan. Tiap misi menjalankan 19.500 sampai 25.900 kali penyelesaian.}
+    {40 s. CBF rows only prevent approach, they never restore separation --
         that is why the recovery term exists at all.}
 \end{frame}
 
@@ -719,7 +782,9 @@
       every limit it applies came from below.
     \end{column}
   \end{columns}
-  \note{40 s. Close the loop out loud: high level output = mid level input, mid
+  \narasi{Now the high level. It takes the region polygon, the drone positions, a coverage grid and failure events. It partitions the region into Voronoi cells, plans boustrophedon lanes, and routes them around known obstacles. It outputs one lane at a time, which becomes the desired velocity for the mid level. It has no clock: it only runs when a lane ends, an obstacle is confirmed, or a drone dies.}
+    {Sekarang lapis atas. Masukannya poligon area, posisi drone, grid cakupan, dan kejadian kegagalan. Ia membagi area menjadi sel Voronoi, merencanakan lajur boustrophedon, dan membelokkan lajur itu di sekitar rintangan yang sudah diketahui. Keluarannya satu lajur setiap kali, yang menjadi kecepatan yang diinginkan untuk lapis tengah. Ia tidak punya jam: ia hanya berjalan saat sebuah lajur selesai, rintangan terkonfirmasi, atau sebuah drone mati.}
+    {40 s. Close the loop out loud: high level output = mid level input, mid
         level output = low level input, and the limits travelled the other way.}
 \end{frame}
 
@@ -749,7 +814,9 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{50 s. The 70 degree cap also keeps chords long (1.49 m) so the 0.60 m
+  \narasi{Step thirteen. The planner's keep-out radius is read from the barrier, not chosen. The physical need is the cylinder radius plus the airframe plus a margin: 0.87 metres. But a detour is flown as straight chords of an arc, and a chord cuts inside the arc. With the chord angle capped at 70 degrees, routing at 1.30 metres keeps the path at least 1.065 metres away, which is still clear. And with a 0.95 metre sensor, the ring around each cylinder is still swept, so the detour costs no coverage. The planner handles what is known. Between a LiDAR discovery and the re-plan, the safety filter is the only thing keeping the drone safe.}
+    {Langkah tiga belas. Radius keep-out perencana dibaca dari barrier, bukan dipilih. Kebutuhan fisiknya adalah radius silinder ditambah badan drone ditambah margin: 0,87 meter. Tetapi jalan memutar diterbangkan sebagai tali busur lurus dari sebuah lingkaran, dan tali busur memotong ke dalam lingkaran. Dengan sudut tali busur dibatasi 70 derajat, merutekan pada 1,30 meter menjaga lintasan minimal 1,065 meter dari pusat, yang masih aman. Dan dengan sensor 0,95 meter, cincin di sekitar tiap silinder tetap tersapu, sehingga jalan memutar tidak mengurangi cakupan. Perencana menangani yang sudah diketahui. Di antara penemuan oleh LiDAR dan perencanaan ulang, filter keselamatan adalah satu-satunya yang menjaga drone tetap aman.}
+    {50 s. The 70 degree cap also keeps chords long (1.49 m) so the 0.60 m
         minimum-segment merge cannot cut the corner back into the keep-out zone.}
 \end{frame}
 
@@ -775,7 +842,9 @@
       \figcaption{Take-off: 7 agents, 54 lanes}
     \end{column}
   \end{columns}
-  \note{40 s. Entry points are chosen combinatorially, not greedily: two
+  \narasi{Step fourteen. The sensor sets the lane spacing: a 0.95 metre radius gives a 1.9 metre swath, and lanes at no more than 1.45 metres leave overlap, so small heading errors open no gaps. The region sets the cells: Lloyd's algorithm moves each generator to its cell centroid, 25 times, and then a Hungarian assignment matches drones to cells. Each cell is clipped to the region polygon first, so nothing assumes a rectangle. And the first and last lanes follow the cell's own boundary, to sweep the wedges at tapered corners.}
+    {Langkah empat belas. Sensor menentukan jarak antarlajur: radius 0,95 meter memberi lebar sapuan 1,9 meter, dan lajur dengan jarak paling jauh 1,45 meter menyisakan tumpang tindih, sehingga galat arah kecil tidak menimbulkan celah. Area menentukan selnya: algoritma Lloyd memindahkan tiap generator ke titik berat selnya, 25 kali, lalu penugasan Hungarian memasangkan drone dengan sel. Tiap sel dipotong dulu ke poligon area, jadi tidak ada yang mengasumsikan persegi panjang. Dan lajur pertama dan terakhir mengikuti batas sel itu sendiri, untuk menyapu irisan di sudut yang meruncing.}
+    {40 s. Entry points are chosen combinatorially, not greedily: two
         neighbours can otherwise be assigned entries exactly 0.70 m apart -- the
         hard separation -- and then neither can arrive. Observed: 317 s at 0\%.}
 \end{frame}
@@ -786,7 +855,9 @@
   \figcard{\includegraphics[width=0.90\textwidth]{concept_high}}
   \figcaption{(a) 7 agents, 54 lanes \textperiodcentered{} (b) agent 4 lost at
     41\,s \textperiodcentered{} (c) agent 5 lost at 58\,s}
-  \note{On a loss: erase coverage inside the failed cell, merge it with its
+  \narasi{Step fifteen is the fault tolerance. When a drone dies, the same geometry is simply run again. Coverage inside the failed cell is erased, the cell is merged with its neighbours, and the union is re-laned with the same spacing. Lanes that are already 80 percent covered are dropped. The remaining lanes are handed out in contiguous blocks to one to three helpers, so a helper never shuttles back and forth across the arena. The figure shows seven agents with 54 lanes, then the first loss, then the second.}
+    {Langkah lima belas adalah toleransi kegagalannya. Saat sebuah drone mati, geometri yang sama cukup dijalankan ulang. Cakupan di dalam sel yang gagal dihapus, sel itu digabung dengan tetangganya, dan gabungannya dibuatkan lajur ulang dengan jarak yang sama. Lajur yang sudah 80 persen tercakup dibuang. Lajur sisanya dibagikan dalam blok yang bersambung kepada satu sampai tiga helper, sehingga helper tidak bolak-balik melintasi arena. Gambar ini menunjukkan tujuh agen dengan 54 lajur, lalu kehilangan pertama, lalu yang kedua.}
+    {On a loss: erase coverage inside the failed cell, merge it with its
         neighbours, re-lane the union with the same pitch, drop lanes already
         80\% covered, and hand contiguous serpentine blocks to 1-3 helpers.
         Contiguity is the key choice -- a helper should not shuttle across the
@@ -818,7 +889,9 @@
       \figcaption{Flown trajectories --- \hinf{} (top), \lqr{} (bottom)}
     \end{column}
   \end{columns}
-  \note{45 s. m = 1.50 kg, arm 0.22 m, rotor under 1100 rad/s. Correlation time
+  \narasi{The experiment applies every stressor at once to seven 3DR Iris quadrotors in Gazebo with ROS 2. They cruise at two metres and sweep at 1.6 metres per second. The wind is a Gauss-Markov process with 2.5 metres per second of turbulence plus a constant component. The recorded mean was about \WindMeanX\space and \WindMeanY\space metres per second, with peaks of \WindMaxH. Two cylinders move diagonally at up to 2.5 metres per second, and two drones are killed at 18 and 32 percent coverage.}
+    {Eksperimennya menerapkan semua gangguan sekaligus pada tujuh quadrotor 3DR Iris di Gazebo dengan ROS 2. Drone terbang di ketinggian dua meter dan menyapu dengan 1,6 meter per detik. Anginnya proses Gauss-Markov dengan turbulensi 2,5 meter per detik ditambah komponen konstan. Rata-rata terekam sekitar \WindMeanX\space dan \WindMeanY\space meter per detik, dengan puncak \WindMaxH. Dua silinder bergerak diagonal hingga 2,5 meter per detik, dan dua drone dimatikan pada cakupan 18 dan 32 persen.}
+    {45 s. m = 1.50 kg, arm 0.22 m, rotor under 1100 rad/s. Correlation time
         0.5 s, wind starts at t = 5 s. Let the results table carry the rest.}
 \end{frame}
 
@@ -835,7 +908,9 @@
     Earlier tooling in this project silently synthesised telemetry when CSVs were
     missing. Missing data now prints \texttt{n/a} and is never substituted.
   \end{callout}
-  \note{This slide buys you the right to show a crash next. Q3 in the pack.
+  \narasi{Every number in this talk traces to a CSV file. We ran four regions times two controllers. Each run has a manifest, and one analysis script generates every figure. To be clear, that is one run per configuration with one wind seed, so these are single-run observations. Missing data prints n/a and is never filled in.}
+    {Setiap angka di presentasi ini bisa dilacak ke sebuah file CSV. Kami menjalankan empat area dikali dua pengendali. Tiap run punya manifest, dan satu skrip analisis menghasilkan semua gambar. Supaya jelas, ini satu run per konfigurasi dengan satu seed angin, jadi ini pengamatan run tunggal. Data yang hilang ditulis n/a dan tidak pernah diisi dengan nilai pengganti.}
+    {This slide buys you the right to show a crash next. Q3 in the pack.
         These very slides read the same generated macro file as the paper.}
 \end{frame}
 
@@ -849,17 +924,21 @@
   \bignum{7 of 8}{missions finished, after losing two of seven quadrotors}
     {\CovMin--\CovMax\% coverage under turbulence, unmapped static obstacles and
      moving obstacles. The eighth is four slides away, and we are going to watch it.}
-  \note{12 s. Then straight into the video section.}
+  \narasi{Seven of eight missions finished, after losing two of seven quadrotors. The eighth one, we are going to watch.}
+    {Tujuh dari delapan misi selesai, setelah kehilangan dua dari tujuh quadrotor. Misi kedelapan akan kita tonton bersama.}
+    {12 s. Then straight into the video section.}
 \end{frame}
 
 \begin{frame}{A full mission: partition, transit, sweep, two losses, return to centroid}
-  \mins{10}%
+  \mins{8}%
   \centering
   \videoposter{rect_hinf}{0.64\textwidth}
   \figcaption{rect, \hinf{} \textperiodcentered{} 8$\times$ wall clock $\approx$
     real mission time \textperiodcentered{} \CovRectHinf\% in \TmisRectHinf\,s,
     agents \VictimsRectHinf{} killed \textperiodcentered{} \videonote}
-  \note{Play about 40 s then stop --- do not play all 263 s. Narrate the phases
+  \narasi{This is a full mission in the rectangular region with PID H-infinity. First, the region is partitioned into seven cells, and each drone transits to the start of its first lane. Then they sweep, lane by lane. The green area on the right is the live coverage map. Watch the counter at the top: drone 4 is killed, and its cell is redistributed. Later drone 7 is killed as well, and the survivors still finish. This mission reached \CovRectHinf\space percent coverage in \TmisRectHinf\space seconds, and at the end the survivors return to their centroids.}
+    {Ini satu misi penuh di area persegi dengan PID H-infinity. Pertama, area dibagi menjadi tujuh sel, dan tiap drone berpindah ke awal lajur pertamanya. Lalu mereka menyapu, lajur demi lajur. Area hijau di sebelah kanan adalah peta cakupan secara langsung. Perhatikan penghitung di atas: drone 4 dimatikan, dan selnya dibagikan ulang. Kemudian drone 7 juga dimatikan, dan drone yang tersisa tetap menyelesaikan misi. Misi ini mencapai cakupan \CovRectHinf\space persen dalam \TmisRectHinf\space detik, dan di akhir drone yang tersisa kembali ke titik berat selnya.}
+    {Play about 30 s then stop --- do not play all 263 s. Narrate the phases
         as they happen. The HUD in the clip carries sim time and live coverage.}
 \end{frame}
 
@@ -881,7 +960,9 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{24 s clip. Let it run once and talk over it. The coverage dip is visible
+  \narasi{Here is a closer look at the first loss. Agent 4 is killed at 18 percent coverage. Coverage inside its cell is erased, so the counter actually drops. Its cell is merged and re-laned, and the lanes are handed to helpers. The important point is that the swarm never pauses: the survivors keep sweeping while the reallocation happens.}
+    {Ini tampilan lebih dekat dari kehilangan pertama. Agen 4 dimatikan pada cakupan 18 persen. Cakupan di dalam selnya dihapus, jadi penghitungnya benar-benar turun. Selnya digabung dan dibuatkan lajur ulang, lalu lajurnya diserahkan ke helper. Poin pentingnya, swarm tidak pernah berhenti: drone yang tersisa terus menyapu selama realokasi berlangsung.}
+    {24 s clip. Let it run once and talk over it. The coverage dip is visible
         on the curve two slides later.}
 \end{frame}
 
@@ -905,7 +986,9 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{Do not apologise for this slide. State it plainly --- it is the most
+  \narasi{And this is the one mission that did not finish: the rectangle with PID-LQR, slowed down so you can see it. Agent 2 comes within \UpRectLqrSurf\space metres of a cylinder surface. That is inside the airframe itself: the body half-width is \BodyHalf\space metres and the rotors reach \RotorReach. It tilts to about \UpRectLqrTilt\space degrees, drops to \UpRectLqrZmin\space metres, and does not recover. We stopped the run at \TmisRectLqr\space seconds and report its coverage as n/a. It is the most useful result in the set, because it shows where the method runs out.}
+    {Dan inilah satu-satunya misi yang tidak selesai: area persegi dengan PID-LQR, diperlambat supaya terlihat. Agen 2 mendekat sampai \UpRectLqrSurf\space meter dari permukaan silinder. Itu sudah di dalam badan drone sendiri: setengah lebar badannya \BodyHalf\space meter dan jangkauan rotornya \RotorReach. Ia miring sampai sekitar \UpRectLqrTilt\space derajat, turun ke \UpRectLqrZmin\space meter, dan tidak pulih. Kami menghentikan run pada \TmisRectLqr\space detik dan melaporkan cakupannya sebagai n/a. Ini hasil paling berguna di antara semuanya, karena menunjukkan di mana batas metodenya.}
+    {Do not apologise for this slide. State it plainly --- it is the most
         scientifically useful result in the set. The cause comes two slides later.}
 \end{frame}
 
@@ -960,7 +1043,9 @@
     \item Sweep-phase tilt sits at the 15\textdegree{} reference cap in every
           run; the maxima come from lane-end pivots and upsets
   \end{itemize}
-  \note{Ten seconds of silence so they can read it. Then name three things: the
+  \narasi{Here are all eight missions. H-infinity finished every region. LQR finished three, and in the rectangle it struck a cylinder. Coverage in the finished runs is between \CovMin\space and \CovMax\space percent. In every region both completed, H-infinity was faster and held the lane more tightly, but used several times more torque. LQR is not uniformly worse, though. It has the best coverage of the campaign, \CovPlusLqr\space percent in the plus region, and the lowest peak tilt, \TiltmaxUshapeLqr\space degrees in the U shape. During sweeping, tilt sits at the 15 degree cap in every run. The large maxima come from lane-end turns and upsets.}
+    {Ini kedelapan misi. H-infinity menyelesaikan semua area. LQR menyelesaikan tiga, dan di area persegi ia menabrak silinder. Cakupan pada run yang selesai antara \CovMin\space dan \CovMax\space persen. Di setiap area yang diselesaikan keduanya, H-infinity lebih cepat dan menjaga lajur lebih rapat, tetapi memakai torsi beberapa kali lebih besar. Meski begitu, LQR tidak selalu lebih buruk. LQR punya cakupan terbaik di seluruh kampanye, \CovPlusLqr\space persen di area plus, dan kemiringan puncak terendah, \TiltmaxUshapeLqr\space derajat di area U. Selama menyapu, kemiringan berada di batas 15 derajat pada setiap run. Nilai maksimum yang besar berasal dari belokan di ujung lajur dan upset.}
+    {Ten seconds of silence so they can read it. Then name three things: the
         abort row, the 0.06 m clearance, and that Hinf finished every region.}
 \end{frame}
 
@@ -971,7 +1056,9 @@
      reach. Every upset in the campaign was preceded by 1--4\,s of tier-2 QP
      solves bound by that same cylinder --- the filter saw it coming and ran out
      of control authority.}
-  \note{12 s. This is the number a reviewer will remember; own it.}
+  \narasi{This is the clearance where the failure happened: \ObssurfRectLqr\space metres. Before every upset, the safety filter was already straining against that cylinder. It saw it coming, but ran out of control authority.}
+    {Inilah jarak bebas saat kegagalan terjadi: \ObssurfRectLqr\space meter. Sebelum setiap upset, filter keselamatan sudah bekerja keras menahan silinder itu. Ia melihatnya datang, tetapi kehabisan otoritas kendali.}
+    {12 s. This is the number a reviewer will remember; own it.}
 \end{frame}
 
 \begin{frame}{Coverage goes backwards at every loss --- by design}
@@ -990,7 +1077,9 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \note{The backwards step is a design choice, not a plotting artefact. Say so
+  \narasi{This plot shows coverage over time. Notice that it goes backwards at every loss. That is by design, not a bug: coverage inside a failed cell is erased and swept again. The cross marks the aborted LQR run at about 79 seconds. In every region it completed, H-infinity reached the 97 percent target sooner.}
+    {Grafik ini menunjukkan cakupan terhadap waktu. Perhatikan kurvanya turun setiap kali ada kehilangan. Itu disengaja, bukan bug: cakupan di dalam sel yang gagal dihapus lalu disapu ulang. Tanda silang menandai run LQR yang dihentikan sekitar detik ke-79. Di setiap area yang diselesaikannya, H-infinity mencapai target 97 persen lebih cepat.}
+    {The backwards step is a design choice, not a plotting artefact. Say so
         explicitly or someone will think it is a bug.}
 \end{frame}
 
@@ -1018,9 +1107,11 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{The slide that separates a careful paper from a marketing one. Take the
-        full 50 s. Median fell from \LatMedLqrMin--\LatMedLqrMax{} to
-        \LatMedHinfMin--\LatMedHinfMax{} cm.}
+  \narasi{Now, why is H-infinity tighter on the lane? The lateral RMS error drops from \LatRmsLqrMin\space to \LatRmsLqrMax\space centimetres for LQR, to \LatRmsHinfMin\space to \LatRmsHinfMax\space for H-infinity, a reduction of \LatRedMin\space to \LatRedMax\space percent. But look at the spread: the standard deviations are close, \LatStdLqrMin\space to \LatStdLqrMax\space against \LatStdHinfMin\space to \LatStdHinfMax\space centimetres. What really moved is the mean. LQR flies with a constant offset of six to seven centimetres to one side, while H-infinity stays within two centimetres of the line. So there are two real effects. H-infinity does attenuate disturbances better, and it also has a \KiRatio\space times larger integral gain. Here, the second effect dominates.}
+    {Lalu, mengapa H-infinity lebih rapat di lajur? Galat lateral RMS turun dari \LatRmsLqrMin\space sampai \LatRmsLqrMax\space sentimeter untuk LQR, menjadi \LatRmsHinfMin\space sampai \LatRmsHinfMax\space untuk H-infinity, penurunan \LatRedMin\space sampai \LatRedMax\space persen. Tetapi lihat sebarannya: simpangan bakunya mirip, \LatStdLqrMin\space sampai \LatStdLqrMax\space dibanding \LatStdHinfMin\space sampai \LatStdHinfMax\space sentimeter. Yang benar-benar bergeser adalah rata-ratanya. LQR terbang dengan offset tetap enam sampai tujuh sentimeter ke satu sisi, sedangkan H-infinity tetap dalam dua sentimeter dari garis. Jadi ada dua efek yang nyata. H-infinity memang meredam gangguan lebih baik, dan ia juga punya gain integral \KiRatio\space kali lebih besar. Di sini, efek kedua yang dominan.}
+    {The slide that separates a careful paper from a marketing one. Take the
+        full 50 s. Median fell from \LatMedLqrMin--\LatMedLqrMax\space to
+        \LatMedHinfMin--\LatMedHinfMax\space cm.}
 \end{frame}
 
 \begin{frame}
@@ -1032,7 +1123,9 @@
      leads by $T_{\mathrm{lead}}u^\star\approx0.4$\,m during a sweep, so the gate
      is shut much of the time. That is the mechanism behind the lateral bias ---
      and it is a tuning choice, not a property of LQR.}
-  \note{18 s. The most interesting finding in the paper and the one that stops an
+  \narasi{The mechanism: the LQR integrator was open in only \IntegWinLqrMin\space to \IntegWinLqrMax\space percent of sweep samples, against \IntegWinHinfMin\space to \IntegWinHinfMax\space for H-infinity. Its gate is 25 centimetres, but the set-point leads by about 40. That is a tuning choice, not a property of LQR.}
+    {Mekanismenya: integrator LQR hanya terbuka pada \IntegWinLqrMin\space sampai \IntegWinLqrMax\space persen sampel sapuan, dibanding \IntegWinHinfMin\space sampai \IntegWinHinfMax\space untuk H-infinity. Gerbangnya 25 sentimeter, tetapi set-point mendahului sekitar 40 sentimeter. Itu pilihan tuning, bukan sifat LQR.}
+    {18 s. The most interesting finding in the paper and the one that stops an
         unfair conclusion. Expect Q5 here.}
 \end{frame}
 
@@ -1064,7 +1157,9 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{35 s. Point at the gap between the blue and orange clusters on the x
+  \narasi{And the cost. Each point is one run, lateral error against torque effort. Every H-infinity run sits lower and further right: tighter lanes, more effort, \EffRatioMin\space to \EffRatioMax\space times more torque. Motor saturation stayed under 0.2 percent for both, so effort was spent, not exhausted. On a battery-limited drone, this ratio may matter more than the lateral error. So neither design wins outright: H-infinity is tighter and harder on the airframe, LQR is gentler and looser.}
+    {Dan harganya. Tiap titik adalah satu run, galat lateral terhadap upaya torsi. Setiap run H-infinity berada lebih rendah dan lebih ke kanan: lajur lebih rapat, upaya lebih besar, torsi \EffRatioMin\space sampai \EffRatioMax\space kali lebih besar. Saturasi motor tetap di bawah 0,2 persen untuk keduanya, jadi upayanya terpakai, bukan habis. Pada drone yang dibatasi baterai, rasio ini bisa lebih menentukan daripada galat lateral. Jadi tidak ada desain yang menang mutlak: H-infinity lebih rapat dan lebih berat bagi badan drone, LQR lebih lembut dan lebih longgar.}
+    {35 s. Point at the gap between the blue and orange clusters on the x
         axis -- that is the whole cost argument in one picture.}
 \end{frame}
 
@@ -1092,10 +1187,12 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \note{All eight runs logged a negative moving-obstacle barrier, to
-        \HdynMinLogged{} m --- Q7 covers it.
+  \narasi{On safety between drones: the closest pair in the whole campaign came to \VtwovLshapeLqr\space metres, against a hard limit of 0.70. But we are careful about what that means. Three missions passed within rotor reach of an obstacle without contact being provable. Rotor guards are an assumption, not simulated, and contact between drones is never detected; only the minimum distance is tracked. So we do not claim zero collisions.}
+    {Soal keselamatan antar-drone: pasangan terdekat di seluruh kampanye berjarak \VtwovLshapeLqr\space meter, dibanding batas keras 0,70. Tetapi kami berhati-hati soal artinya. Tiga misi lewat dalam jangkauan rotor dari rintangan tanpa bisa dibuktikan ada kontak atau tidak. Pelindung rotor adalah asumsi, tidak disimulasikan, dan kontak antar-drone tidak pernah dideteksi; hanya jarak minimum yang dicatat. Jadi kami tidak mengklaim nol tabrakan.}
+    {All eight runs logged a negative moving-obstacle barrier, to
+        \HdynMinLogged\space m --- Q7 covers it.
         Q6 and Q7 live here. Saying it first is cheaper than defending it later.
-        Torque effort \EffRatioMin--\EffRatioMax{}x higher for Hinf; motor
+        Torque effort \EffRatioMin--\EffRatioMax\space times higher for Hinf; motor
         saturation under 0.2\% of samples for both.}
 \end{frame}
 
@@ -1111,7 +1208,9 @@
     \item Rotor guards assumed, not simulated
     \item Centralised upper layers; no ablation, no re-implemented baseline
   \end{itemize}
-  \note{Read quickly and without hedging. A short slide that earns trust. Runs
+  \narasi{To be clear about what this work does not establish: these are single runs with one wind seed. State and obstacle feedback are perfect, failure detection is instant, and coverage is geometric. The upper layers are centralised, and there is no ablation or re-implemented baseline yet.}
+    {Supaya jelas apa yang belum dibuktikan penelitian ini: ini run tunggal dengan satu seed angin. Umpan balik state dan rintangan sempurna, deteksi kegagalan instan, dan cakupannya geometris. Lapis atasnya tersentralisasi, dan belum ada ablasi atau baseline yang diimplementasikan ulang.}
+    {Read quickly and without hedging. A short slide that earns trust. Runs
         are stopped at unscheduled crashes rather than continued.}
 \end{frame}
 
@@ -1126,7 +1225,9 @@
     \item Next: several wind seeds, a guard-sized gust-aware barrier, distributed
           upper layers, flight tests
   \end{itemize}
-  \note{Land on the future work, then go straight to the thank-you slide.}
+  \narasi{To conclude. The swarm reached \CovMin\space to \CovMax\space percent coverage while losing two of seven quadrotors. Where both finished, H-infinity held lanes \LatRedMin\space to \LatRedMax\space percent tighter and finished \TimeRedMin\space to \TimeRedMax\space percent sooner, at several times the torque effort. Next, we plan several wind seeds, a gust-aware barrier, distributed upper layers, and flight tests.}
+    {Sebagai kesimpulan. Swarm mencapai cakupan \CovMin\space sampai \CovMax\space persen meskipun kehilangan dua dari tujuh quadrotor. Di area yang diselesaikan keduanya, H-infinity menjaga lajur \LatRedMin\space sampai \LatRedMax\space persen lebih rapat dan selesai \TimeRedMin\space sampai \TimeRedMax\space persen lebih cepat, dengan upaya torsi beberapa kali lebih besar. Selanjutnya, kami merencanakan beberapa seed angin, barrier yang memperhitungkan hembusan, lapis atas yang terdistribusi, dan uji terbang.}
+    {Land on the future work, then go straight to the thank-you slide.}
 \end{frame}
 
 {\setbeamertemplate{headline}{}\setbeamertemplate{footline}{}
@@ -1155,7 +1256,9 @@
   \hbox{\playlistqr[13mm]\hskip4mm
     \raisebox{4mm}{\color{epicblue}\small\bfseries
       github.com/izmaherdian/swarm-quadrotor-mapping}}
-  \note{End here. Do NOT advance -- the backup section behind this slide holds
+  \narasi{Thank you for your attention. The code is open source under the MIT licence, and all eight mission recordings are public; the link and QR code are on this slide. We thank CITA ITB for supporting this work. I am happy to take your questions.}
+    {Terima kasih atas perhatiannya. Kodenya open source dengan lisensi MIT, dan kedelapan rekaman misi bisa diakses publik; tautan dan kode QR ada di slide ini. Kami berterima kasih kepada CITA ITB yang telah mendukung penelitian ini. Saya dengan senang hati menerima pertanyaan.}
+    {End here. Do NOT advance -- the backup section behind this slide holds
         the anticipated-question pack; jump to it only if a question lands.}
 \end{frame}}
 

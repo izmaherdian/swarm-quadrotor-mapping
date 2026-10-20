@@ -9,7 +9,8 @@
 #    make pptx      main.pptx       cadangan untuk laptop panitia. Tiap halaman
 #                                   jadi gambar, MP4 asli ditempel di atasnya.
 #    make media     potong ulang klip video + tulis slowfactors.tex
-#    make all       ketiganya
+#    make narasi    NARASI.md: naskah bicara EN + ID dari \narasi{} di main.tex
+#    make all       pdf + pptx + narasi
 #    make clean     buang berkas antara (bukan klip)
 #
 #  Angka berasal dari ../Full Paper - EPIC/generated/numbers.tex -- file yang
@@ -25,8 +26,8 @@ LATEXMK := TEXINPUTS="$(TEXINPUTS)" latexmk -pdf -interaction=nonstopmode -halt-
 SRC := main.tex epicbeamer.sty slowfactors.tex
 CLIPS := assets/clips_manifest.json
 
-.PHONY: all pdf pptx media clean distclean check budget
-all: pdf pptx
+.PHONY: all pdf pptx media narasi clean distclean check budget
+all: pdf pptx narasi
 
 pdf: main.pdf
 main.pdf: $(SRC) $(CLIPS)
@@ -40,6 +41,10 @@ media $(CLIPS):
 	$(PY) tools/build_media.py
 
 slowfactors.tex: $(CLIPS)
+
+narasi: NARASI.md
+NARASI.md: main.tex tools/export_narasi.py
+	$(PY) tools/export_narasi.py
 
 check: main.pdf
 	@echo "halaman : $$(pdfinfo main.pdf | awk '/^Pages/{print $$2}')"

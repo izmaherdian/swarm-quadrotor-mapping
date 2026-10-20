@@ -236,4 +236,14 @@
 \newcommand{\cL}[1]{{\color{epicorange}#1}}
 \newcommand{\cBad}[1]{{\color{epicred}\bfseries #1}}
 
+% ---------------------------------------------------------------- narasi
+% \narasi{EN}{ID}{arahan} -- naskah yang DIUCAPKAN tiap slide bicara. EN tampil
+% di layar presenter pdfpc, disusul arahan lama dalam kurung siku. ID tidak
+% dicetak di mana pun di PDF; tools/export_narasi.py mengambil keduanya dari
+% main.tex ke NARASI.md. Tanpa %, $, &, _ di dalam teks: catatan masuk apa
+% adanya ke string anotasi PDF. Angka ditulis \CovMin\space sebelum spasi
+% (bukan \CovMin{}, yang ikut tercetak sebagai "{}" di catatan).
+\newcommand{\narasi}[3]{\note{#1\\\\[#3]}}
+
+
 \endinput

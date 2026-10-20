@@ -8,6 +8,7 @@
 %    \diagfbd     Langkah 1  gaya menyamping hanya dari thrust yang dimiringkan
 %    \diagbudget  Langkah 5  dead time + pengereman harus muat di clearance h
 %    \diagrow     Langkah 7  hanya komponen MENDEKAT yang dibatasi
+%    \diagarch    slide judul  tiga lapis + plant, satu kolom
 % ===========================================================================
 \usetikzlibrary{arrows.meta, angles, quotes, decorations.pathreplacing, calc}
 
@@ -193,4 +194,41 @@
 
   \node[sig, text=epicrust, anchor=north west, align=left] at (-17,-26)
     {the whole chain runs 250 times per second};
+\end{tikzpicture}}
+
+% ------------------------------------------------- arsitektur, slide judul
+% Gambaran tiga lapis dalam satu kolom: tiap panah ke bawah adalah keluaran
+% satu lapis yang menjadi masukan lapis di bawahnya; satu panah balik membawa
+% odometri + LiDAR dari simulator ke ketiga lapis.
+\newcommand{\diagarch}{%
+\begin{tikzpicture}[x=1mm, y=1mm,
+   lay/.style={draw=epicboxline, line width=0.5pt, fill=epicboxfill,
+               rounded corners=1pt, minimum width=46mm, minimum height=6.4mm,
+               align=left, inner xsep=2mm, inner ysep=1.4mm, font=\tiny, text=epicbrick,
+               text width=42mm},
+   tag/.style={font=\bfseries\tiny, text=white, inner xsep=1.3mm,
+               inner ysep=0.6mm, anchor=south west},
+   sig/.style={font=\tiny, text=epicclay, inner sep=1pt, anchor=west}]
+  \node[lay] (hi) at (0,0)   {Voronoi cells $\to$ boustrophedon lanes\\
+                              re-partition when an agent dies};
+  \node[lay] (mi) at (0,-12) {CBF-QP safety filter\\
+                              obstacles, walls, neighbours};
+  \node[lay] (lo) at (0,-24) {\cL{PID-LQR} \textbar{} \cH{PID-$H_\infty$}\\
+                              position $\to$ four rotor speeds};
+  \node[lay, draw=epicclay, fill=epicpeach!40] (pl) at (0,-36)
+       {Gazebo \textperiodcentered{} 7 quadrotors\\
+        wind \textperiodcentered{} cylinders \textperiodcentered{} agent loss};
+  \foreach \n/\t/\c in {hi/HIGH \textperiodcentered{} event/epicclay,
+                        mi/MID \textperiodcentered{} 20 Hz/epicrust,
+                        lo/LOW \textperiodcentered{} 250 Hz/epicbrick,
+                        pl/PLANT/epicclay}
+    \node[tag, fill=\c] at ($(\n.north west)+(1.6mm,-0.9mm)$) {\t};
+  \foreach \a/\b/\t in {hi/mi/lane, mi/lo/safe velocity, lo/pl/rotor speeds} {
+    \draw[vec, epicbrick] (\a.south) -- (\b.north);
+    \node[sig] at ($(\a.south)!0.5!(\b.north)+(1mm,0)$) {\t};}
+  % umpan balik ke ketiga lapis
+  \draw[vec, epicclay] (pl.east) -- ++(3,0) coordinate (fb) |- (hi.east);
+  \foreach \n in {mi,lo} \draw[vec, epicclay] (fb |- \n.east) -- (\n.east);
+  \node[font=\tiny, text=epicclay, rotate=90, anchor=north] at ($(fb)+(0.4,18)$)
+       {odometry \textperiodcentered{} LiDAR};
 \end{tikzpicture}}
