@@ -14,13 +14,13 @@ pembaca PDF biasa:
   biasa membuka pemutar sistem; di pdfpc diputar di tempat.
 * **catatan pembicara** — 57 anotasi `/Subtype/Text` ber-flag `/F 6` (Hidden).
   pdfpc membacanya; pembaca lain tidak menggambarnya sama sekali.
-* **hitung mundur 27 menit** (`duration=27, lastminutes=3`) di metadata XMP.
+* **hitung mundur 10 menit** (`duration=10, lastminutes=2`) di metadata XMP.
 
 Semuanya dari paket LaTeX `pdfpc` dengan opsi `overridenote`, yang membuat
 `\note{}` bawaan Beamer langsung jadi catatan pdfpc — tidak ada perintah baru.
 
 ```
- 1 – 52   bicara, tepat 27,0 menit  (44 slide isi + 8 pembatas seksi)
+ 1 – 52   bicara, tepat 10,0 menit  (44 slide isi + 8 pembatas seksi)
 53        pembatas Backup
 54        "Questions we expect"  — paket tanya jawab, BUKAN bagian talk
 55 – 65   satu slide jawaban per pertanyaan (Q1–Q11)
@@ -37,25 +37,14 @@ Setiap slide bicara punya `\narasi{EN}{ID}{arahan}` di `main.tex` — satu sumbe
 
 `make narasi` mengekspor keduanya ke `NARASI.md` dengan angka dari
 `numbers.tex`, dan memperingatkan kalau naskah sebuah slide lebih panjang dari
-jatah `\mins{}`-nya (patokan 140 kata/menit). Total ≈ 3600 kata untuk 27 menit.
+jatah `\mins{}`-nya (patokan 140 kata/menit). Total ≈ 1000 kata untuk 10 menit (≈ 100 kata/menit; sisanya jeda klik dan video).
 
-### Kalau slot-mu ternyata 20 menit
+### Durasi: video 10 menit
 
-Sembunyikan tujuh slide ini — semuanya pendukung, bukan rantai utamanya, dan
-totalnya 7,0 menit:
-
-| Slide | Menit | Isi |
-|---|---|---|
-| 11 | 0,7 | kontrak I/O low level (diagram kaskadenya pindah ke lisan) |
-| 14 | 0,8 | Langkah 2, 12 state → 4 rantai |
-| 20 | 0,6 | gain domain frekuensi (ada juga di Q5) |
-| 30 | 0,5 | kontrak I/O high level |
-| 32 | 0,6 | Langkah 14, jarak lajur dan sel Voronoi |
-| 45 | 0,4 | coverage vs waktu |
-| 48 | 0,6 | torque vs RMSE (ada juga di tabel hasil) |
-
-Sisanya 37 slide isi, 20,0 menit, dan rantai Langkah 1–15 tetap utuh kecuali
-Langkah 2 dan 14.
+Panitia EPIC 2026 meminta video presenter online. Semua 52 slide bicara tetap
+ada; yang dipadatkan adalah **narasinya** dan jatah `\mins{}` per slide, total
+100 = 10,0 menit. Slide berat (Langkah 2–9, 11–14, kontrak I/O) cukup satu
+kalimat; waktu dipusatkan di Langkah 10, video misi, dan hasil.
 
 Talk berakhir di slide 52 (*Thank you*). Paket Q&A sengaja ditaruh **di belakang
 pembatas Backup** — lompati ke sana hanya kalau ada yang bertanya.
@@ -139,9 +128,9 @@ kompilasi. Jalankan ulang analisisnya, lalu `make`, dan seluruh deck ikut beruba
 `slowfactors.tex` (tiga faktor gerak lambat) dihasilkan `tools/build_media.py`.
 Nomor slide di indeks Q&A memakai `\pageref`, jadi tetap benar kalau frame bergeser.
 
-**Anggaran 27 menit ikut diverifikasi.** Tiap frame bicara punya `\mins{N}`
+**Anggaran 10 menit ikut diverifikasi.** Tiap frame bicara punya `\mins{N}`
 (N persepuluh menit). LaTeX menjumlahkannya ke sebuah counter dan mencetaknya ke
-log; `make budget` gagal kalau totalnya bukan 270.
+log; `make budget` gagal kalau totalnya bukan 100.
 
 ## Cara membangun
 
@@ -150,7 +139,7 @@ cd "docs/Presentation - EPIC"
 make            # main.pdf  (sekaligus untuk pdfpc)
 make pptx       # main.pptx
 make all        # pdf + pptx + NARASI.md
-make budget     # verifikasi anggaran 27,0 menit
+make budget     # verifikasi anggaran 10,0 menit
 make check      # ringkasan halaman/ukuran/anotasi
 make media      # potong ulang klip + kecilkan figure beresolusi berlebih
 make narasi     # NARASI.md dari \narasi{} di main.tex
@@ -225,7 +214,7 @@ Beamer; figure dipotong dari PDF vektor paper lewat `viewport`.
 1. **Judul frame adalah KLAIM atau LANGKAH**, bukan topik.
 2. **Bullet hanya pendukung** — maksimal empat, pendek. Uraian panjang ke
    `\note{}`, yang muncul di layar presenter pdfpc.
-3. **Setiap frame bicara butuh `\mins{N}`**, dan totalnya harus 270.
+3. **Setiap frame bicara butuh `\mins{N}`**, dan totalnya harus 100.
 4. Teks catatan masuk **apa adanya** ke string anotasi PDF: tulis `a max`,
    bukan `a\_max` (yang muncul sebagai `\protect\T1\textunderscore`), dan
    angka sebagai `\CovMin\space`, bukan `\CovMin{}` (yang ikut tercetak `{}`).

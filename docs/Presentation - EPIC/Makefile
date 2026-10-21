@@ -5,7 +5,7 @@
 #                                   dibaca di mana pun, dan dipresentasikan
 #                                   lewat pdfpc. Video = poster yang bisa
 #                                   diklik (run:); catatan pembicara dan
-#                                   hitung mundur 20 menit ada di metadata.
+#                                   hitung mundur 10 menit ada di metadata.
 #    make pptx      main.pptx       cadangan untuk laptop panitia. Tiap halaman
 #                                   jadi gambar, MP4 asli ditempel di atasnya.
 #    make media     potong ulang klip video + tulis slowfactors.tex
@@ -70,4 +70,4 @@ budget:
 	@t=$$(grep -o 'TALK-BUDGET-TENTHS=[0-9]*' main.log | tail -1 | cut -d= -f2); \
 	 if [ -z "$$t" ]; then echo "anggaran: TIDAK TERCATAT (jalankan make pdf)"; exit 1; fi; \
 	 printf "anggaran bicara : %d.%d menit" $$((t/10)) $$((t%10)); \
-	 if [ "$$t" = "270" ]; then echo "  OK"; else echo "  SEHARUSNYA 27.0 -- perbaiki \\mins{} di main.tex"; exit 1; fi
+	 if [ "$$t" = "100" ]; then echo "  OK"; else echo "  SEHARUSNYA 10.0 -- perbaiki \\mins{} di main.tex"; exit 1; fi
