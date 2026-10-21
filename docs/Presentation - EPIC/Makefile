@@ -10,6 +10,8 @@
 #                                   jadi gambar, MP4 asli ditempel di atasnya.
 #    make media     potong ulang klip video + tulis slowfactors.tex
 #    make narasi    NARASI.md: naskah bicara EN + ID dari \narasi{} di main.tex
+#    make talk      talk.pdf + NARASI_talk.md: versi PRESENTASI 10 menit,
+#                   16 slide, naskah lengkap di catatan pdfpc
 #    make all       pdf + pptx + narasi
 #    make clean     buang berkas antara (bukan klip)
 #
@@ -26,8 +28,8 @@ LATEXMK := TEXINPUTS="$(TEXINPUTS)" latexmk -pdf -interaction=nonstopmode -halt-
 SRC := main.tex epicbeamer.sty slowfactors.tex
 CLIPS := assets/clips_manifest.json
 
-.PHONY: all pdf pptx media narasi clean distclean check budget
-all: pdf pptx narasi
+.PHONY: all pdf pptx media narasi talk clean distclean check budget
+all: pdf pptx narasi talk
 
 pdf: main.pdf
 main.pdf: $(SRC) $(CLIPS)
@@ -46,6 +48,12 @@ narasi: NARASI.md
 NARASI.md: main.tex tools/export_narasi.py
 	$(PY) tools/export_narasi.py
 
+talk: talk.pdf NARASI_talk.md
+talk.pdf: talk.tex $(SRC) $(CLIPS)
+	$(LATEXMK) -jobname=talk talk.tex
+NARASI_talk.md: talk.tex tools/export_narasi.py
+	$(PY) tools/export_narasi.py talk.tex NARASI_talk.md
+
 check: main.pdf
 	@echo "halaman : $$(pdfinfo main.pdf | awk '/^Pages/{print $$2}')"
 	@echo "ukuran  : $$(du -h main.pdf | cut -f1)"
@@ -57,17 +65,22 @@ check: main.pdf
 
 clean:
 	latexmk -C -jobname=main >/dev/null 2>&1 || true
+	latexmk -C -jobname=talk >/dev/null 2>&1 || true
 	rm -f *.aux *.log *.nav *.out *.snm *.toc *.fls *.fdb_latexmk *.vrb
 
 distclean: clean
-	rm -f main.pdf main.pptx
+	rm -f main.pdf talk.pdf main.pptx
 
 # Angka anggaran ada di main.log, yang ikut terhapus 'make clean'. Jadi target
 # ini mengompilasi sendiri kalau log-nya tidak ada, bukan gagal dengan pesan
 # yang membingungkan.
 budget:
 	@test -f main.log || $(LATEXMK) -jobname=main main.tex >/dev/null 2>&1
-	@t=$$(grep -o 'TALK-BUDGET-TENTHS=[0-9]*' main.log | tail -1 | cut -d= -f2); \
-	 if [ -z "$$t" ]; then echo "anggaran: TIDAK TERCATAT (jalankan make pdf)"; exit 1; fi; \
-	 printf "anggaran bicara : %d.%d menit" $$((t/10)) $$((t%10)); \
-	 if [ "$$t" = "100" ]; then echo "  OK"; else echo "  SEHARUSNYA 10.0 -- perbaiki \\mins{} di main.tex"; exit 1; fi
+	@test -f talk.log || $(LATEXMK) -jobname=talk talk.tex >/dev/null 2>&1
+	@for job in main talk; do \
+	   t=$$(grep -o 'TALK-BUDGET-TENTHS=[0-9]*' $$job.log | tail -1 | cut -d= -f2); \
+	   if [ -z "$$t" ]; then echo "$$job: anggaran TIDAK TERCATAT (jalankan make)"; exit 1; fi; \
+	   printf "anggaran %-5s: %d.%d menit" $$job $$((t/10)) $$((t%10)); \
+	   if [ "$$t" = "100" ]; then echo "  OK"; \
+	   else echo "  SEHARUSNYA 10.0 -- perbaiki \\mins{} di $$job.tex"; exit 1; fi; \
+	 done

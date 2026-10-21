@@ -7,6 +7,20 @@ Deck ditulis di **Beamer**. Satu sumber (`main.tex`), dua keluaran:
 | `main.pdf` (2,6 MB) | **satu berkas untuk semua**: disubmit ke panitia, dibaca di mana pun, DAN dipresentasikan lewat pdfpc |
 | `main.pptx` (60 MB) | cadangan kalau harus pakai laptop panitia — MP4 asli tertanam di atas tiap halaman yang sudah dirender |
 
+### Dua deck: dikumpulkan vs dibawakan
+
+| Berkas | Isi | Untuk |
+|---|---|---|
+| `main.pdf` | deck lengkap, 82 halaman (rantai Langkah 1–15, backup, Q&A) | **dikumpulkan** |
+| `talk.pdf` | versi pendek, 16 slide, 10,0 menit, tanpa pembatas dan backup | **dibawakan / direkam** |
+
+`talk.tex` memakai tema, `numbers.tex`, diagram dan klip yang sama, jadi
+kedua deck tidak bisa bertentangan. Rantai penurunan diringkas jadi satu slide
+intuisi per lapis (tanpa matriks atau Riccati); kegagalan rect/LQR tetap
+disebut di tabel hasil dan kesimpulan. Naskah lengkap yang diucapkan ada di
+catatan pdfpc dan di `NARASI_talk.md` (EN + ID). `make talk` membangun
+keduanya; `make budget` memeriksa kedua deck = 10,0 menit.
+
 `main.pdf` membawa tiga hal sekaligus, dan dua di antaranya tidak terlihat di
 pembaca PDF biasa:
 

@@ -1,4 +1,7 @@
-"""Ekspor naskah bicara deck ke NARASI.md.
+"""Ekspor naskah bicara deck ke berkas Markdown.
+
+    export_narasi.py                       main.tex -> NARASI.md
+    export_narasi.py talk.tex NARASI_talk.md
 
 Sumbernya \\narasi{EN}{ID}{arahan} di main.tex -- satu-satunya tempat narasi
 ditulis. Makro angka (\\CovMin{} dst.) diganti nilainya dari numbers.tex lewat
@@ -6,8 +9,8 @@ facts.py, jadi naskah tidak pernah mengarang angka. Makro yang tidak dikenal
 menggagalkan ekspor, persis seperti di LaTeX.
 
 Nomor slide = nomor halaman PDF: tiap \\begin{frame} dan \\sectionframe di
-main.tex adalah satu halaman (deck tidak memakai overlay). Hanya bagian bicara
-yang diekspor; berhenti di pembatas Backup.
+berkas .tex adalah satu halaman (deck tidak memakai overlay). Hanya bagian
+bicara yang diekspor; berhenti di pembatas Backup kalau ada.
 """
 from __future__ import annotations
 
@@ -37,6 +40,7 @@ def clean(t: str, F: Facts) -> str:
     def num(m: re.Match) -> str:
         return F.n(m.group(1))
     t = t.replace(r"\space", "")
+    t = t.replace(r"\hinf{}", r"\hinf").replace(r"\lqr{}", r"\lqr")
     t = re.sub(r"\\([A-Za-z]+)\{\}", num, t)
     for a, b in [(r"$H_\infty$", "H∞"), (r"\hinf", "PID-H∞"), (r"\lqr", "PID-LQR"),
                  (r"\%", "%"), (r"\_", "_"), (r"\&", "&"), (r"\,", " "),
@@ -49,10 +53,10 @@ def clean(t: str, F: Facts) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
-def main() -> int:
+def main(tex: str = "main.tex", md: str = "NARASI.md") -> int:
     F = Facts()
-    src = (DECK / "main.tex").read_text()
-    talk = src[:src.index(BACKUP)]
+    src = (DECK / tex).read_text()
+    talk = src[:src.index(BACKUP)] if BACKUP in src else src
     talk = "\n".join(l for l in talk.splitlines() if not l.lstrip().startswith("%"))
 
     items, page = [], 0
@@ -86,16 +90,17 @@ def main() -> int:
     words = sum(len(x["en"].split()) for x in frames)
     out = ["# Narasi presentasi EPIC 2026",
            "",
-           "Dihasilkan `tools/export_narasi.py` dari `\\narasi{}` di `main.tex` —"
-           " **jangan diedit di sini**, edit `main.tex` lalu `make narasi`.",
+           f"Dihasilkan `tools/export_narasi.py` dari `\\narasi{{}}` di `{tex}` —"
+           f" **jangan diedit di sini**, edit `{tex}` lalu `make`.",
            "Angka diambil dari `numbers.tex`, file yang sama dengan paper.",
            "",
            f"Slide 1–{items[-1]['page']} · {len(frames)} slide bicara · "
            f"{total / 10:.1f} menit · {words} kata Inggris "
            f"(≈ {words / (total / 10):.0f} kata/menit).",
            "",
-           "Pembatas seksi tidak punya narasi: tahan sebentar, lalu klik lanjut.",
            ""]
+    if any("section" in x for x in items):
+        out += ["Pembatas seksi tidak punya narasi: tahan sebentar, lalu klik lanjut.", ""]
     for x in items:
         if "section" in x:
             out += [f"## Slide {x['page']} — pembatas {x['section']}", ""]
@@ -114,10 +119,10 @@ def main() -> int:
         if n > x["mins"] / 10 * WPM * 1.15:
             print(f"[warn] slide {x['page']}: {n} kata untuk {x['mins'] / 10} menit",
                   file=sys.stderr)
-    (DECK / "NARASI.md").write_text("\n".join(out))
-    print(f"ditulis NARASI.md: {len(frames)} slide, {total / 10:.1f} menit, {words} kata")
+    (DECK / md).write_text("\n".join(out))
+    print(f"ditulis {md}: {len(frames)} slide, {total / 10:.1f} menit, {words} kata")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(*sys.argv[1:3]))
