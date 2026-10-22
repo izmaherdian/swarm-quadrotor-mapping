@@ -70,8 +70,8 @@
   {\color{epicrule}\rule{\linewidth}{0.4pt}\par}
   \vskip1.5mm
   {\color{epicclay}\bfseries\small github.com/izmaherdian/swarm-quadrotor-mapping\par}
-  \narasi{Hello everyone. I am Izma Alhazmi Herdian from Institut Teknologi Bandung. Today I present fault-tolerant swarm quadrotor control for mapping non-convex areas. On the right is the whole system: three control layers on top of the swarm.}
-    {Halo semuanya. Saya Izma Alhazmi Herdian dari Institut Teknologi Bandung. Hari ini saya mempresentasikan kendali swarm quadrotor yang toleran kegagalan untuk memetakan area non-konveks. Di sebelah kanan adalah keseluruhan sistemnya: tiga lapis kendali di atas swarm.}
+  \narasi{Hi everyone. I'm Izma from Institut Teknologi Bandung. Today I'll show you how a team of drones can map an area together, even when some of them fail. On the right is the whole system in one picture.}
+    {Halo semuanya. Saya Izma dari Institut Teknologi Bandung. Hari ini saya akan menunjukkan bagaimana sekelompok drone bisa memetakan area bersama-sama, bahkan saat beberapa di antaranya gagal. Di sebelah kanan adalah seluruh sistemnya dalam satu gambar.}
     {Smile, speak slowly. Point at the diagram on the last sentence.}
 \end{frame}}
 
@@ -84,8 +84,8 @@
   \figcaption{\hinf{} on rect, L, U and plus \textperiodcentered{} 8$\times$
     faster than mission time \textperiodcentered{} Gazebo left, RViz map right
     \textperiodcentered{} \videonote}
-  \narasi{This is what the system does. Seven quadrotors split a region into cells and sweep them lane by lane, in four differently shaped regions. They fly through strong wind, avoid cylinders they discover with LiDAR, and in every mission two drones are switched off mid-flight. The survivors take over their work.}
-    {Inilah yang dilakukan sistemnya. Tujuh quadrotor membagi area menjadi sel dan menyapunya lajur demi lajur, di empat area dengan bentuk berbeda. Mereka terbang menembus angin kencang, menghindari silinder yang ditemukan dengan LiDAR, dan di setiap misi dua drone dimatikan saat terbang. Drone yang tersisa mengambil alih pekerjaannya.}
+  \narasi{Let's start with a video. Here, seven drones share one area. Each drone gets its own part and flies back and forth to cover it. There is strong wind, and there are obstacles they only see when they get close. In the middle of each mission, we turn off two drones, and the other drones finish their work.}
+    {Kita mulai dengan video. Di sini, tujuh drone berbagi satu area. Tiap drone mendapat bagiannya sendiri dan terbang bolak-balik untuk menyapunya. Anginnya kencang, dan ada rintangan yang baru terlihat saat drone sudah dekat. Di tengah setiap misi, kami mematikan dua drone, dan drone lainnya menyelesaikan pekerjaan mereka.}
     {Click the frame to play. Move on after about 25 s, even if the clip is still running.}
 \end{frame}
 
@@ -103,8 +103,8 @@
     Not one at a time --- the swarm has to keep mapping while every one of
     these is happening.
   \end{callout}
-  \narasi{Mapping an area is a coverage problem: every point has to pass under a sensor. A swarm can cover it faster, but only if it copes with what goes wrong. We combine four difficulties at once: a non-convex region with notches and arms, wind averaging \WindMeanMag\space metres per second, obstacles that are not known in advance, and the loss of two of the seven drones.}
-    {Memetakan sebuah area adalah masalah cakupan: setiap titik harus terlewati sensor. Swarm bisa mencakupnya lebih cepat, tetapi hanya jika mampu menghadapi hal yang tidak berjalan sesuai rencana. Kami menggabungkan empat kesulitan sekaligus: area non-konveks dengan lekukan dan lengan, angin rata-rata \WindMeanMag\space meter per detik, rintangan yang tidak diketahui sebelumnya, dan hilangnya dua dari tujuh drone.}
+  \narasi{So what's the problem? To map an area, every spot has to pass under a sensor. More drones make it faster, but things can go wrong. In our test, four things go wrong at the same time. The area is non-convex. The wind is strong, about \WindMeanMag\space metres per second, with gusts up to \WindMaxH. The obstacles are not known in advance. And two of the seven drones stop working.}
+    {Jadi apa masalahnya? Untuk memetakan area, setiap titik harus terlewati sensor. Lebih banyak drone membuatnya lebih cepat, tetapi banyak hal bisa salah. Dalam pengujian kami, empat hal salah sekaligus. Areanya non-konveks. Anginnya kencang, sekitar \WindMeanMag\space meter per detik, dengan hembusan sampai \WindMaxH. Rintangannya tidak diketahui sebelumnya. Dan dua dari tujuh drone berhenti bekerja.}
     {Read the four bullets as you name them.}
 \end{frame}
 
@@ -116,8 +116,8 @@
     \item A safety filter whose speed limit comes from the real tilt limit
     \item \lqr{} vs \hinf{} on an identical structure --- only the gains differ
   \end{itemize}
-  \narasi{We contribute four parts: lanes that follow each cell's shape, lane reallocation when a drone is lost, a safety filter based on the drone's physical limits, and a fair comparison of PID-LQR and PID H-infinity.}
-    {Kontribusi kami ada empat: lajur yang mengikuti bentuk tiap sel, realokasi lajur saat drone hilang, filter keselamatan yang berdasar pada batas fisik drone, dan perbandingan adil antara PID-LQR dan PID H-infinity.}
+  \narasi{We bring four ideas. Lanes that follow the shape of each cell. Reallocating lanes when a drone is lost. A safety filter based on the real actuator limits. And a fair comparison of two controllers, PID-LQR and PID H-infinity.}
+    {Kami membawa empat ide. Lajur yang mengikuti bentuk tiap sel. Realokasi lajur saat sebuah drone hilang. Filter keselamatan yang berdasar pada batas aktuator sebenarnya. Dan perbandingan yang adil antara dua pengendali, PID-LQR dan PID H-infinity.}
     {One breath per bullet.}
 \end{frame}
 
@@ -145,8 +145,8 @@
       \textbf{out} four rotor speeds
     \end{column}
   \end{columns}
-  \narasi{The system has three layers, and each one hands a target to the next. The high level is event-driven: it takes the region and the drone positions, and gives each drone a lane to follow. The mid level runs at 20 hertz: it takes the desired velocity, the obstacle map from LiDAR and the neighbouring drones, and returns a safe velocity. The low level runs at 250 hertz and turns a position target into four rotor speeds.}
-    {Sistemnya punya tiga lapis, dan masing-masing menyerahkan target ke lapis berikutnya. Lapis atas berbasis kejadian: masukannya area dan posisi drone, dan keluarannya satu lajur untuk diikuti tiap drone. Lapis tengah berjalan pada 20 hertz: masukannya kecepatan yang diinginkan, peta rintangan dari LiDAR, dan drone tetangga, lalu mengembalikan kecepatan yang aman. Lapis bawah berjalan pada 250 hertz dan mengubah target posisi menjadi empat kecepatan rotor.}
+  \narasi{The system has three layers, and each one passes a setpoint to the next. The high level is the planner: it partitions the area and gives each drone a lane. The mid level is a safety filter at 20 hertz: it takes the desired velocity and corrects it if the drone is approaching an obstacle or another drone. The low level is the PID flight controller at 250 hertz: it turns a position setpoint into four rotor speeds.}
+    {Sistemnya punya tiga lapis, dan tiap lapis memberikan setpoint ke lapis berikutnya. Lapis atas adalah perencana: ia mempartisi area dan memberi tiap drone satu lajur. Lapis tengah adalah filter keselamatan pada 20 hertz: ia menerima kecepatan yang diinginkan dan mengoreksinya kalau drone sedang mendekati rintangan atau drone lain. Lapis bawah adalah pengendali terbang PID pada 250 hertz: ia mengubah setpoint posisi menjadi empat kecepatan rotor.}
     {Read the three columns left to right.}
 \end{frame}
 
@@ -177,8 +177,8 @@
       \scalebox{0.66}{\diagfbd}
     \end{column}
   \end{columns}
-  \narasi{At the low level, a quadrotor can only move sideways by tilting its thrust. With the tilt limited to 15 degrees for stable mapping, its acceleration is capped at \PlantAmax\space metres per second squared. We design two controllers on the same model: PID-LQR, which is optimal for the model, and PID H-infinity, which is designed against the worst-case disturbance. Both end up as an ordinary PID with the same structure, so only the gains differ.}
-    {Di lapis bawah, quadrotor hanya bisa bergerak ke samping dengan memiringkan thrust-nya. Dengan kemiringan dibatasi 15 derajat agar pemetaan stabil, percepatannya terbatas pada \PlantAmax\space meter per detik kuadrat. Kami merancang dua pengendali pada model yang sama: PID-LQR, yang optimal untuk modelnya, dan PID H-infinity, yang dirancang terhadap gangguan terburuk. Keduanya berakhir sebagai PID biasa dengan struktur yang sama, jadi yang berbeda hanya gain-nya.}
+  \narasi{At the low level, a quadrotor can only move sideways by tilting. We limit the tilt to 15 degrees, so the maximum horizontal acceleration is \PlantAmax\space metres per second squared. We design two controllers on the same linear model. LQR minimises a quadratic cost, and H-infinity minimises the effect of the worst-case disturbance. Both are then turned into a standard PID with the same structure, so only the gains are different.}
+    {Di lapis bawah, quadrotor hanya bisa bergerak ke samping dengan cara miring. Kami membatasi kemiringan 15 derajat, sehingga percepatan horizontal maksimumnya \PlantAmax\space meter per detik kuadrat. Kami merancang dua pengendali pada model linier yang sama. LQR meminimalkan biaya kuadratik, dan H-infinity meminimalkan efek gangguan terburuk. Keduanya lalu diubah menjadi PID standar dengan struktur yang sama, jadi yang berbeda hanya gain-nya.}
     {Point at the tilted thrust in the figure on the first sentence.}
 \end{frame}
 
@@ -204,8 +204,8 @@
       \setlength{\figmaxh}{44mm}\figcard{\panelcbfa{width=\linewidth}}
     \end{column}
   \end{columns}
-  \narasi{The mid level keeps the drones safe. From the tilt limit and the drone's reaction delay of 0.4 seconds, we compute how fast a drone may approach an obstacle at a given distance and still stop in time. That is the curve on the right. Every obstacle, wall or neighbouring drone then becomes one limit on approach speed, and a small optimisation picks the safe velocity closest to what the planner asked. A simple linear rule, shown by the pink band, would allow approaches the drone cannot stop from.}
-    {Lapis tengah menjaga drone tetap aman. Dari batas kemiringan dan jeda reaksi drone 0,4 detik, kami menghitung seberapa cepat drone boleh mendekati rintangan pada jarak tertentu dan masih bisa berhenti tepat waktu. Itulah kurva di sebelah kanan. Setiap rintangan, dinding, atau drone tetangga lalu menjadi satu batas kecepatan mendekat, dan optimasi kecil memilih kecepatan aman yang paling dekat dengan permintaan perencana. Aturan linier sederhana, ditunjukkan pita merah muda, masih mengizinkan drone mendekat padahal sudah tidak bisa berhenti.}
+  \narasi{Next, the safety layer. The drone has a limited braking acceleration and a reaction delay of about 0.4 seconds. From these, we compute a barrier function: for each distance, the maximum approach speed that still lets the drone stop in time. That's the blue curve. Each obstacle, wall or neighbour becomes one linear constraint on the approach speed, and a small QP finds the safe velocity closest to the planned one. A linear barrier, the pink area, would allow approach where the drone can no longer stop. Ours doesn't, and it has no parameter to tune.}
+    {Berikutnya, lapis keselamatan. Drone punya percepatan pengereman yang terbatas dan jeda reaksi sekitar 0,4 detik. Dari keduanya, kami menghitung barrier function: untuk setiap jarak, kecepatan mendekat maksimum yang masih memungkinkan drone berhenti tepat waktu. Itulah kurva biru. Setiap rintangan, dinding, atau tetangga menjadi satu kendala linier pada kecepatan mendekat, dan QP kecil mencari kecepatan aman yang paling dekat dengan kecepatan yang direncanakan. Barrier linier, area merah muda, masih mengizinkan drone mendekat padahal sudah tidak bisa berhenti. Barrier kami tidak, dan tidak punya parameter yang perlu disetel.}
     {Point at the curve, then at the pink band on the last sentence.}
 \end{frame}
 
@@ -215,8 +215,8 @@
   \figcard{\includegraphics[width=0.90\textwidth]{concept_high}}
   \figcaption{(a) 7 agents, 54 lanes \textperiodcentered{} (b) agent 4 lost at
     41\,s \textperiodcentered{} (c) agent 5 lost at 58\,s}
-  \narasi{The high level plans the coverage. The region is divided into Voronoi cells, one per drone, and each cell is swept in parallel lanes spaced to the sensor footprint, with detours around known obstacles. When a drone is lost, its cell is merged with its neighbours, the remaining lanes are re-planned, and they are handed to nearby drones in contiguous blocks. The figure shows the plan before, and after each of the two losses.}
-    {Lapis atas merencanakan cakupan. Area dibagi menjadi sel Voronoi, satu per drone, dan tiap sel disapu dengan lajur sejajar yang jaraknya disesuaikan dengan jangkauan sensor, dengan jalan memutar di sekitar rintangan yang diketahui. Saat drone hilang, selnya digabung dengan tetangganya, lajur yang tersisa direncanakan ulang, lalu diserahkan ke drone terdekat dalam blok yang bersambung. Gambar ini menunjukkan rencana sebelum, dan sesudah masing-masing dari dua kehilangan.}
+  \narasi{The high level plans the coverage. It partitions the area into Voronoi cells, one per drone, and covers each cell with back-and-forth lanes, called boustrophedon lanes. The lanes go around known obstacles. When a drone is lost, its cell is merged with the neighbouring cells, the remaining lanes are re-planned, and nearby drones take them over. The figure shows the plan at the start, and after each of the two losses.}
+    {Lapis atas merencanakan cakupan. Ia mempartisi area menjadi sel Voronoi, satu per drone, dan menyapu tiap sel dengan lajur bolak-balik yang disebut lajur boustrophedon. Lajurnya memutari rintangan yang sudah diketahui. Saat sebuah drone hilang, selnya digabung dengan sel tetangga, lajur yang tersisa direncanakan ulang, lalu drone terdekat mengambil alih. Gambar ini menunjukkan rencana di awal, dan setelah masing-masing dari dua kehilangan.}
     {Walk panels a, b, c left to right.}
 \end{frame}
 
@@ -240,8 +240,8 @@
       \figcaption{Flown trajectories --- \hinf{} (top), \lqr{} (bottom)}
     \end{column}
   \end{columns}
-  \narasi{We tested this in Gazebo with ROS 2, using seven 3DR Iris quadrotors sweeping at 1.6 metres per second. All stressors are applied at once: turbulent wind, static cylinders the swarm does not know in advance, two moving cylinders, and two drones switched off at 18 and 32 percent coverage. We ran four regions with both controllers, eight missions in total.}
-    {Kami mengujinya di Gazebo dengan ROS 2, memakai tujuh quadrotor 3DR Iris yang menyapu pada 1,6 meter per detik. Semua gangguan diterapkan sekaligus: angin turbulen, silinder diam yang tidak diketahui swarm sebelumnya, dua silinder bergerak, dan dua drone dimatikan pada cakupan 18 dan 32 persen. Kami menjalankan empat area dengan kedua pengendali, total delapan misi.}
+  \narasi{We tested everything in a simulator called Gazebo, with seven drones flying at 1.6 metres per second. Everything happens at once: wind, hidden obstacles, two moving obstacles, and two drones turned off. We tried four area shapes with both controllers, so eight missions in total.}
+    {Kami menguji semuanya di simulator bernama Gazebo, dengan tujuh drone yang terbang 1,6 meter per detik. Semuanya terjadi sekaligus: angin, rintangan tersembunyi, dua rintangan bergerak, dan dua drone dimatikan. Kami mencoba empat bentuk area dengan kedua pengendali, jadi totalnya delapan misi.}
     {Keep it brisk; the videos come next.}
 \end{frame}
 
@@ -253,8 +253,8 @@
   \figcaption{rect, \hinf{} \textperiodcentered{} 8$\times$ wall clock $\approx$
     real mission time \textperiodcentered{} \CovRectHinf\% in \TmisRectHinf\,s,
     agents \VictimsRectHinf{} lost \textperiodcentered{} \videonote}
-  \narasi{Here is a full mission in the rectangular region with PID H-infinity. The region is divided, the drones fly to their first lanes, and start sweeping. The green area on the right is the coverage map building up. Drone 4 is switched off, and its lanes are taken over; later drone 7 is switched off as well. The survivors still finish, with \CovRectHinf\space percent coverage in \TmisRectHinf\space seconds.}
-    {Ini satu misi penuh di area persegi dengan PID H-infinity. Area dibagi, drone terbang ke lajur pertamanya, lalu mulai menyapu. Area hijau di sebelah kanan adalah peta cakupan yang terus bertambah. Drone 4 dimatikan, dan lajurnya diambil alih; kemudian drone 7 juga dimatikan. Drone yang tersisa tetap menyelesaikan misi, dengan cakupan \CovRectHinf\space persen dalam \TmisRectHinf\space detik.}
+  \narasi{Here is one full mission. First the area is split, then the drones fly to their lanes and start covering. The green on the right shows the area that's already mapped. Now drone 4 is turned off, and the others take over its lanes. Later, drone 7 is turned off too. The rest still finish, with \CovRectHinf\space percent of the area covered in \TmisRectHinf\space seconds.}
+    {Ini satu misi penuh. Pertama areanya dibagi, lalu drone terbang ke lajurnya dan mulai menyapu. Warna hijau di sebelah kanan menunjukkan area yang sudah terpetakan. Sekarang drone 4 dimatikan, dan drone lain mengambil alih lajurnya. Kemudian drone 7 juga dimatikan. Sisanya tetap selesai, dengan \CovRectHinf\space persen area tercakup dalam \TmisRectHinf\space detik.}
     {Click to play. Stop the clip after about 40 s, when your sentence ends.}
 \end{frame}
 
@@ -276,8 +276,8 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \narasi{This is a closer look at the first loss. Coverage inside the lost cell is reset, the cell is merged and re-planned, and the helpers take over. The rest of the swarm keeps sweeping without pausing.}
-    {Lebih dekat pada kehilangan pertama. Cakupan di dalam sel yang hilang direset, sel itu digabung dan direncanakan ulang, lalu para helper mengambil alih. Bagian swarm lainnya terus menyapu tanpa berhenti.}
+  \narasi{Here's a closer look at the first loss. The lost drone's area is reset, planned again, and shared with the helpers. The other drones keep working the whole time. Nobody stops and waits.}
+    {Ini tampilan lebih dekat dari kehilangan pertama. Area milik drone yang hilang direset, direncanakan ulang, lalu dibagikan ke para helper. Drone lainnya terus bekerja sepanjang waktu. Tidak ada yang berhenti dan menunggu.}
     {Click to play; talk over the clip.}
 \end{frame}
 
@@ -309,8 +309,8 @@
     rect / \lqr{}: one agent struck a cylinder and the run was stopped ---
     counted as a failure.
   \end{callout}
-  \narasi{Here are all eight missions. Seven finished, with coverage between \CovMin\space and \CovMax\space percent. H-infinity completed all four regions. LQR completed three; in the rectangle, one LQR drone hit a cylinder and the run was stopped, so we report it as a failure rather than leave it out. Where both finished, H-infinity was \TimeRedMin\space to \TimeRedMax\space percent faster and held the lanes more tightly, while LQR used less control effort and achieved the single best coverage, \CovPlusLqr\space percent.}
-    {Inilah kedelapan misi. Tujuh selesai, dengan cakupan antara \CovMin\space dan \CovMax\space persen. H-infinity menyelesaikan keempat area. LQR menyelesaikan tiga; di area persegi, satu drone LQR menabrak silinder dan run dihentikan, jadi kami melaporkannya sebagai kegagalan, bukan menghilangkannya. Di area yang diselesaikan keduanya, H-infinity \TimeRedMin\space sampai \TimeRedMax\space persen lebih cepat dan menjaga lajur lebih rapat, sedangkan LQR memakai upaya kendali lebih kecil dan mencatat cakupan tunggal terbaik, \CovPlusLqr\space persen.}
+  \narasi{Here are all eight missions. Seven of them finished, covering \CovMin\space to \CovMax\space percent of the area. H-infinity finished all four. LQR finished three. In one case, an LQR drone hit an obstacle, and we stopped the run. We count it as a failure, and we show it instead of hiding it. Where both finished, H-infinity was \TimeRedMin\space to \TimeRedMax\space percent faster and stayed closer to its lanes. LQR used less effort and got the best single coverage, \CovPlusLqr\space percent.}
+    {Ini kedelapan misi. Tujuh di antaranya selesai, mencakup \CovMin\space sampai \CovMax\space persen area. H-infinity menyelesaikan keempatnya. LQR menyelesaikan tiga. Dalam satu kasus, drone LQR menabrak rintangan, dan kami menghentikan run-nya. Kami menghitungnya sebagai kegagalan, dan kami menunjukkannya, bukan menyembunyikannya. Di area yang diselesaikan keduanya, H-infinity \TimeRedMin\space sampai \TimeRedMax\space persen lebih cepat dan lebih dekat ke lajurnya. LQR memakai tenaga lebih sedikit dan mencatat cakupan tunggal terbaik, \CovPlusLqr\space persen.}
     {Pause two seconds so they can read the table, then start.}
 \end{frame}
 
@@ -330,8 +330,8 @@
       \end{itemize}
     \end{column}
   \end{columns}
-  \narasi{This plot shows coverage over time. Each drop happens when a drone is lost: coverage inside its cell is reset and swept again by the helpers. After each drop the swarm recovers, and in every region both controllers completed, H-infinity reached the 97 percent target sooner.}
-    {Grafik ini menunjukkan cakupan terhadap waktu. Setiap penurunan terjadi saat drone hilang: cakupan di dalam selnya direset lalu disapu ulang oleh para helper. Setelah tiap penurunan swarm pulih, dan di setiap area yang diselesaikan kedua pengendali, H-infinity mencapai target 97 persen lebih cepat.}
+  \narasi{This plot shows how much area is covered over time. Each dip is a lost drone: its area is reset and mapped again. After every dip, the swarm recovers. And wherever both finished, H-infinity reached 97 percent first.}
+    {Grafik ini menunjukkan berapa banyak area yang tercakup seiring waktu. Setiap penurunan adalah drone yang hilang: areanya direset dan dipetakan ulang. Setelah setiap penurunan, swarm pulih. Dan di semua area yang diselesaikan keduanya, H-infinity lebih dulu mencapai 97 persen.}
     {Point at one of the drops on the first sentence.}
 \end{frame}
 
@@ -357,8 +357,8 @@
       \end{callout}
     \end{column}
   \end{columns}
-  \narasi{Why is H-infinity tighter? Its lateral error is \LatRedMin\space to \LatRedMax\space percent lower. Most of that comes from removing a steady offset, because its integral action is about \KiRatio\space times stronger, rather than from filtering out the wind. The price is effort: H-infinity uses \EffRatioMin\space to \EffRatioMax\space times more torque, although motor saturation stays below 0.2 percent. So there is a trade-off: H-infinity is tighter, LQR is gentler, and the right choice depends on the platform.}
-    {Mengapa H-infinity lebih rapat? Galat lateralnya \LatRedMin\space sampai \LatRedMax\space persen lebih kecil. Sebagian besar berasal dari hilangnya offset yang tetap, karena aksi integralnya sekitar \KiRatio\space kali lebih kuat, bukan dari penyaringan angin. Harganya adalah upaya: H-infinity memakai torsi \EffRatioMin\space sampai \EffRatioMax\space kali lebih besar, meski saturasi motor tetap di bawah 0,2 persen. Jadi ada trade-off: H-infinity lebih rapat, LQR lebih lembut, dan pilihan yang tepat bergantung pada platformnya.}
+  \narasi{So why is H-infinity closer to its lanes? Its lateral error is \LatRedMin\space to \LatRedMax\space percent smaller. But this is mostly not better disturbance rejection. It mostly removes a steady-state offset, because its integral gain is about \KiRatio\space times larger. The cost is \EffRatioMin\space to \EffRatioMax\space times more control effort. So there's no clear winner: H-infinity is more precise, and LQR uses less effort.}
+    {Jadi kenapa H-infinity lebih dekat ke lajurnya? Galat lateralnya \LatRedMin\space sampai \LatRedMax\space persen lebih kecil. Tapi sebagian besar bukan karena penolakan gangguan yang lebih baik. Sebagian besar karena ia menghilangkan offset steady-state, sebab gain integralnya sekitar \KiRatio\space kali lebih besar. Harganya, control effort-nya \EffRatioMin\space sampai \EffRatioMax\space kali lebih besar. Jadi tidak ada pemenang yang jelas: H-infinity lebih presisi, dan LQR memakai effort lebih kecil.}
     {Point at the gap between the blue and orange clusters.}
 \end{frame}
 
@@ -375,8 +375,8 @@
     \item Scope: simulation, one run per configuration
     \item Next: more wind conditions, distributed planning, flight tests
   \end{itemize}
-  \narasi{To conclude: a seven-drone swarm mapped non-convex regions with \CovMin\space to \CovMax\space percent coverage while losing two drones, and seven of eight missions finished. These are simulation results with one run per configuration. Next, we plan more wind conditions, distributed planning, and real flight tests.}
-    {Sebagai kesimpulan: swarm tujuh drone memetakan area non-konveks dengan cakupan \CovMin\space sampai \CovMax\space persen meski kehilangan dua drone, dan tujuh dari delapan misi selesai. Ini hasil simulasi dengan satu run per konfigurasi. Selanjutnya, kami merencanakan lebih banyak kondisi angin, perencanaan terdistribusi, dan uji terbang nyata.}
+  \narasi{To sum up. Seven drones mapped non-convex areas, covering \CovMin\space to \CovMax\space percent, even after losing two drones. Seven out of eight missions finished. These are simulation results, with one run each. Next, we want to test more wind conditions, make the planning distributed, and fly real drones.}
+    {Sebagai ringkasan. Tujuh drone memetakan area non-konveks, mencakup \CovMin\space sampai \CovMax\space persen, bahkan setelah kehilangan dua drone. Tujuh dari delapan misi selesai. Ini hasil simulasi, dengan satu run untuk masing-masing. Selanjutnya, kami ingin menguji lebih banyak kondisi angin, membuat perencanaannya terdistribusi, dan menerbangkan drone sungguhan.}
     {Slow down here; this is what they remember.}
 \end{frame}
 
@@ -406,8 +406,8 @@
   \hbox{\playlistqr[13mm]\hskip4mm
     \raisebox{4mm}{\color{epicblue}\small\bfseries
       github.com/izmaherdian/swarm-quadrotor-mapping}}
-  \narasi{Thank you for your attention. The code and all mission recordings are available at the link on this slide. We thank CITA ITB for supporting this work.}
-    {Terima kasih atas perhatiannya. Kode dan semua rekaman misi tersedia di tautan pada slide ini. Kami berterima kasih kepada CITA ITB yang telah mendukung penelitian ini.}
+  \narasi{Thank you for watching. The code and all the videos are free to see at the link on this slide. Thanks also to CITA ITB for supporting this work.}
+    {Terima kasih sudah menonton. Kode dan semua videonya bisa dilihat gratis di tautan pada slide ini. Terima kasih juga kepada CITA ITB yang telah mendukung penelitian ini.}
     {Hold this slide for two seconds before stopping the recording.}
 \end{frame}}
 

@@ -85,3 +85,6 @@ docs/Progress/*
 .pytest_cache/
 swarm_ws/results/
 *.egg-info/
+
+# rekaman OBS + hasil edit video presentasi (besar, tidak di-commit)
+docs/Presentation - EPIC/video/
