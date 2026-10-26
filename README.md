@@ -343,6 +343,6 @@ The authors thank CITA, ITB, for covering the conference registration and public
 | Source code and everything not listed below | [MIT](LICENSE) |
 | Figures, video clips and thumbnails in [`media/`](media) | [CC BY 4.0](media/LICENSE) |
 | Paper and abstract (`docs/Full Paper - EPIC/`, `docs/Abstract - EPIC/`, `docs/Progress/`: text, PDFs and Word files) | All rights reserved by the authors; copyright may pass to the publisher on publication |
-| arXiv preprint (`docs/Full Paper - arXiv/`: text, figures and PDF) | [CC BY-NC 4.0](docs/Full%20Paper%20-%20arXiv/LICENSE.md) |
+| arXiv preprint (`docs/Full Paper - arXiv/`: text, figures and PDF) | [CC BY-NC-SA 4.0](docs/Full%20Paper%20-%20arXiv/LICENSE.md) |
 | `EPIC2026_Author_Guidelines.pdf`, `AIPCP_Article_Template_Sept1_2023.*` | Property of EPIC 2026 and AIP Publishing; included for reference only |
 | `docs/Full Paper - EPIC/aipnum4-1-epic.bst` | Modified from `aipnum4-1.bst` (REVTeX 4.1), LaTeX Project Public License |

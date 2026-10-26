@@ -23,7 +23,7 @@ undefined, skrip gagal.
 
 ## Upload ke arXiv
 
-1. *Start New Submission*, lalu pilih lisensi **CC BY-NC 4.0** (minimal yang diminta
+1. *Start New Submission*, lalu pilih lisensi **CC BY-NC-SA 4.0** (memenuhi syarat minimal NC yang diminta
    AIP untuk preprint).
 2. Upload `arxiv_upload.tar.gz` dan cek pratinjau PDF dari arXiv.
 3. Metadata:
