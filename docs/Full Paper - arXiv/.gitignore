@@ -1,0 +1,8 @@
+*.aux
+*.log
+*.out
+*.blg
+*.fls
+*.fdb_latexmk
+00README.json
+arxiv_upload.tar.gz
