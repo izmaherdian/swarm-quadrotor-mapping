@@ -1,37 +1,67 @@
-# Fault-Tolerant Swarm Quadrotor Control for Non-Convex Geodetic Mapping
+<h1 align="center">Fault-Tolerant Swarm Quadrotor Control for Non-Convex Geodetic Mapping</h1>
 
-Seven quadrotors survey a non-convex site in ROS 2 / Gazebo while strong turbulent wind blows,
-obstacles are discovered only in flight, some obstacles move, and two of the seven vehicles are
-killed mid-mission. The swarm re-partitions the work, keeps sweeping, and still finishes.
+<p align="center">
+  <b>Lloyd–Voronoi partition + boustrophedon sweeps · LiDAR-mapped CBF-QP safety filter · PID-LQR vs PID-H∞</b><br>
+  Seven quadrotors in ROS 2 / Gazebo survey a non-convex site in turbulent wind, discover obstacles in flight,
+  dodge moving ones, lose two of seven agents mid-mission, and still finish.
+</p>
+
+<p align="center">
+  <a href="https://epic5th2026.org/book-of-abstract/"><img src="https://img.shields.io/badge/EPIC%202026-Book%20of%20Abstracts-0a66c2" alt="EPIC 2026 Book of Abstracts"></a>
+  <img src="https://img.shields.io/badge/AIP%20Conf.%20Proc.-coming%20soon-lightgrey" alt="AIP Conference Proceedings: coming soon">
+  <img src="https://img.shields.io/badge/arXiv-coming%20soon-lightgrey?logo=arxiv&logoColor=white" alt="arXiv: coming soon">
+  <a href="https://youtube.com/playlist?list=PLfxyCAwHmhHI"><img src="https://img.shields.io/badge/YouTube-Mission%20Videos-red?logo=youtube&logoColor=white" alt="YouTube"></a>
+  <img src="https://img.shields.io/badge/ROS%202-lyrical-22314E?logo=ros&logoColor=white" alt="ROS 2 lyrical">
+  <img src="https://img.shields.io/badge/Gazebo-gz--sim%2010-orange" alt="Gazebo gz-sim 10">
+  <img src="https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white" alt="Python 3.14">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <img src="media/highlights/overview_4regions.gif" width="100%" alt="PID-H∞ missions over the four regions">
+  <br><sub><i>PID-H∞ missions over the rectangle, L-, U- and plus-shaped regions (Gazebo + RViz, ~8× sim time).</i></sub>
+</p>
 
 <p align="center">
   <img src="media/figures/environment.jpg" alt="Gazebo scene and final RViz coverage maps" width="100%">
+  <br><sub><b>(a)</b> Gazebo, rectangular region. <b>(b)–(e)</b> Final RViz coverage maps (green) of the
+  PID-H∞ missions over the rectangle, L-, U- and plus-shaped regions.</sub>
 </p>
-<p align="center"><sub><b>(a)</b> Gazebo, rectangular region. <b>(b)–(e)</b> Final RViz coverage maps (green) of the
-PID-H∞ missions over the rectangle, L-, U- and plus-shaped regions.</sub></p>
 
-This repository holds the simulation stack, the analysis scripts and the full paper:
+---
+
+## ✨ Highlights
+
+One run per configuration; see [Limitations](#limitations).
+
+| | |
+|:--|:--|
+| 🛰️ **Missions completed** | **7 of 8**, with **96.9–99.0 %** coverage after losing 2 of 7 agents (28.6 % of the fleet) |
+| 🎯 **PID-H∞ vs PID-LQR** | H∞ finished all four regions; where both finished it cut RMS lateral sweep error by **16–31 %** and mission time by **11–15 %** |
+| ⚡ **Price of H∞** | **3.9–5.6×** the torque effort of PID-LQR, motor saturation < 0.2 % of samples |
+| 🛡️ **Safety filter** | CBF-QP whose admissible approach speed comes from the real 15° tilt limit and dead time, not tuning |
+| 📡 **Sensed obstacles** | Every mission starts with an empty map; all nine cylinders were found by LiDAR in flight |
+| ⚠️ **Failures reported** | One PID-LQR mission stopped after an agent struck a cylinder; in three others an agent passed within rotor reach of one |
+
+## 📄 Paper & links
+
+| | Status | Link |
+|:--|:--|:--|
+| 🎤 Conference talk + abstract | Presented 24 Oct 2026, EPIC 2026, Bandar Lampung | [Book of Abstracts](https://epic5th2026.org/book-of-abstract/) |
+| 📑 Full paper | Under review, *AIP Conference Proceedings* | coming soon · [author PDF](docs/Full%20Paper%20-%20EPIC/main.pdf) |
+| 📝 arXiv preprint | Before AIP publication | coming soon · [source](docs/Full%20Paper%20-%20arXiv/) |
+| 🎬 Videos | All 8 missions | [YouTube playlist](https://youtube.com/playlist?list=PLfxyCAwHmhHI) |
 
 > **I. A. Herdian, S. N. Affan, E. Ekawati**, "Fault-Tolerant Swarm Quadrotor Control for Non-Convex
 > Geodetic Mapping," *5th Engineering Physics International Conference (EPIC 2026)*, Bandar Lampung,
-> Indonesia, 24 October 2026. Full paper under review (AIP Conference Proceedings).
-> [PDF](docs/Full%20Paper%20-%20EPIC/main.pdf)
-
-**Highlights** (one run per configuration; see [Limitations](#limitations))
-
-- **7 of 8 missions completed** with **96.9–99.0 % coverage** after losing 2 of 7 agents (28.6 % of the fleet).
-- **PID-H∞ finished all four regions.** Where both controllers finished, it cut the RMS lateral sweep
-  error by **16–31 %** and mission time by **11–15 %**, at **3.9–5.6×** the torque effort of PID-LQR.
-- **Safety filter from the vehicle's real limits:** the CBF-QP's admissible approach speed is derived
-  from the 15° tilt limit and the dead time, not tuned.
-- **Failures reported, not hidden:** one PID-LQR mission was stopped after an agent struck a cylinder,
-  and in three other missions an agent passed within rotor reach of one.
+> Indonesia, 24 October 2026.
 
 ---
 
 ## Contents
 
-- [Videos](#videos)
+- [Demo](#-demo)
+- [Key moments](#-key-moments)
 - [How it works](#how-it-works)
 - [Scenario](#scenario)
 - [Results](#results)
@@ -43,30 +73,37 @@ This repository holds the simulation stack, the analysis scripts and the full pa
 
 ---
 
-## Videos
+## 🎬 Demo
 
-Screen recordings of all eight missions (Gazebo left, RViz right), cropped and played **8× faster
-than the recording**. Because Gazebo ran slower than real time while recording (real-time factor
-0.09–0.13), 8× is roughly the speed of simulated time.
-
-The text overlay is generated from the coordinator log: mission time, coverage, agents alive, kills
-and the end of the mission.
-Its times can differ by up to about a second from the controller logs used for many of the paper's
-numbers; the mission time *T* in the results table is the "mission complete" moment shown in the clip.
-
-Click a thumbnail to open the clip. The same missions are also on
-[YouTube](https://youtube.com/playlist?list=PLfxyCAwHmhHI).
+All eight missions (Gazebo left, RViz right). The GIFs play at **~4× simulated time**; the full-quality
+clips (~1× sim time) are linked under each one and on [YouTube](https://youtube.com/playlist?list=PLfxyCAwHmhHI).
+The overlay (mission time, coverage, agents alive, kills) is generated from the coordinator log; its
+times can differ by up to about a second from the controller logs used for many of the paper's numbers.
 
 | Region | PID-H∞ | PID-LQR |
-|---|---|---|
-| **Rectangle** (784 m²) | [<img src="media/scheme5/thumbs/rect_hinf.jpg" width="380">](media/scheme5/rect_hinf.mp4) | [<img src="media/scheme5/thumbs/rect_lqr.jpg" width="380">](media/scheme5/rect_lqr.mp4)<br>aborted at 78.8 s (agent 2 struck a cylinder) |
-| **L-shape** (588 m²) | [<img src="media/scheme5/thumbs/l_shape_hinf.jpg" width="380">](media/scheme5/l_shape_hinf.mp4) | [<img src="media/scheme5/thumbs/l_shape_lqr.jpg" width="380">](media/scheme5/l_shape_lqr.mp4) |
-| **U-shape** (624 m²) | [<img src="media/scheme5/thumbs/u_shape_hinf.jpg" width="380">](media/scheme5/u_shape_hinf.mp4) | [<img src="media/scheme5/thumbs/u_shape_lqr.jpg" width="380">](media/scheme5/u_shape_lqr.mp4) |
-| **Plus** (460 m²) | [<img src="media/scheme5/thumbs/plus_hinf.jpg" width="380">](media/scheme5/plus_hinf.mp4) | [<img src="media/scheme5/thumbs/plus_lqr.jpg" width="380">](media/scheme5/plus_lqr.mp4) |
+|:--|:--:|:--:|
+| **Rectangle**<br>784 m² | <img src="media/scheme5/gif/rect_hinf.gif" width="400"><br>✅ 98.2 % · 257 s · [▶ MP4](media/scheme5/rect_hinf.mp4) | <img src="media/scheme5/gif/rect_lqr.gif" width="400"><br>❌ aborted at 78.8 s (agent 2 struck a cylinder) · [▶ MP4](media/scheme5/rect_lqr.mp4) |
+| **L-shape**<br>588 m² | <img src="media/scheme5/gif/l_shape_hinf.gif" width="400"><br>✅ 98.4 % · 201 s · [▶ MP4](media/scheme5/l_shape_hinf.mp4) | <img src="media/scheme5/gif/l_shape_lqr.gif" width="400"><br>✅ 98.5 % · 233 s · [▶ MP4](media/scheme5/l_shape_lqr.mp4) |
+| **U-shape**<br>624 m² | <img src="media/scheme5/gif/u_shape_hinf.gif" width="400"><br>✅ 98.5 % · 202 s · [▶ MP4](media/scheme5/u_shape_hinf.mp4) | <img src="media/scheme5/gif/u_shape_lqr.gif" width="400"><br>✅ 96.9 % · 237 s · [▶ MP4](media/scheme5/u_shape_lqr.mp4) |
+| **Plus**<br>460 m² | <img src="media/scheme5/gif/plus_hinf.gif" width="400"><br>✅ 98.4 % · 195 s · [▶ MP4](media/scheme5/plus_hinf.mp4) | <img src="media/scheme5/gif/plus_lqr.gif" width="400"><br>✅ 99.0 % · 219 s · [▶ MP4](media/scheme5/plus_lqr.mp4) |
 
 The clips are produced by [`swarm_ws/analysis/skema5_video_clips.py`](swarm_ws/analysis/skema5_video_clips.py);
-[`media/scheme5/clips.json`](media/scheme5/clips.json) records the source recording, trim window,
-recording real-time factor and file size of each clip.
+[`media/scheme5/clips.json`](media/scheme5/clips.json) records the source recording, trim window and
+recording real-time factor of each clip.
+
+## 🔍 Key moments
+
+Cut from the same recordings. Fault and detour clips run at ~1× sim time; the three contact clips are
+slowed down (2× recording speed ≈ 0.2× sim time).
+
+| Fault tolerance | |
+|:--:|:--:|
+| <img src="media/highlights/h1_fault_kill1.gif" width="400"><br><sub>**Kill 1** (rectangle, H∞): agent 4 lost → cell merged, lanes handed to helpers</sub> | <img src="media/highlights/h2_fault_kill2.gif" width="400"><br><sub>**Kill 2** (rectangle, H∞): agent 7 lost → second reallocation, three helpers</sub> |
+| **Perception & spacing** | |
+| <img src="media/highlights/h6_obstacle_detour.gif" width="400"><br><sub>**LiDAR discovery** (rectangle, H∞): a cylinder is confirmed → remaining lanes re-planned</sub> | <img src="media/highlights/h7_v2v_closest.gif" width="400"><br><sub>**Closest drone-to-drone pass** of the campaign (L-shape, LQR)</sub> |
+| **Contacts (reported, not hidden)** | |
+| <img src="media/highlights/h3_crash_rect_lqr.gif" width="400"><br><sub>**Contact and loss** (rectangle, LQR): agent 2 strikes a cylinder, run stopped</sub> | <img src="media/highlights/h4_upset_plus_hinf.gif" width="400"><br><sub>**Graze and recovery** (plus, H∞): tilts to 82.5°, recovers in ~3 s</sub> |
+| <img src="media/highlights/h5_upset_plus_lqr.gif" width="400"><br><sub>**Same cylinder** (plus, LQR): smaller upset (40.1°), also recovered</sub> | |
 
 ---
 
@@ -164,6 +201,16 @@ All eight missions use the same combined-hazard scheme (`-s 5` in the launcher):
 - *Killed agents:* rectangle 4, 7 (H∞) and 7 (LQR, second kill never reached); L-shape 4, 7;
   U-shape 4, 5; plus 1, 7.
 
+### Head-to-head, regions where both controllers finished
+
+Computed from the rounded values in the table above.
+
+| Region | Lateral RMS H∞ / LQR (cm) | Change | Mission time H∞ / LQR (s) | Change | Min. obstacle distance H∞ / LQR (m) |
+|:--|:--:|:--:|:--:|:--:|:--:|
+| L-shape | 8.4 / 12.2 | **−31 %** | 201 / 233 | **−14 %** | 0.57 / 0.29 |
+| U-shape | 8.3 / 11.4 | **−27 %** | 202 / 237 | **−15 %** | 0.63 / 0.42 |
+| Plus | 9.7 / 11.5 | **−16 %** | 195 / 219 | **−11 %** | 0.24 / 0.24 |
+
 ### Trajectories and coverage
 
 <p align="center"><img src="media/figures/traj.png" alt="Flown trajectories" width="100%"></p>
@@ -259,7 +306,7 @@ swarm_ws/                         colcon workspace (ROS 2)
 ├── tools/                        batch runners, world generators, kill_drone.sh
 └── tests/                        integration scripts
 docs/Full Paper - EPIC/           LaTeX source and PDFs of the paper (main.pdf, main_anon.pdf)
-media/                            README figures and mission clips
+media/                            README figures, mission clips (MP4 + GIF) and highlight GIFs
 matlab_reference/                 MATLAB/Simulink reference models for the PID-LQR and PID-H∞ synthesis
 ```
 
@@ -321,7 +368,7 @@ PYTHONPATH=src/swarm_high_level:src/swarm_mid_level:src/swarm_low_level \
   booktitle = {5th Engineering Physics International Conference (EPIC 2026)},
   address   = {Bandar Lampung, Indonesia},
   year      = {2026},
-  note      = {Full paper under review}
+  note      = {Full paper under review, AIP Conference Proceedings}
 }
 ```
 
@@ -342,7 +389,6 @@ The authors thank CITA, ITB, for covering the conference registration and public
 |---|---|
 | Source code and everything not listed below | [MIT](LICENSE) |
 | Figures, video clips and thumbnails in [`media/`](media) | [CC BY 4.0](media/LICENSE) |
-| Paper and abstract (`docs/Full Paper - EPIC/`, `docs/Abstract - EPIC/`, `docs/Progress/`: text, PDFs and Word files) | All rights reserved by the authors; copyright may pass to the publisher on publication |
+| Paper and abstract (`docs/Full Paper - EPIC/`, `docs/Abstract - EPIC/`: text, PDFs and Word files) | All rights reserved by the authors; copyright may pass to the publisher on publication |
 | arXiv preprint (`docs/Full Paper - arXiv/`: text, figures and PDF) | [CC BY-NC-SA 4.0](docs/Full%20Paper%20-%20arXiv/LICENSE.md) |
-| `EPIC2026_Author_Guidelines.pdf`, `AIPCP_Article_Template_Sept1_2023.*` | Property of EPIC 2026 and AIP Publishing; included for reference only |
 | `docs/Full Paper - EPIC/aipnum4-1-epic.bst` | Modified from `aipnum4-1.bst` (REVTeX 4.1), LaTeX Project Public License |

@@ -88,3 +88,15 @@ swarm_ws/results/
 
 # rekaman OBS + hasil edit video presentasi (besar, tidak di-commit)
 docs/Presentation - EPIC/video/
+
+# Perapian 2026-11-06: file internal / draft yang tidak berguna untuk pembaca repo
+docs/Progress/
+docs/Presentation - EPIC/
+docs/Full Paper - EPIC/EPIC2026_FullPaper_*
+docs/Full Paper - EPIC/figures/Screenshot*
+docs/Full Paper - EPIC/Certificate*
+docs/**/arxiv_upload.tar.gz
+docs/**/AIPCP_Article_Template_*
+docs/**/EPIC2026_Author_Guidelines.pdf
+docs/Diagram-Swarm-Quadrotor-Mapping-v0.jpg
+docs/Analisis-Skema3-Obstacle-Avoidance.md
