@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://epic5th2026.org/book-of-abstract/"><img src="https://img.shields.io/badge/EPIC_2026-Book_of_Abstracts-0a66c2" alt="EPIC 2026 Book of Abstracts"></a>
   <img src="https://img.shields.io/badge/AIP_Conf._Proc.-coming_soon-lightgrey" alt="AIP Conference Proceedings: coming soon">
-  <img src="https://img.shields.io/badge/arXiv-coming_soon-B31B1B?logo=arxiv&logoColor=white" alt="arXiv: coming soon">
+  <img src="https://img.shields.io/badge/arXiv-coming_soon-B31B1B" alt="arXiv: coming soon">
   <a href="https://youtube.com/playlist?list=PLfxyCAwHmhHI"><img src="https://img.shields.io/badge/YouTube-Mission_Videos-red?logo=youtube&logoColor=white" alt="YouTube"></a>
   <img src="https://img.shields.io/badge/ROS_2-lyrical-22314E?logo=ros&logoColor=white" alt="ROS 2 lyrical">
   <img src="https://img.shields.io/badge/Gazebo-gz--sim_10-orange" alt="Gazebo gz-sim 10">
