@@ -7,12 +7,17 @@
 </p>
 
 <p align="center">
-  <a href="https://epic5th2026.org/book-of-abstract/"><img src="https://img.shields.io/badge/EPIC%202026-Book%20of%20Abstracts-0a66c2" alt="EPIC 2026 Book of Abstracts"></a>
-  <img src="https://img.shields.io/badge/AIP%20Conf.%20Proc.-coming%20soon-lightgrey" alt="AIP Conference Proceedings: coming soon">
-  <img src="https://img.shields.io/badge/arXiv-coming%20soon-lightgrey?logo=arxiv&logoColor=white" alt="arXiv: coming soon">
-  <a href="https://youtube.com/playlist?list=PLfxyCAwHmhHI"><img src="https://img.shields.io/badge/YouTube-Mission%20Videos-red?logo=youtube&logoColor=white" alt="YouTube"></a>
-  <img src="https://img.shields.io/badge/ROS%202-lyrical-22314E?logo=ros&logoColor=white" alt="ROS 2 lyrical">
-  <img src="https://img.shields.io/badge/Gazebo-gz--sim%2010-orange" alt="Gazebo gz-sim 10">
+  <b>Izma Alhazmi Herdian</b><sup>1,2</sup> · <b>Sulthan Naufal Affan</b><sup>1</sup> · <b>Estiyanti Ekawati</b><sup>1,2</sup> · <b>Faqihza Mukhlish</b><sup>1,2</sup><br>
+  <sub><sup>1</sup>Engineering Physics Department, Institut Teknologi Bandung · <sup>2</sup>Center for Instrumentation Technology and Automation (CITA), ITB</sub>
+</p>
+
+<p align="center">
+  <a href="https://epic5th2026.org/book-of-abstract/"><img src="https://img.shields.io/badge/EPIC_2026-Book_of_Abstracts-0a66c2" alt="EPIC 2026 Book of Abstracts"></a>
+  <img src="https://img.shields.io/badge/AIP_Conf._Proc.-coming_soon-lightgrey" alt="AIP Conference Proceedings: coming soon">
+  <img src="https://img.shields.io/badge/arXiv-coming_soon-lightgrey?logo=arxiv&logoColor=white" alt="arXiv: coming soon">
+  <a href="https://youtube.com/playlist?list=PLfxyCAwHmhHI"><img src="https://img.shields.io/badge/YouTube-Mission_Videos-red?logo=youtube&logoColor=white" alt="YouTube"></a>
+  <img src="https://img.shields.io/badge/ROS_2-lyrical-22314E?logo=ros&logoColor=white" alt="ROS 2 lyrical">
+  <img src="https://img.shields.io/badge/Gazebo-gz--sim_10-orange" alt="Gazebo gz-sim 10">
   <img src="https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white" alt="Python 3.14">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License"></a>
 </p>
@@ -52,7 +57,7 @@ One run per configuration; see [Limitations](#limitations).
 | 📝 arXiv preprint | Before AIP publication | coming soon · [source](docs/Full%20Paper%20-%20arXiv/) |
 | 🎬 Videos | All 8 missions | [YouTube playlist](https://youtube.com/playlist?list=PLfxyCAwHmhHI) |
 
-> **I. A. Herdian, S. N. Affan, E. Ekawati**, "Fault-Tolerant Swarm Quadrotor Control for Non-Convex
+> **I. A. Herdian, S. N. Affan, E. Ekawati, F. Mukhlish**, "Fault-Tolerant Swarm Quadrotor Control for Non-Convex
 > Geodetic Mapping," *5th Engineering Physics International Conference (EPIC 2026)*, Bandar Lampung,
 > Indonesia, 24 October 2026.
 
@@ -363,7 +368,7 @@ PYTHONPATH=src/swarm_high_level:src/swarm_mid_level:src/swarm_low_level \
 
 ```bibtex
 @inproceedings{herdian2026faulttolerant,
-  author    = {Herdian, Izma Alhazmi and Affan, Sulthan Naufal and Ekawati, Estiyanti},
+  author    = {Herdian, Izma Alhazmi and Affan, Sulthan Naufal and Ekawati, Estiyanti and Mukhlish, Faqihza},
   title     = {Fault-Tolerant Swarm Quadrotor Control for Non-Convex Geodetic Mapping},
   booktitle = {5th Engineering Physics International Conference (EPIC 2026)},
   address   = {Bandar Lampung, Indonesia},
@@ -377,6 +382,7 @@ PYTHONPATH=src/swarm_high_level:src/swarm_mid_level:src/swarm_low_level \
 - **Izma Alhazmi Herdian**<sup>1,2</sup>: izmaherdian@gmail.com
 - **Sulthan Naufal Affan**<sup>1</sup>
 - **Estiyanti Ekawati**<sup>1,2</sup>
+- **Faqihza Mukhlish**<sup>1,2</sup>
 
 <sup>1</sup> Engineering Physics Department, Institut Teknologi Bandung.
 <sup>2</sup> Center for Instrumentation Technology and Automation (CITA), Institut Teknologi Bandung.
